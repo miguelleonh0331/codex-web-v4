@@ -143,8 +143,8 @@ function check(nombre, condicion, detalle) {
 
   // --- difusion ---
   const dif = await req('/api/internal/broadcast', { method: 'POST', bridge, token: null,
-    body: { from: A, text: 'pregunta de autodiagnostico', hop: 0 } });
-  check('la difusion alcanza a todo el equipo', dif.data.status === 'queued' && dif.data.total >= 1, JSON.stringify(dif.data).slice(0, 100));
+    body: { from: A, text: 'pregunta de autodiagnostico', hop: 0, dryRun: true } });
+  check('la difusion alcanza a todo el equipo', dif.data.status === 'dry-run' && dif.data.total >= 1, JSON.stringify(dif.data).slice(0, 100));
 
   const difMal = await req('/api/internal/broadcast', { method: 'POST', bridge, token: null,
     body: { from: A, text: 'difusion en cascada', hop: 3 } });

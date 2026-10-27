@@ -148,7 +148,7 @@ function queueMail({ from, to, text, chainId, hop }) {
  * Solo se admite en el salto 0 (peticion directa del usuario o primer movimiento de
  * un especialista). Asi una difusion no puede provocar otra en cascada.
  */
-function broadcast({ from, text, chainId, hop }) {
+function broadcast({ from, text, chainId, hop, dryRun }) {
   const cuerpo = String(text || '').trim();
   if (!cuerpo) return { status: 'blocked', reason: 'mensaje vacio' };
 
@@ -166,6 +166,13 @@ function broadcast({ from, text, chainId, hop }) {
   if (!destinos.length) return { status: 'blocked', reason: 'no hay otros especialistas a quienes preguntar' };
 
   const cadena = chainId || uid('chain');
+
+  // Ensayo: sirve al autodiagnostico para comprobar el camino sin despertar a nadie.
+  if (dryRun) {
+    return { status: 'dry-run', chain_id: cadena, total: destinos.length,
+             enviados: destinos.map((d) => ({ to_id: d.id, to_name: d.name })) };
+  }
+
   const enviados = [];
   for (const d of destinos) {
     const id = store.queueMail({
