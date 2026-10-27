@@ -57,6 +57,20 @@ const TOOLS = [
     }
   },
   {
+    name: 'create_specialist',
+    description: 'Da de alta un especialista NUEVO cuando ningun miembro del equipo cubre un area. Usala solo despues de comprobar con list_agents que no existe ya uno adecuado. El nuevo especialista queda disponible de inmediato para todos.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Nombre corto y unico, por su area. Ej: "Reportes".' },
+        area: { type: 'string', description: 'Palabras clave de su dominio.' },
+        instructions: { type: 'string', description: 'Su responsabilidad, las rutas reales que le pertenecen, sus limites, con quien coordina, que no debe tocar y como valida.' }
+      },
+      required: ['name', 'area', 'instructions'],
+      additionalProperties: false
+    }
+  },
+  {
     name: 'read_inbox',
     description: 'Muestra los ultimos mensajes que otros especialistas te enviaron.',
     inputSchema: {
@@ -143,6 +157,17 @@ async function callTool(name, args = {}) {
       }
       return `Preguntado a ${out.total} especialistas: ${out.enviados.map((e) => e.to_name).join(', ')}. ` +
              'Cada uno respondera en su turno y veras sus respuestas como mensajes nuevos. No vuelvas a preguntar.';
+    }
+    case 'create_specialist': {
+      const out = await api('/api/internal/agents', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: args.name, area: args.area, instructions: args.instructions,
+          createdBy: AGENT_ID, hop: HOP
+        })
+      });
+      if (out.status === 'blocked') return `NO CREADO: ${out.reason}`;
+      return `Creado el especialista "${out.name}" (id ${out.id}). Ya puedes consultarle con send_message.`;
     }
     case 'read_inbox': {
       const { messages } = await api(`/api/internal/agents/${encodeURIComponent(AGENT_ID)}/inbox?limit=${args.limit || 20}`);

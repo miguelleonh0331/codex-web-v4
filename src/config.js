@@ -16,6 +16,7 @@ const DEFAULTS = {
   maxConcurrentTurns: 2,
   turnTimeoutMs: 900000,
   maxHops: 6,
+  maxAgents: 24,            // tope de especialistas que el propio equipo puede crear
   dedupeWindowMs: 60000,
   requireAuth: false,         // la UI solo escucha en redes privadas; sin token por defecto
   authToken: null,            // se genera al primer arranque (solo se exige si requireAuth)

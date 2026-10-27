@@ -223,6 +223,28 @@ async function api(req, res, url) {
       return json(res, 200, queueMail(body));
     }
 
+    if (p === '/api/internal/agents' && m === 'POST') {
+      const body = await readBody(req);
+
+      if (Number(body.hop || 0) > 0) {
+        return json(res, 200, {
+          status: 'blocked',
+          reason: 'solo se puede crear un especialista al atender una peticion directa, no dentro de una conversacion entre agentes'
+        });
+      }
+      const total = store.listAgents().length;
+      if (total >= cfg.maxAgents) {
+        return json(res, 200, { status: 'blocked', reason: `ya hay ${total} especialistas y el tope configurado es ${cfg.maxAgents}` });
+      }
+      try {
+        const nuevo = createAgent({ ...body, avatarSeed: body.avatarSeed || null });
+        store.event('agent.created.by-agent', nuevo.id, { por: body.createdBy || null, nombre: nuevo.name });
+        return json(res, 200, { status: 'created', id: nuevo.id, name: nuevo.name });
+      } catch (e) {
+        return json(res, 200, { status: 'blocked', reason: e.message });
+      }
+    }
+
     if (p === '/api/internal/broadcast' && m === 'POST') {
       const body = await readBody(req);
       return json(res, 200, broadcast(body));

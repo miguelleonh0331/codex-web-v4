@@ -125,6 +125,40 @@ function check(nombre, condicion, detalle) {
     ['send_message', 'list_agents', 'claim_files', 'release_files', 'read_inbox'].every((n) => nombres.includes(n)),
     nombres.join(','));
 
+  const { execFileSync } = require('node:child_process');
+
+  // --- alta de especialistas por el propio equipo ---
+  const alta = await req('/api/internal/agents', { method: 'POST', bridge, token: null,
+    body: { name: `ST-Nuevo-${sufijo}`, area: 'prueba', instructions: 'Agente creado por el autodiagnostico.', createdBy: A, hop: 0 } });
+  check('un agente puede crear el especialista que falta', alta.data.status === 'created', JSON.stringify(alta.data));
+  if (alta.data.id) await req(`/api/agents/${alta.data.id}`, { method: 'DELETE' });
+
+  const altaMal = await req('/api/internal/agents', { method: 'POST', bridge, token: null,
+    body: { name: `ST-Cascada-${sufijo}`, area: 'x', instructions: 'x', createdBy: A, hop: 2 } });
+  check('no se crean especialistas en cascada', altaMal.data.status === 'blocked', JSON.stringify(altaMal.data));
+
+  const altaDup = await req('/api/internal/agents', { method: 'POST', bridge, token: null,
+    body: { name: `ST-Alfa-${sufijo}`, area: 'x', instructions: 'x', createdBy: A, hop: 0 } });
+  check('no se duplica un especialista existente', altaDup.data.status === 'blocked');
+
+  // --- difusion ---
+  const dif = await req('/api/internal/broadcast', { method: 'POST', bridge, token: null,
+    body: { from: A, text: 'pregunta de autodiagnostico', hop: 0 } });
+  check('la difusion alcanza a todo el equipo', dif.data.status === 'queued' && dif.data.total >= 1, JSON.stringify(dif.data).slice(0, 100));
+
+  const difMal = await req('/api/internal/broadcast', { method: 'POST', bridge, token: null,
+    body: { from: A, text: 'difusion en cascada', hop: 3 } });
+  check('no hay difusiones en cascada', difMal.data.status === 'blocked');
+
+  // --- dioses ---
+  const dioses = execFileSync(process.execPath, ['-e',
+    'const f=require("' + __dirname + '/../public/faces.js");' +
+    'const l=f.listaDioses();const s=l.map(d=>f.caraSvg(d.clave));' +
+    'process.stdout.write(JSON.stringify({n:l.length,unicos:new Set(s).size,nombres:l.map(d=>d.nombre)}))'],
+    { encoding: 'utf8' });
+  const dd = JSON.parse(dioses);
+  check('hay un dios distinto por especialista', dd.n >= 10 && dd.unicos === dd.n, dioses);
+
   // --- PWA y movil ---
   const assets = ['/manifest.webmanifest', '/sw.js', '/icons/icon-192.png', '/icons/icon-512.png',
     '/icons/maskable-192.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
@@ -150,7 +184,6 @@ function check(nombre, condicion, detalle) {
   const caras = await (await fetch((await base()) + '/faces.js')).text();
   check('sirve el generador de caras', /caraSvg/.test(caras));
 
-  const { execFileSync } = require('node:child_process');
   const prueba = execFileSync(process.execPath, ['-e',
     'global.window={};require("' + __dirname + '/../public/faces.js");' +
     'const a=window.caraSvg("uno"),b=window.caraSvg("dos");' +
