@@ -2,8 +2,17 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>codex-web-v4 · especialistas</title>
+<meta name="description" content="Equipo de especialistas que conversan entre si para desarrollar sobre tu sistema.">
+<meta name="theme-color" content="#0f1115">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="v4">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -35,7 +44,8 @@
 
   <main class="chat">
     <header class="chat-head">
-      <div>
+      <button id="back-agents" class="icon-btn" aria-label="Volver a especialistas">‹</button>
+      <div class="chat-title">
         <h2 id="chat-name">Selecciona un especialista</h2>
         <small id="chat-area" class="muted"></small>
       </div>
@@ -61,6 +71,12 @@
     <div id="tab-claims" class="tab-body" hidden></div>
     <div id="tab-activity" class="tab-body" hidden></div>
   </aside>
+
+  <nav class="mobile-nav">
+    <button data-view="agents" class="active"><span>☰</span>Especialistas</button>
+    <button data-view="chat"><span>💬</span>Conversacion</button>
+    <button data-view="panel"><span>⇄</span>Equipo</button>
+  </nav>
 </div>
 
 <dialog id="agent-dialog">

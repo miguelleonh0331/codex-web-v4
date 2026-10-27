@@ -5,11 +5,15 @@ Fecha: 2026-10-27 · Construido en una sesion, sobre el servidor vicibox05.
 ## Acceso
 
 ```
-http://100.92.146.21:3212/
+http://100.92.146.21:3212/                              (red local / tailnet)
+https://vicibox05.tail4f0d24.ts.net:8445/               (HTTPS, para instalar en el movil)
 ```
 
-Acceso directo, sin token (`requireAuth: false`). El servicio solo escucha en loopback y
-en la IP de Tailscale. Desde la terminal: `v4ctl`.
+Acceso directo, sin token (`requireAuth: false`). Desde la terminal: `v4ctl`.
+
+La segunda direccion es la que debes abrir en el telefono: al ir por HTTPS, el navegador
+ofrece instalarla como aplicacion. Sigue el mismo patron que ya tenias (8443 → codex-web,
+8444 → codex-webv2, 8445 → v4) y no toca la configuracion de los otros dos.
 
 ## Que se construyo
 

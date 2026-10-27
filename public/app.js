@@ -58,6 +58,7 @@ function start() {
   if ($('#login')) $('#login').hidden = true;
   $('#app').hidden = false;
   if (history.replaceState) history.replaceState({}, '', location.pathname);
+  setView(esMovil() ? 'agents' : 'agents');
   refreshAll();
   setInterval(refreshAll, 2500);
 }
@@ -100,6 +101,7 @@ async function selectAgent(id) {
   $('#edit-agent').hidden = false;
   $('#reset-session').hidden = false;
   renderAgents();
+  setView('chat');
   await renderMessages(true);
 }
 
@@ -133,6 +135,7 @@ async function renderPanel() {
 
   if (active === 'mailbox') {
     const { mailbox } = await api('/api/mailbox?limit=60');
+    avisarCorreo(mailbox.length);
     $('#tab-mailbox').innerHTML = mailbox.length
       ? mailbox.map((m) => `
         <div class="item ${m.status === 'blocked' ? 'blocked' : ''}">
@@ -240,6 +243,49 @@ Coordina con [OTROS ESPECIALISTAS] cuando el cambio afecte sus areas.
 Valida con [COMANDO O PRUEBA].
 Entrega: resultado, archivos cambiados, validacion y pendientes.
 No despliegues ni administres servicios salvo que la tarea lo autorice.`;
+
+// ------------------------------------------------------------- movil / PWA
+
+const ANCHO_MOVIL = 900;
+const esMovil = () => window.matchMedia(`(max-width:${ANCHO_MOVIL}px)`).matches;
+let vista = 'agents';
+
+function setView(v) {
+  vista = v;
+  document.body.className = `view-${v}`;
+  document.querySelectorAll('.mobile-nav button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.view === v);
+    if (b.dataset.view === v) b.classList.remove('avisa');
+  });
+  // Al volver al escritorio no debe quedar ninguna columna oculta.
+  if (!esMovil()) document.body.className = '';
+  if (v === 'panel') renderPanel();
+}
+
+document.querySelectorAll('.mobile-nav button').forEach((b) => {
+  b.onclick = () => setView(b.dataset.view);
+});
+if ($('#back-agents')) $('#back-agents').onclick = () => setView('agents');
+
+window.addEventListener('resize', () => {
+  document.body.className = esMovil() ? `view-${vista}` : '';
+});
+
+// Aviso en la pestana del equipo cuando llega correo entre agentes estando en otra vista.
+let ultimoCorreo = 0;
+function avisarCorreo(n) {
+  if (n > ultimoCorreo && ultimoCorreo !== 0 && vista !== 'panel') {
+    const b = document.querySelector('.mobile-nav button[data-view="panel"]');
+    if (b) b.classList.add('avisa');
+  }
+  ultimoCorreo = n;
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* sin PWA, la app sigue igual */ });
+  });
+}
 
 function escapeHtml(s) {
   return String(s == null ? '' : s)

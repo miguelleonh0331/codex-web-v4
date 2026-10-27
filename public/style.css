@@ -77,3 +77,71 @@ dialog h3{margin:0 0 1rem}
 dialog label{display:block;margin-bottom:.8rem;font-size:.82rem;color:var(--muted)}
 dialog label input,dialog label textarea{margin-top:.3rem;color:var(--fg)}
 dialog menu{display:flex;justify-content:flex-end;gap:.6rem;padding:0;margin:1rem 0 0}
+
+/* ------------------------------------------------------------------ movil */
+
+.icon-btn{display:none;font-size:1.5rem;line-height:1;padding:.1rem .55rem;border-radius:999px}
+.chat-title{min-width:0}
+.chat-title h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mobile-nav{display:none}
+
+@media (max-width:900px){
+  body{height:100dvh}
+  #app{display:block;position:relative;height:100dvh}
+
+  .sidebar,.chat,.panel{
+    position:absolute;inset:0;bottom:calc(58px + env(safe-area-inset-bottom));
+    border:none;display:none
+  }
+  .sidebar{border-right:none}
+  body.view-agents .sidebar,
+  body.view-chat   .chat,
+  body.view-panel  .panel{display:flex}
+
+  .sidebar{padding-top:calc(1rem + env(safe-area-inset-top))}
+  .chat-head{padding-top:calc(.9rem + env(safe-area-inset-top));gap:.5rem}
+  .tabs{padding-top:env(safe-area-inset-top)}
+
+  .icon-btn{display:block}
+  .chat-actions button{font-size:.72rem;padding:.3rem .5rem}
+  .msg{max-width:92%;font-size:.95rem}
+  .messages{padding:.9rem}
+  .composer{padding:.7rem .9rem}
+  .composer textarea{font-size:16px}          /* evita el zoom automatico en iOS */
+  .composer button{padding:.6rem 1rem}
+
+  .agent{padding:.8rem .7rem}                  /* objetivos tactiles mayores */
+  .agent .n{font-size:1rem}
+  .tab{padding:.9rem .3rem;font-size:.85rem}
+
+  .mobile-nav{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    position:fixed;left:0;right:0;bottom:0;z-index:5;
+    background:var(--bg2);border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom)
+  }
+  .mobile-nav button{
+    border:none;border-radius:0;background:transparent;color:var(--muted);
+    display:flex;flex-direction:column;align-items:center;gap:.15rem;
+    font-size:.68rem;padding:.55rem .2rem;min-height:58px
+  }
+  .mobile-nav button span{font-size:1.15rem;line-height:1}
+  .mobile-nav button.active{color:var(--fg)}
+  .mobile-nav button.active span{filter:drop-shadow(0 0 6px var(--accent))}
+  .mobile-nav button.avisa{color:var(--peer)}
+
+  dialog{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;
+    margin:0;padding:1.1rem;padding-top:calc(1.1rem + env(safe-area-inset-top))}
+  dialog label textarea{min-height:9rem}
+  dialog menu{position:sticky;bottom:0;background:var(--bg2);padding-bottom:env(safe-area-inset-bottom)}
+}
+
+@media (max-width:900px) and (orientation:landscape){
+  .sidebar,.chat,.panel{bottom:calc(50px + env(safe-area-inset-bottom))}
+  .mobile-nav button{min-height:50px;flex-direction:row;gap:.4rem}
+}
+
+/* En pantallas muy anchas el panel lateral no necesita crecer mas */
+@media (min-width:1600px){
+  #app{grid-template-columns:300px 1fr 380px}
+}

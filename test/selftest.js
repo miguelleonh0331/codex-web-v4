@@ -125,6 +125,31 @@ function check(nombre, condicion, detalle) {
     ['send_message', 'list_agents', 'claim_files', 'release_files', 'read_inbox'].every((n) => nombres.includes(n)),
     nombres.join(','));
 
+  // --- PWA y movil ---
+  const assets = ['/manifest.webmanifest', '/sw.js', '/icons/icon-192.png', '/icons/icon-512.png',
+    '/icons/maskable-192.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
+  const codigos = [];
+  for (const a of assets) {
+    const r = await fetch((await base()) + a);
+    codigos.push(`${a}:${r.status}`);
+  }
+  check('sirve todos los recursos de la PWA', codigos.every((c) => c.endsWith(':200')), codigos.join(' '));
+
+  const manifiesto = await (await fetch((await base()) + '/manifest.webmanifest')).json();
+  check('el manifiesto permite instalar',
+    manifiesto.display === 'standalone' && manifiesto.start_url === '/' &&
+    manifiesto.icons.some((i) => i.sizes === '512x512') &&
+    manifiesto.icons.some((i) => i.purpose === 'maskable'),
+    JSON.stringify(manifiesto).slice(0, 120));
+
+  const indice = await (await fetch((await base()) + '/')).text();
+  check('la pagina declara manifiesto, tema y vista movil',
+    /rel="manifest"/.test(indice) && /theme-color/.test(indice) &&
+    /viewport-fit=cover/.test(indice) && /mobile-nav/.test(indice));
+
+  const css = await (await fetch((await base()) + '/style.css')).text();
+  check('el diseno tiene reglas para movil', /max-width:900px/.test(css) && /safe-area-inset/.test(css));
+
   // --- limpieza ---
   await req(`/api/agents/${A}`, { method: 'DELETE' });
   await req(`/api/agents/${B}`, { method: 'DELETE' });

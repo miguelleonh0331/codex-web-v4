@@ -13,7 +13,16 @@ const store = new Store(cfg.dbPath);
 const orq = new Orchestrator(cfg, store);
 
 const PUBLIC_DIR = path.join(cfg.appDir, 'public');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon'
+};
 
 // ---------------------------------------------------------------- utilidades
 
@@ -342,7 +351,15 @@ function serveStatic(req, res, url) {
   if (!file.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end('prohibido'); }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('no encontrado'); }
-    res.writeHead(200, { 'content-type': MIME[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' });
+    const ext = path.extname(file);
+    const cabeceras = {
+      'content-type': MIME[ext] || 'application/octet-stream',
+      // Los iconos si pueden cachearse; el resto manda siempre la red.
+      'cache-control': ext === '.png' ? 'public, max-age=86400' : 'no-store'
+    };
+    // Permite que el service worker controle toda la aplicacion.
+    if (path.basename(file) === 'sw.js') cabeceras['service-worker-allowed'] = '/';
+    res.writeHead(200, cabeceras);
     res.end(data);
   });
 }

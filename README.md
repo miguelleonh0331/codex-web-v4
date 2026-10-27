@@ -57,13 +57,33 @@ perfil de origen.
 
 ## Uso
 
-Interfaz web en `http://<host>:<puerto>/`. Por defecto **no pide token**: el servicio
+Interfaz web en `http://<host>:<puerto>/`, instalable como aplicacion (PWA) y adaptada a
+movil. Por defecto **no pide token**: el servicio
 solo escucha en loopback y en las interfaces privadas que indiques en `bindHosts`. Tres
 zonas: especialistas, conversacion y un panel con el correo entre agentes, las reservas y
 la actividad.
 
 Si lo expones a una red menos fiable, pon `"requireAuth": true` en la configuracion y
 reinicia: entonces se entra con `?token=<authToken>` o escribiendo el token.
+
+### Instalar en el movil
+
+El navegador solo ofrece instalar una PWA sobre **HTTPS** (o en `localhost`). Con
+Tailscale basta un comando, sin certificados que gestionar:
+
+```bash
+sudo tailscale serve --bg --https=8445 http://127.0.0.1:3212
+```
+
+Luego se abre `https://<host>.<tailnet>.ts.net:8445/` desde el movil y se usa
+"Anadir a pantalla de inicio" (Android: el aviso de instalacion sale solo).
+
+En movil la interfaz pasa a una sola columna con una barra inferior de tres vistas:
+especialistas, conversacion y equipo. Al elegir un especialista salta a su conversacion,
+y la pestana del equipo se marca cuando llega correo nuevo entre agentes.
+
+El service worker sirve para que la aplicacion abra sin conexion. Nunca cachea `/api/`:
+el estado de los agentes siempre se pide a la red.
 
 Desde la terminal:
 
@@ -118,7 +138,7 @@ systemctl status codex-web-v4
 journalctl -u codex-web-v4 -f
 tail -f /var/lib/codex-web-v4/logs/service.log     # servicio
 tail -f /var/lib/codex-web-v4/logs/<agent-id>.log  # turnos de un agente
-node /opt/codex-web-v4/test/selftest.js            # 21 comprobaciones, sin gasto de modelo
+node /opt/codex-web-v4/test/selftest.js            # 24 comprobaciones, sin gasto de modelo
 ```
 
 Un reinicio marca como error los turnos que estaban en vuelo y deja a los agentes en
@@ -132,7 +152,8 @@ src/orchestrator.js  cola de turnos, entrega del correo, limite de concurrencia
 src/runner.js        lanza Claude por turno con la sesion compartida
 src/bridge/          servidor MCP que da las herramientas de colaboracion al agente
 src/db.js            esquema SQLite y consultas
-public/              interfaz web sin dependencias
+public/              interfaz web sin dependencias (PWA: manifiesto, sw.js, iconos)
+tools/make-icons.py  genera los iconos PNG sin dependencias externas
 bin/v4ctl.js         control por terminal
 install.sh           instalacion en cualquier servidor
 test/selftest.js     autodiagnostico
