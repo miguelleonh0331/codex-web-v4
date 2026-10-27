@@ -7,6 +7,7 @@
  *   v4ctl create <nombre> <area> <archivo-instrucciones>
  *   v4ctl say <agente> <texto>          envia una tarea y espera el turno
  *   v4ctl tell <de> <a> <texto>         inyecta un mensaje entre agentes
+ *   v4ctl askteam <texto>               pregunta a TODO el equipo y reune las respuestas
  *   v4ctl chat <agente> [n]             muestra la conversacion
  *   v4ctl mailbox [n]                   correo entre agentes
  *   v4ctl turns [n]                     ultimos turnos
@@ -105,6 +106,20 @@ const cmds = {
       body: JSON.stringify({ from: f.id, to: t.id, text: rest.join(' '), hop: 0 })
     });
     console.log(JSON.stringify(out));
+  },
+
+  async askteam(...rest) {
+    const text = rest.join(' ');
+    if (!text) throw new Error('escribe la pregunta');
+    const out = await api('/api/broadcast', { method: 'POST', body: JSON.stringify({ text }) });
+    console.log(`Preguntado a ${out.total} especialistas. Esperando…`);
+    await waitIdle();
+    const { agents } = await api('/api/agents');
+    for (const a of agents) {
+      const { messages } = await api(`/api/agents/${a.id}/messages`);
+      const ult = messages.filter((m) => m.role === 'assistant').pop();
+      console.log(`\n━━ ${a.name} (${a.area || 'sin area'})\n${ult ? ult.body : '(sin respuesta)'}`);
+    }
   },
 
   async chat(ref, n = '20') {

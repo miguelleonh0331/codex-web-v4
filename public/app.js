@@ -208,6 +208,27 @@ $('#send-text').addEventListener('keydown', (e) => {
 });
 
 $('#new-agent').onclick = () => openDialog(null);
+
+if ($('#ask-team')) $('#ask-team').onclick = () => {
+  $('#broadcast-error').textContent = '';
+  $('#broadcast-form').text.value = '';
+  $('#broadcast-dialog').showModal();
+};
+if ($('#broadcast-cancel')) $('#broadcast-cancel').onclick = () => $('#broadcast-dialog').close();
+
+if ($('#broadcast-form')) $('#broadcast-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = e.target.text.value.trim();
+  if (!text) return;
+  try {
+    const out = await api('/api/broadcast', { method: 'POST', body: JSON.stringify({ text }) });
+    $('#broadcast-dialog').close();
+    await refreshAll();
+    alert(`Preguntado a ${out.total} especialistas. Cada uno respondera en su conversacion.`);
+  } catch (err) {
+    $('#broadcast-error').textContent = err.message;
+  }
+});
 $('#edit-agent').onclick = () => openDialog(agents.find((a) => a.id === selected));
 $('#dialog-cancel').onclick = () => $('#agent-dialog').close();
 

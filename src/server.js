@@ -143,6 +143,44 @@ function queueMail({ from, to, text, chainId, hop }) {
   return { status: 'queued', mailbox_id: id, to_name: toAgent.name, to_id: toAgent.id };
 }
 
+/**
+ * Difusion: la misma pregunta a todo el equipo.
+ * Solo se admite en el salto 0 (peticion directa del usuario o primer movimiento de
+ * un especialista). Asi una difusion no puede provocar otra en cascada.
+ */
+function broadcast({ from, text, chainId, hop }) {
+  const cuerpo = String(text || '').trim();
+  if (!cuerpo) return { status: 'blocked', reason: 'mensaje vacio' };
+
+  const emisor = from ? store.resolveAgent(from) : null;
+  if (from && !emisor) return { status: 'blocked', reason: `no existe el emisor "${from}"` };
+
+  if (Number(hop || 0) > 0) {
+    return {
+      status: 'blocked',
+      reason: 'ask_team solo puede usarse al atender una peticion directa, nunca dentro de una conversacion entre agentes'
+    };
+  }
+
+  const destinos = store.listAgents().filter((a) => !emisor || a.id !== emisor.id);
+  if (!destinos.length) return { status: 'blocked', reason: 'no hay otros especialistas a quienes preguntar' };
+
+  const cadena = chainId || uid('chain');
+  const enviados = [];
+  for (const d of destinos) {
+    const id = store.queueMail({
+      fromAgent: emisor ? emisor.id : 'usuario',
+      toAgent: d.id,
+      body: cuerpo,
+      chainId: cadena,
+      hop: Number(hop || 0)
+    });
+    enviados.push({ mailbox_id: id, to_id: d.id, to_name: d.name });
+  }
+  store.event('broadcast', emisor ? emisor.id : null, { chain_id: cadena, destinos: enviados.length });
+  return { status: 'queued', chain_id: cadena, enviados, total: enviados.length };
+}
+
 // ---------------------------------------------------------------- rutas
 
 async function api(req, res, url) {
@@ -183,6 +221,11 @@ async function api(req, res, url) {
     if (p === '/api/internal/mailbox' && m === 'POST') {
       const body = await readBody(req);
       return json(res, 200, queueMail(body));
+    }
+
+    if (p === '/api/internal/broadcast' && m === 'POST') {
+      const body = await readBody(req);
+      return json(res, 200, broadcast(body));
     }
 
     if (p === '/api/internal/claims' && m === 'GET') {
@@ -282,6 +325,34 @@ async function api(req, res, url) {
     store.updateAgent(id, { session_id: null });
     store.event('session.reset', id, { motivo: 'peticion del usuario' });
     return json(res, 200, { ok: true });
+  }
+
+  if (p === '/api/broadcast' && m === 'POST') {
+    const body = await readBody(req);
+    const text = String(body.text || '').trim();
+    if (!text) return json(res, 400, { error: 'mensaje vacio' });
+
+    // Difusion del usuario: entra en la conversacion de cada especialista como
+    // una peticion suya, para que cada uno responda en su propio hilo.
+    const cadena = uid('chain');
+    const destinos = store.listAgents();
+    if (!destinos.length) return json(res, 400, { error: 'no hay especialistas' });
+
+    const prompt = [
+      '[PREGUNTA A TODO EL EQUIPO]',
+      '',
+      text,
+      '',
+      'Responde solo desde tu area y se breve. Si no te afecta, dilo en una linea.',
+      'No reenvies esta pregunta a nadie: ya la han recibido todos. Al terminar, detente.'
+    ].join('\n');
+
+    for (const d of destinos) {
+      store.addMessage(d.id, 'user', `[a todo el equipo] ${text}`);
+      store.enqueueTurn({ agentId: d.id, prompt, origin: 'broadcast', chainId: cadena, hop: 0 });
+    }
+    store.event('broadcast', null, { chain_id: cadena, destinos: destinos.length, de: 'usuario' });
+    return json(res, 202, { ok: true, chain_id: cadena, total: destinos.length });
   }
 
   if (p === '/api/mailbox' && m === 'GET') {

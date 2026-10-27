@@ -44,20 +44,38 @@ class Orchestrator {
     for (const mail of pend) {
       const from = this.store.getAgent(mail.from_agent);
       const to = this.store.getAgent(mail.to_agent);
-      if (!to) {
-        this.store.db.prepare("UPDATE mailbox SET status='blocked', reason='destinatario inexistente' WHERE id = ?").run(mail.id);
+      if (!to || to.archived) {
+        this.store.db
+          .prepare("UPDATE mailbox SET status='blocked', reason=? WHERE id = ?")
+          .run(to ? 'el destinatario esta archivado' : 'destinatario inexistente', mail.id);
         continue;
       }
 
       const remitente = from ? `${from.name}${from.area ? ` (${from.area})` : ''}` : 'el usuario';
-      const prompt = [
-        `[MENSAJE INTERNO del equipo - de ${remitente}]`,
-        '',
-        mail.body,
-        '',
-        `Atiende esta consulta dentro de tu area. Cuando tengas la respuesta, enviasela a "${from ? from.name : 'el usuario'}" con mcp__v4__send_message.`,
-        'Si no es de tu competencia, dilo y no reenvies a nadie mas. Al terminar, detente.'
-      ].join('\n');
+
+      // Si el mismo cuerpo fue a varios destinatarios en la misma cadena, es una difusion.
+      const difusion = this.store.db
+        .prepare('SELECT COUNT(*) AS c FROM mailbox WHERE chain_id = ? AND body = ?')
+        .get(mail.chain_id, mail.body).c > 1;
+
+      const prompt = difusion
+        ? [
+          `[PREGUNTA A TODO EL EQUIPO - de ${remitente}]`,
+          '',
+          mail.body,
+          '',
+          'Responde solo desde tu area y se breve. Si no te afecta, dilo en una linea.',
+          `Envia tu respuesta a "${from ? from.name : 'el usuario'}" con mcp__v4__send_message.`,
+          'No reenvies esta pregunta: ya la han recibido todos. Al terminar, detente.'
+        ].join('\n')
+        : [
+          `[MENSAJE INTERNO del equipo - de ${remitente}]`,
+          '',
+          mail.body,
+          '',
+          `Atiende esta consulta dentro de tu area. Cuando tengas la respuesta, enviasela a "${from ? from.name : 'el usuario'}" con mcp__v4__send_message.`,
+          'Si no es de tu competencia, dilo y no reenvies a nadie mas. Al terminar, detente.'
+        ].join('\n');
 
       this.store.addMessage(to.id, 'peer', mail.body, { from: from ? from.name : null, mailbox_id: mail.id });
       this.store.enqueueTurn({

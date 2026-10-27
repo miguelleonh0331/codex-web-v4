@@ -118,10 +118,36 @@ Cada agente recibe estas herramientas en su sesion:
 | --- | --- |
 | `list_agents` | saber quien existe y de que se encarga |
 | `send_message` | consultar o responder a otro especialista |
+| `ask_team` | lanzar la misma pregunta a todo el equipo |
 | `read_inbox` | releer lo recibido |
 | `claim_files` | reservar archivos antes de editarlos |
 | `release_files` | liberarlos al terminar |
 | `list_claims` | ver que esta ocupado y por quien |
+
+### Si le pides algo que no es suyo
+
+El especialista no te manda a otra ventana: averigua a quien corresponde, se lo consulta
+y te entrega la conclusion. Tu hablas con cualquiera y el equipo se organiza solo.
+
+La regla cambia segun quien pregunte, y es deliberado:
+
+- te escribe **el usuario** y el tema es de otro → **delega** y responde con lo que reciba;
+- le escribe **otro especialista** algo que no es suyo → lo dice y **no reenvia**, para que
+  ninguna cadena se propague sola.
+
+### Preguntar a todo el equipo
+
+`ask_team` manda la misma pregunta a todos a la vez. Sirve para "¿a quien le afecta esto?"
+o "¿quien esta tocando esta zona?", no para repartir tareas.
+
+Desde la interfaz: boton **Preguntar a todo el equipo**; cada especialista responde en su
+propia conversacion. Desde la terminal: `v4ctl askteam "<pregunta>"`, que espera y reune
+todas las respuestas juntas.
+
+Dos limites lo mantienen bajo control: solo se admite **al atender una peticion directa**
+(nunca dentro de una conversacion entre agentes, para que una difusion no provoque otra),
+y cuesta un turno por especialista, asi que con un equipo grande conviene usarlo con
+criterio.
 
 `send_message` no bloquea: deja el mensaje y el motor despierta al destinatario en su
 propio turno. La respuesta vuelve como un mensaje nuevo. Cada cadena lleva un contador de

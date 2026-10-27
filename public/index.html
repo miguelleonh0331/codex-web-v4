@@ -36,6 +36,7 @@
       </div>
     </header>
     <button id="new-agent" class="primary">+ Nuevo especialista</button>
+    <button id="ask-team">📣 Preguntar a todo el equipo</button>
     <nav id="agent-list" class="agents"></nav>
     <footer class="status muted">
       <span id="status-line">·</span>
@@ -81,6 +82,23 @@
     <button data-view="panel"><span>⇄</span>Equipo</button>
   </nav>
 </div>
+
+<dialog id="broadcast-dialog">
+  <form method="dialog" id="broadcast-form">
+    <h3>Preguntar a todo el equipo</h3>
+    <p class="muted" style="margin:.2rem 0 .9rem;font-size:.8rem">
+      La misma pregunta llega a cada especialista y cada uno responde en su propia
+      conversacion, solo desde su area.</p>
+    <label>Pregunta
+      <textarea name="text" rows="5" required placeholder="¿A quien le afecta cambiar el formato del identificador de llamada?"></textarea>
+    </label>
+    <p class="error" id="broadcast-error"></p>
+    <menu>
+      <button value="cancel" type="button" id="broadcast-cancel">Cancelar</button>
+      <button value="ok" class="primary">Preguntar</button>
+    </menu>
+  </form>
+</dialog>
 
 <dialog id="agent-dialog">
   <form method="dialog" id="agent-form">

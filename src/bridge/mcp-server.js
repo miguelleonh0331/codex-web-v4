@@ -45,6 +45,18 @@ const TOOLS = [
     }
   },
   {
+    name: 'ask_team',
+    description: 'Lanza la MISMA pregunta a todos los demas especialistas a la vez y despierta a cada uno. Para saber a quien afecta un cambio o quien esta tocando una zona del codigo. Cada uno respondera por su cuenta; sus respuestas te llegaran como mensajes nuevos. No sirve para repartir tareas: para eso usa send_message con el responsable.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'La pregunta, redactada para que cualquier area pueda contestarla.' }
+      },
+      required: ['text'],
+      additionalProperties: false
+    }
+  },
+  {
     name: 'read_inbox',
     description: 'Muestra los ultimos mensajes que otros especialistas te enviaron.',
     inputSchema: {
@@ -120,6 +132,17 @@ async function callTool(name, args = {}) {
         return `NO ENTREGADO a ${args.to}: ${out.reason}. No reintentes; informa del bloqueo en tu respuesta.`;
       }
       return `Entregado a ${out.to_name} (mensaje ${out.mailbox_id}). Responderá en su propio turno; su respuesta te llegará como un mensaje nuevo.`;
+    }
+    case 'ask_team': {
+      const out = await api('/api/internal/broadcast', {
+        method: 'POST',
+        body: JSON.stringify({ from: AGENT_ID, text: args.text, chainId: CHAIN_ID, hop: HOP })
+      });
+      if (out.status === 'blocked') {
+        return `NO ENVIADO: ${out.reason}. No insistas; sigue con lo que puedas resolver.`;
+      }
+      return `Preguntado a ${out.total} especialistas: ${out.enviados.map((e) => e.to_name).join(', ')}. ` +
+             'Cada uno respondera en su turno y veras sus respuestas como mensajes nuevos. No vuelvas a preguntar.';
     }
     case 'read_inbox': {
       const { messages } = await api(`/api/internal/agents/${encodeURIComponent(AGENT_ID)}/inbox?limit=${args.limit || 20}`);
