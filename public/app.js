@@ -21,13 +21,15 @@ async function api(path, options = {}) {
 function logout() {
   localStorage.removeItem('v4token');
   TOKEN = '';
+  // Cuando el servidor no exige token, el documento ni siquiera trae pantalla de acceso.
+  if (!$('#login')) return;
   $('#login').hidden = false;
   $('#app').hidden = true;
 }
 
 // ----------------------------------------------------------------- arranque
 
-$('#login-form').addEventListener('submit', async (e) => {
+if ($('#login-form')) $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   TOKEN = $('#token-input').value.trim();
   try {
@@ -40,7 +42,8 @@ $('#login-form').addEventListener('submit', async (e) => {
 });
 
 async function boot() {
-  // Si el servidor no exige token, se entra directo.
+  // Si el documento no trae pantalla de acceso, el servidor no pide token.
+  if (!$('#login')) return start();
   try {
     const h = await (await fetch('/api/health')).json();
     if (h && h.auth === false) return start();
@@ -52,7 +55,7 @@ async function boot() {
 }
 
 function start() {
-  $('#login').hidden = true;
+  if ($('#login')) $('#login').hidden = true;
   $('#app').hidden = false;
   if (history.replaceState) history.replaceState({}, '', location.pathname);
   refreshAll();

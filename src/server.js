@@ -307,8 +307,37 @@ async function api(req, res, url) {
   return json(res, 404, { error: 'ruta no encontrada' });
 }
 
+// Huella de los recursos: fuerza al navegador a descargar la version nueva
+// aunque tenga la anterior cacheada.
+function assetVersion() {
+  try {
+    const a = fs.statSync(path.join(PUBLIC_DIR, 'app.js')).mtimeMs;
+    const b = fs.statSync(path.join(PUBLIC_DIR, 'style.css')).mtimeMs;
+    return String(Math.round(a + b));
+  } catch { return '1'; }
+}
+
+function renderIndex() {
+  let html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+  const v = assetVersion();
+  html = html.replace('/app.js', `/app.js?v=${v}`).replace('/style.css', `/style.css?v=${v}`);
+
+  if (!cfg.requireAuth) {
+    // Sin token no hay pantalla de acceso: se elimina del documento servido.
+    html = html.replace(/<div id="login"[\s\S]*?<\/div>\s*(?=<div id="app")/, '');
+    html = html.replace('<div id="app" hidden>', '<div id="app">');
+  }
+  return html;
+}
+
 function serveStatic(req, res, url) {
-  let rel = url.pathname === '/' ? '/index.html' : url.pathname;
+  if (url.pathname === '/' || url.pathname === '/index.html') {
+    const html = renderIndex();
+    res.writeHead(200, { 'content-type': MIME['.html'], 'cache-control': 'no-store, must-revalidate' });
+    return res.end(html);
+  }
+
+  let rel = url.pathname;
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!file.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end('prohibido'); }
   fs.readFile(file, (err, data) => {
