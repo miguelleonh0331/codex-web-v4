@@ -57,9 +57,13 @@ perfil de origen.
 
 ## Uso
 
-Interfaz web en `http://<host>:<puerto>/?token=<authToken>` (el token esta en
-`/etc/codex-web-v4/config.json`). Tres zonas: especialistas, conversacion y un panel con
-el correo entre agentes, las reservas y la actividad.
+Interfaz web en `http://<host>:<puerto>/`. Por defecto **no pide token**: el servicio
+solo escucha en loopback y en las interfaces privadas que indiques en `bindHosts`. Tres
+zonas: especialistas, conversacion y un panel con el correo entre agentes, las reservas y
+la actividad.
+
+Si lo expones a una red menos fiable, pon `"requireAuth": true` en la configuracion y
+reinicia: entonces se entra con `?token=<authToken>` o escribiendo el token.
 
 Desde la terminal:
 
@@ -104,7 +108,8 @@ que dos agentes no pueden quedarse dandose las gracias indefinidamente.
 | `maxHops` | tope de mensajes encadenados entre agentes |
 | `dedupeWindowMs` | ventana para descartar mensajes identicos |
 | `project` | nombre, ruta del codigo, ruta de despliegue y como se valida |
-| `authToken` / `bridgeToken` | acceso a la UI y de los agentes a la API interna |
+| `requireAuth` | si la UI pide token; `false` por defecto |
+| `authToken` / `bridgeToken` | token de la UI (si `requireAuth`) y de los agentes a la API interna |
 
 ## Operacion
 

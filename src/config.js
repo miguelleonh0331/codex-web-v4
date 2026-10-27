@@ -17,7 +17,8 @@ const DEFAULTS = {
   turnTimeoutMs: 900000,
   maxHops: 6,
   dedupeWindowMs: 60000,
-  authToken: null,            // se genera al primer arranque
+  requireAuth: false,         // la UI solo escucha en redes privadas; sin token por defecto
+  authToken: null,            // se genera al primer arranque (solo se exige si requireAuth)
   bridgeToken: null,          // se genera al primer arranque
   project: {
     name: 'proyecto',

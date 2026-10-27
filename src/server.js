@@ -53,6 +53,7 @@ function nameOf(id) {
 }
 
 function authOk(req, url) {
+  if (!cfg.requireAuth) return true;
   const header = req.headers['x-v4-token'];
   const query = url.searchParams.get('token');
   const cookie = (req.headers.cookie || '').split(';').map((s) => s.trim()).find((s) => s.startsWith('v4token='));
@@ -141,7 +142,8 @@ async function api(req, res, url) {
   if (p === '/api/health') {
     return json(res, 200, {
       ok: true, version: '1.0.0', agents: store.listAgents().length,
-      running: orq.busy, claude: !!cfg.claudeBin, port: cfg.port
+      running: orq.busy, claude: !!cfg.claudeBin, port: cfg.port,
+      auth: !!cfg.requireAuth
     });
   }
 

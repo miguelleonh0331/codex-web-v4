@@ -5,10 +5,11 @@ Fecha: 2026-10-27 · Construido en una sesion, sobre el servidor vicibox05.
 ## Acceso
 
 ```
-http://100.92.146.21:3212/?token=6ee9ac38b8f42221a4786a496bd32fc006d184f1060867f4
+http://100.92.146.21:3212/
 ```
 
-El token tambien esta en `/etc/codex-web-v4/config.json`. Desde la terminal: `v4ctl`.
+Acceso directo, sin token (`requireAuth: false`). El servicio solo escucha en loopback y
+en la IP de Tailscale. Desde la terminal: `v4ctl`.
 
 ## Que se construyo
 

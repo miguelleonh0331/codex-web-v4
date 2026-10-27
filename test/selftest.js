@@ -53,9 +53,13 @@ function check(nombre, condicion, detalle) {
   check('encuentra el binario de Claude', health.data.claude === true, 'config.claudeBin no resuelve');
 
   // --- autenticacion ---
-  check('rechaza token invalido', (await req('/api/state', { token: 'malo' })).status === 401);
-  check('acepta token valido', (await req('/api/state')).status === 200);
-  check('protege los endpoints internos', (await req('/api/internal/agents', { token: null })).status === 401);
+  if (health.data.auth) {
+    check('rechaza token invalido', (await req('/api/state', { token: 'malo' })).status === 401);
+    check('acepta token valido', (await req('/api/state')).status === 200);
+  } else {
+    check('acceso directo sin token', (await req('/api/state', { token: null })).status === 200);
+  }
+  check('protege los endpoints internos', (await req('/api/internal/agents', { token: null, bridge: 'malo' })).status === 401);
 
   // --- agentes ---
   const sufijo = process.pid;

@@ -40,6 +40,12 @@ $('#login-form').addEventListener('submit', async (e) => {
 });
 
 async function boot() {
+  // Si el servidor no exige token, se entra directo.
+  try {
+    const h = await (await fetch('/api/health')).json();
+    if (h && h.auth === false) return start();
+  } catch { /* si health falla, caemos al flujo con token */ }
+
   if (!TOKEN) return;
   try { await api('/api/state'); localStorage.setItem('v4token', TOKEN); start(); }
   catch { logout(); }
