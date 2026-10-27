@@ -1,0 +1,16 @@
+{
+  "port": 3212,
+  "bindHosts": ["127.0.0.1"],
+  "dataDir": "/var/lib/codex-web-v4",
+  "model": "sonnet",
+  "maxConcurrentTurns": 2,
+  "turnTimeoutMs": 900000,
+  "maxHops": 6,
+  "dedupeWindowMs": 60000,
+  "project": {
+    "name": "mi-proyecto",
+    "path": "/ruta/al/codigo",
+    "deployPath": null,
+    "validate": null
+  }
+}

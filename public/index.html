@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>codex-web-v4 · especialistas</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="login" class="overlay">
+  <form id="login-form" class="card">
+    <h1>codex-web-v4</h1>
+    <p class="muted">Introduce el token de acceso.</p>
+    <input id="token-input" type="password" placeholder="token" autocomplete="off">
+    <button type="submit">Entrar</button>
+    <p id="login-error" class="error"></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <aside class="sidebar">
+    <header class="brand">
+      <span class="dot"></span>
+      <div>
+        <strong>codex-web-v4</strong>
+        <small id="project-label" class="muted"></small>
+      </div>
+    </header>
+    <button id="new-agent" class="primary">+ Nuevo especialista</button>
+    <nav id="agent-list" class="agents"></nav>
+    <footer class="status muted">
+      <span id="status-line">·</span>
+    </footer>
+  </aside>
+
+  <main class="chat">
+    <header class="chat-head">
+      <div>
+        <h2 id="chat-name">Selecciona un especialista</h2>
+        <small id="chat-area" class="muted"></small>
+      </div>
+      <div class="chat-actions">
+        <button id="edit-agent" hidden>Instrucciones</button>
+        <button id="reset-session" hidden>Reiniciar contexto</button>
+      </div>
+    </header>
+    <div id="messages" class="messages"></div>
+    <form id="send-form" class="composer" hidden>
+      <textarea id="send-text" rows="3" placeholder="Escribe una tarea para este especialista…"></textarea>
+      <button type="submit">Enviar</button>
+    </form>
+  </main>
+
+  <aside class="panel">
+    <div class="tabs">
+      <button class="tab active" data-tab="mailbox">Entre agentes</button>
+      <button class="tab" data-tab="claims">Reservas</button>
+      <button class="tab" data-tab="activity">Actividad</button>
+    </div>
+    <div id="tab-mailbox" class="tab-body"></div>
+    <div id="tab-claims" class="tab-body" hidden></div>
+    <div id="tab-activity" class="tab-body" hidden></div>
+  </aside>
+</div>
+
+<dialog id="agent-dialog">
+  <form method="dialog" id="agent-form">
+    <h3 id="dialog-title">Nuevo especialista</h3>
+    <label>Nombre<input name="name" required placeholder="Telefonia"></label>
+    <label>Area<input name="area" placeholder="Asterisk, troncales, dialplan"></label>
+    <label>Instrucciones
+      <textarea name="instructions" rows="10" required placeholder="Responsabilidad, rutas reales, limites, con quien coordina y como valida."></textarea>
+    </label>
+    <label>Modelo <input name="model" placeholder="sonnet"></label>
+    <p class="error" id="dialog-error"></p>
+    <menu>
+      <button value="cancel" type="button" id="dialog-cancel">Cancelar</button>
+      <button value="ok" id="dialog-save" class="primary">Guardar</button>
+    </menu>
+  </form>
+</dialog>
+
+<script src="/app.js"></script>
+</body>
+</html>

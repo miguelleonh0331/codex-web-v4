@@ -1,0 +1,18 @@
+{
+  "name": "codex-web-v4",
+  "version": "1.0.0",
+  "description": "Plataforma de agentes especialistas que conversan entre si para desarrollar sobre cualquier sistema",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/server.js",
+  "bin": {
+    "v4ctl": "bin/v4ctl.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "selftest": "node test/selftest.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
