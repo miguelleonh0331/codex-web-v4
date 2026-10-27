@@ -339,11 +339,20 @@ function listenWithRetry(host, intento = 1) {
   servers.push(s);
 
   s.once('error', (err) => {
-    if (err.code === 'EADDRINUSE' && intento <= 30) {
-      const espera = Math.min(1000 * intento, 5000);
-      console.warn(`[v4] ${host}:${cfg.port} ocupado (intento ${intento}), reintento en ${espera}ms`);
+    if (err.code === 'EADDRINUSE') {
       servers.pop();
-      setTimeout(() => listenWithRetry(host, intento + 1), espera);
+      const otroVivo = servers.some((x) => x.listening);
+      // Si ya servimos por otra interfaz, seguimos reintentando esta en segundo plano:
+      // el ocupante puede soltar el puerto en cualquier momento.
+      if (!otroVivo && intento > 30) {
+        console.error(`[v4] ${host}:${cfg.port} sigue ocupado tras ${intento} intentos y no hay ninguna otra interfaz sirviendo`);
+        return process.exit(1);
+      }
+      const espera = Math.min(1000 * intento, 60000);
+      if (intento <= 5 || intento % 10 === 0) {
+        console.warn(`[v4] ${host}:${cfg.port} ocupado (intento ${intento}), reintento en ${Math.round(espera / 1000)}s`);
+      }
+      setTimeout(() => listenWithRetry(host, intento + 1), espera).unref();
       return;
     }
     console.error(`[v4] no se pudo escuchar en ${host}:${cfg.port}: ${err.message}`);
