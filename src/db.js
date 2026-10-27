@@ -85,9 +85,23 @@ CREATE INDEX IF NOT EXISTS idx_events_id ON events(id);
 function now() { return new Date().toISOString(); }
 function uid(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 
+// Migraciones aditivas: cada columna nueva se anade si falta, para que una base
+// ya existente siga funcionando sin tocarla a mano.
+const COLUMNAS_NUEVAS = [
+  ['agents', 'avatar_seed', 'TEXT']
+];
+
+function migrar(db) {
+  for (const [tabla, columna, tipo] of COLUMNAS_NUEVAS) {
+    const cols = db.prepare(`PRAGMA table_info(${tabla})`).all().map((c) => c.name);
+    if (!cols.includes(columna)) db.exec(`ALTER TABLE ${tabla} ADD COLUMN ${columna} ${tipo}`);
+  }
+}
+
 function open(dbPath) {
   const db = new DatabaseSync(dbPath);
   db.exec(SCHEMA);
+  migrar(db);
   return db;
 }
 
@@ -107,11 +121,11 @@ class Store {
   }
 
   // ---------- agentes ----------
-  createAgent({ id, name, area, instructions, model, home, workspace }) {
+  createAgent({ id, name, area, instructions, model, home, workspace, avatarSeed }) {
     const ts = now();
-    this.db.prepare(`INSERT INTO agents (id,name,area,instructions,model,status,home,workspace,created_at,updated_at)
-                     VALUES (?,?,?,?,?,'idle',?,?,?,?)`)
-      .run(id, name, area || null, instructions, model || null, home, workspace, ts, ts);
+    this.db.prepare(`INSERT INTO agents (id,name,area,instructions,model,status,home,workspace,avatar_seed,created_at,updated_at)
+                     VALUES (?,?,?,?,?,'idle',?,?,?,?,?)`)
+      .run(id, name, area || null, instructions, model || null, home, workspace, avatarSeed || id, ts, ts);
     this.event('agent.created', id, { name, area });
     return this.getAgent(id);
   }
@@ -137,7 +151,7 @@ class Store {
   }
 
   updateAgent(id, fields) {
-    const allowed = ['name', 'area', 'instructions', 'model', 'status', 'session_id', 'archived'];
+    const allowed = ['name', 'area', 'instructions', 'model', 'status', 'session_id', 'archived', 'avatar_seed'];
     const keys = Object.keys(fields).filter((k) => allowed.includes(k));
     if (!keys.length) return this.getAgent(id);
     const sets = keys.map((k) => `${k} = ?`).join(', ');

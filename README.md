@@ -96,6 +96,20 @@ v4ctl turns                       # ultimos turnos, con coste
 v4ctl claims                      # archivos reservados ahora mismo
 ```
 
+## Las caras
+
+Cada especialista tiene un rostro propio, generado a partir de su semilla: el mismo
+agente se ve siempre igual en cualquier navegador y no se guarda ninguna imagen. Son
+SVG y la animacion la lleva el CSS, asi que no pesan nada.
+
+En reposo parpadean y flotan, cada uno a su ritmo. **Mientras el especialista trabaja,
+su cara habla**: la boca se mueve y el parpadeo se acelera, de modo que de un vistazo
+se ve quien esta ocupado. Se respeta `prefers-reduced-motion`.
+
+La cara aparece en la lista, en la cabecera de la conversacion, junto a cada respuesta y
+en el buzon, donde se ve quien escribe a quien. Al crear o editar un especialista hay una
+vista previa con un boton para cambiarla; la semilla se guarda en `avatar_seed`.
+
 ## Como colaboran
 
 Cada agente recibe estas herramientas en su sesion:
@@ -138,7 +152,7 @@ systemctl status codex-web-v4
 journalctl -u codex-web-v4 -f
 tail -f /var/lib/codex-web-v4/logs/service.log     # servicio
 tail -f /var/lib/codex-web-v4/logs/<agent-id>.log  # turnos de un agente
-node /opt/codex-web-v4/test/selftest.js            # 24 comprobaciones, sin gasto de modelo
+node /opt/codex-web-v4/test/selftest.js            # 27 comprobaciones, sin gasto de modelo
 ```
 
 Un reinicio marca como error los turnos que estaban en vuelo y deja a los agentes en
@@ -153,7 +167,9 @@ src/runner.js        lanza Claude por turno con la sesion compartida
 src/bridge/          servidor MCP que da las herramientas de colaboracion al agente
 src/db.js            esquema SQLite y consultas
 public/              interfaz web sin dependencias (PWA: manifiesto, sw.js, iconos)
+public/faces.js      genera la cara animada de cada especialista
 tools/make-icons.py  genera los iconos PNG sin dependencias externas
+tools/render-faces.py  rasteriza las caras a PNG para revisarlas sin navegador
 bin/v4ctl.js         control por terminal
 install.sh           instalacion en cualquier servidor
 test/selftest.js     autodiagnostico

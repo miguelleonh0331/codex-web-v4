@@ -4,8 +4,8 @@
  * abra sin conexion, nunca para servir una version vieja cuando hay red.
  * Las respuestas de /api/ no se cachean jamas: son estado vivo.
  */
-const CACHE = 'v4-shell-v3';
-const SHELL = ['/', '/style.css', '/app.js', '/manifest.webmanifest',
+const CACHE = 'v4-shell-v4';
+const SHELL = ['/', '/style.css', '/app.js', '/faces.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

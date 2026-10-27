@@ -51,6 +51,7 @@ function agentPublic(a) {
   return {
     id: a.id, name: a.name, area: a.area, instructions: a.instructions, model: a.model,
     status: a.status, archived: !!a.archived, workspace: a.workspace,
+    avatar_seed: a.avatar_seed || a.id,
     created_at: a.created_at, updated_at: a.updated_at,
     has_session: !!a.session_id
   };
@@ -92,7 +93,8 @@ function createAgent(body) {
 
   const agent = store.createAgent({
     id, name, area: body.area || null, instructions,
-    model: body.model || null, home, workspace
+    model: body.model || null, home, workspace,
+    avatarSeed: body.avatarSeed || id
   });
 
   if (body.initialMessage) {
@@ -238,6 +240,7 @@ async function api(req, res, url) {
       if (body.name && body.name !== a.name && store.getAgentByName(body.name)) {
         return json(res, 400, { error: 'ya existe otro especialista con ese nombre' });
       }
+      if (body.avatarSeed) body.avatar_seed = body.avatarSeed;
       return json(res, 200, agentPublic(store.updateAgent(id, body)));
     }
 
@@ -320,16 +323,18 @@ async function api(req, res, url) {
 // aunque tenga la anterior cacheada.
 function assetVersion() {
   try {
-    const a = fs.statSync(path.join(PUBLIC_DIR, 'app.js')).mtimeMs;
-    const b = fs.statSync(path.join(PUBLIC_DIR, 'style.css')).mtimeMs;
-    return String(Math.round(a + b));
+    const partes = ['app.js', 'style.css', 'faces.js']
+      .map((f) => fs.statSync(path.join(PUBLIC_DIR, f)).mtimeMs);
+    return String(Math.round(partes.reduce((a, b) => a + b, 0)));
   } catch { return '1'; }
 }
 
 function renderIndex() {
   let html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
   const v = assetVersion();
-  html = html.replace('/app.js', `/app.js?v=${v}`).replace('/style.css', `/style.css?v=${v}`);
+  for (const recurso of ['/app.js', '/style.css', '/faces.js']) {
+    html = html.replace(`"${recurso}"`, `"${recurso}?v=${v}"`);
+  }
 
   if (!cfg.requireAuth) {
     // Sin token no hay pantalla de acceso: se elimina del documento servido.

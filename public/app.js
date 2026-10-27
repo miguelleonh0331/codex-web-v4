@@ -74,7 +74,11 @@ async function refreshAll() {
     if (state.project && state.project.name) {
       $('#project-label').textContent = state.project.name;
     }
-    if (selected) await renderMessages();
+    if (selected) {
+      const act = agents.find((x) => x.id === selected);
+      if (act) $('#chat-face').innerHTML = caraSvg(act.avatar_seed || act.id, act.status, 40);
+      await renderMessages();
+    }
     await renderPanel();
   } catch (err) { /* reintenta en el siguiente ciclo */ }
 }
@@ -85,8 +89,11 @@ function renderAgents() {
   for (const a of agents) {
     const el = document.createElement('div');
     el.className = 'agent' + (selected === a.id ? ' sel' : '');
-    el.innerHTML = `<span class="n"><i class="pill ${a.status}"></i>${escapeHtml(a.name)}</span>
-                    <span class="a">${escapeHtml(a.area || 'sin area')}</span>`;
+    el.innerHTML = `${caraSvg(a.avatar_seed || a.id, a.status, 34)}
+      <span class="txt">
+        <span class="n"><i class="pill ${a.status}"></i>${escapeHtml(a.name)}</span>
+        <span class="a">${escapeHtml(a.area || 'sin area')}</span>
+      </span>`;
     el.onclick = () => selectAgent(a.id);
     box.appendChild(el);
   }
@@ -97,6 +104,7 @@ async function selectAgent(id) {
   const a = agents.find((x) => x.id === id);
   $('#chat-name').textContent = a ? a.name : '';
   $('#chat-area').textContent = a ? (a.area || '') : '';
+  $('#chat-face').innerHTML = a ? caraSvg(a.avatar_seed || a.id, a.status, 40) : '';
   $('#send-form').hidden = false;
   $('#edit-agent').hidden = false;
   $('#reset-session').hidden = false;
@@ -121,10 +129,20 @@ async function renderMessages(force) {
   const box = $('#messages');
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
   box.innerHTML = '';
+  const actual = agents.find((x) => x.id === selected);
   for (const m of messages) {
     const el = document.createElement('div');
     el.className = `msg ${m.role}`;
-    el.innerHTML = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${escapeHtml(m.body)}`;
+    const cuerpo = `<div class="cuerpo-msg"><div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${escapeHtml(m.body)}</div>`;
+
+    if (m.role === 'assistant' && actual) {
+      el.innerHTML = caraSvg(actual.avatar_seed || actual.id, 'idle', 28) + cuerpo;
+    } else if (m.role === 'peer') {
+      const emisor = agents.find((x) => x.name === (m.meta && m.meta.from));
+      el.innerHTML = caraSvg(emisor ? (emisor.avatar_seed || emisor.id) : (m.meta && m.meta.from) || 'peer', 'idle', 28) + cuerpo;
+    } else {
+      el.innerHTML = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${escapeHtml(m.body)}`;
+    }
     box.appendChild(el);
   }
   if (force || atBottom) box.scrollTop = box.scrollHeight;
@@ -139,7 +157,7 @@ async function renderPanel() {
     $('#tab-mailbox').innerHTML = mailbox.length
       ? mailbox.map((m) => `
         <div class="item ${m.status === 'blocked' ? 'blocked' : ''}">
-          <div class="hdr"><span class="flow">${escapeHtml(m.from_name)} → ${escapeHtml(m.to_name)}</span>
+          <div class="hdr"><span class="caritas">${caraDe(m.from_agent, m.from_name)}<span class="flow">${escapeHtml(m.from_name)} → ${escapeHtml(m.to_name)}</span>${caraDe(m.to_agent, m.to_name)}</span>
           <span>${m.status}</span></div>
           <div class="body">${escapeHtml(m.body)}</div>
           ${m.reason ? `<div class="hdr">${escapeHtml(m.reason)}</div>` : ''}
@@ -150,7 +168,7 @@ async function renderPanel() {
   if (active === 'claims') {
     const { claims } = await api('/api/claims');
     $('#tab-claims').innerHTML = claims.length
-      ? claims.map((c) => `<div class="item"><div class="hdr"><span class="flow">${escapeHtml(c.agent_name)}</span>
+      ? claims.map((c) => `<div class="item"><div class="hdr"><span class="caritas">${caraDe(c.agent_id, c.agent_name)}<span class="flow">${escapeHtml(c.agent_name)}</span></span>
          <span>${new Date(c.created_at).toLocaleTimeString()}</span></div>
          <div class="body">${escapeHtml(c.path)}${c.note ? `\n${escapeHtml(c.note)}` : ''}</div></div>`).join('')
       : '<p class="muted">Ningun archivo reservado.</p>';
@@ -199,8 +217,25 @@ $('#reset-session').onclick = async () => {
   alert('Contexto reiniciado: el proximo mensaje empieza una conversacion nueva.');
 };
 
+function caraDe(id, nombre) {
+  const a = agents.find((x) => x.id === id) || agents.find((x) => x.name === nombre);
+  return caraSvg(a ? (a.avatar_seed || a.id) : (id || nombre || '?'), 'idle', 20);
+}
+
+let semillaActual = null;
+function pintarPreview() {
+  $('#face-preview').innerHTML = caraSvg(semillaActual, 'idle', 62);
+}
+
+if ($('#shuffle-face')) $('#shuffle-face').onclick = () => {
+  semillaActual = 'cara-' + Math.random().toString(36).slice(2, 10);
+  pintarPreview();
+};
+
 function openDialog(agent) {
   editing = agent || null;
+  semillaActual = agent ? (agent.avatar_seed || agent.id) : 'cara-' + Math.random().toString(36).slice(2, 10);
+  pintarPreview();
   const f = $('#agent-form');
   $('#dialog-title').textContent = agent ? `Editar ${agent.name}` : 'Nuevo especialista';
   f.name.value = agent ? agent.name : '';
@@ -217,7 +252,8 @@ $('#agent-form').addEventListener('submit', async (e) => {
     name: f.name.value.trim(),
     area: f.area.value.trim(),
     instructions: f.instructions.value.trim(),
-    model: f.model.value.trim() || null
+    model: f.model.value.trim() || null,
+    avatarSeed: semillaActual
   };
   e.preventDefault();
   try {

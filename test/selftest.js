@@ -147,8 +147,22 @@ function check(nombre, condicion, detalle) {
     /rel="manifest"/.test(indice) && /theme-color/.test(indice) &&
     /viewport-fit=cover/.test(indice) && /mobile-nav/.test(indice));
 
+  const caras = await (await fetch((await base()) + '/faces.js')).text();
+  check('sirve el generador de caras', /caraSvg/.test(caras));
+
+  const { execFileSync } = require('node:child_process');
+  const prueba = execFileSync(process.execPath, ['-e',
+    'global.window={};require("' + __dirname + '/../public/faces.js");' +
+    'const a=window.caraSvg("uno"),b=window.caraSvg("dos");' +
+    'process.stdout.write(JSON.stringify({dist:a!==b,estable:a===window.caraSvg("uno"),svg:a.startsWith("<svg")}))'],
+    { encoding: 'utf8' });
+  const cr = JSON.parse(prueba);
+  check('cada especialista tiene una cara propia y estable', cr.dist && cr.estable && cr.svg, prueba);
+
   const css = await (await fetch((await base()) + '/style.css')).text();
   check('el diseno tiene reglas para movil', /max-width:900px/.test(css) && /safe-area-inset/.test(css));
+  check('las caras estan animadas', /@keyframes parpadear/.test(css) && /@keyframes hablar/.test(css) &&
+    /prefers-reduced-motion/.test(css));
 
   // --- limpieza ---
   await req(`/api/agents/${A}`, { method: 'DELETE' });
