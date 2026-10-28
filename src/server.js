@@ -7,6 +7,7 @@ const { URL } = require('node:url');
 const { load } = require('./config');
 const { Store, uid } = require('./db');
 const { Orchestrator } = require('./orchestrator');
+const sesion = require('./session');
 
 const cfg = load();
 const store = new Store(cfg.dbPath);
@@ -199,7 +200,8 @@ async function api(req, res, url) {
     return json(res, 200, {
       ok: true, version: '1.0.0', agents: store.listAgents().length,
       running: orq.busy, claude: !!cfg.claudeBin, port: cfg.port,
-      auth: !!cfg.requireAuth
+      auth: !!cfg.requireAuth,
+      session: (() => { const e = sesion.estado(sesion.archivoSesion(cfg)); return { valida: e.vigente, expira: e.expiraIso }; })()
     });
   }
 

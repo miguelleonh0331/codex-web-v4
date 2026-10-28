@@ -18,6 +18,7 @@ BIND="127.0.0.1"
 PROJECT_PATH=""
 PROJECT_NAME="proyecto"
 SESSION_FROM=""
+SESSION_DIR=""
 NODE_BIN="$(command -v node || true)"
 # sudo suele limpiar el PATH, asi que buscamos node donde suele vivir.
 if [[ -z "$NODE_BIN" ]]; then
@@ -37,6 +38,7 @@ while [[ $# -gt 0 ]]; do
     --project-path) PROJECT_PATH="$2"; shift 2 ;;
     --project-name) PROJECT_NAME="$2"; shift 2 ;;
     --session-from) SESSION_FROM="$2"; shift 2 ;;
+    --session-dir) SESSION_DIR="$2"; shift 2 ;;
     --node) NODE_BIN="$2"; shift 2 ;;
     --service-name) SERVICE_NAME="$2"; shift 2 ;;
     -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
@@ -98,7 +100,14 @@ JSON
 fi
 
 echo "==> Sesion compartida"
-if [[ -n "$SESSION_FROM" ]]; then
+if [[ -n "$SESSION_DIR" ]]; then
+  # Preferible a copiar: un unico archivo de credenciales, sin copias que compitan.
+  "$NODE_BIN" -e "
+    const fs=require('fs');const p='$CONFIG_FILE';
+    const c=JSON.parse(fs.readFileSync(p,'utf8'));c.sessionDir='$SESSION_DIR';
+    fs.writeFileSync(p,JSON.stringify(c,null,2)+'\n');"
+  echo "    la sesion se comparte en $SESSION_DIR (sin copia)"
+elif [[ -n "$SESSION_FROM" ]]; then
   for f in .credentials.json .claude.json; do
     if [[ -f "$SESSION_FROM/$f" ]]; then
       cp -a "$SESSION_FROM/$f" "$DATA_DIR/session/$f"

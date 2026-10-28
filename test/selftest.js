@@ -51,6 +51,9 @@ function check(nombre, condicion, detalle) {
   const health = await req('/api/health', { token: null });
   check('el servicio responde', health.status === 200 && health.data.ok);
   check('encuentra el binario de Claude', health.data.claude === true, 'config.claudeBin no resuelve');
+  check('la sesion de Claude esta vigente',
+    health.data.session && health.data.session.valida === true,
+    `caduca ${health.data.session && health.data.session.expira}: los agentes no podran trabajar`);
 
   // --- autenticacion ---
   if (health.data.auth) {

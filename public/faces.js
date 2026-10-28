@@ -126,6 +126,7 @@ const EMBLEMAS = {
   espiga: (c) => `<g class="emblema"><line x1="46" y1="2" x2="46" y2="-26" stroke="${c}" stroke-width="3" stroke-linecap="round"/>${[0, 1, 2].map((k) => `<ellipse cx="${42 - 0}" cy="${-20 + k * 7}" rx="3.4" ry="5" fill="${c}"/><ellipse cx="${50}" cy="${-20 + k * 7}" rx="3.4" ry="5" fill="${c}"/>`).join('')}</g>`,
   lanza: (c) => `<g class="emblema"><line x1="47" y1="6" x2="47" y2="-24" stroke="${c}" stroke-width="3.5" stroke-linecap="round"/><path d="M47 -34 L52 -24 L42 -24 Z" fill="${c}"/></g>`,
   llamaEmb: (c) => `<g class="emblema fuego"><path d="M46 -30 Q56 -16 50 -6 Q46 -2 42 -6 Q36 -16 46 -30 Z" fill="${c}"/></g>`,
+  pavo: (c) => `<g class="emblema"><line x1="47" y1="8" x2="47" y2="-18" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/><ellipse cx="47" cy="-26" rx="9" ry="12" fill="${c}"/><ellipse cx="47" cy="-26" rx="5.5" ry="7.5" fill="#2e7f9e"/><circle cx="47" cy="-26" r="3" fill="#d8b43a"/></g>`,
   caduceo: (c) => `<g class="emblema"><line x1="47" y1="6" x2="47" y2="-28" stroke="${c}" stroke-width="3" stroke-linecap="round"/><path d="M41 -22 Q47 -18 53 -14 M41 -14 Q47 -10 53 -6" stroke="${c}" stroke-width="2.4" fill="none" stroke-linecap="round"/><path d="M40 -30 Q47 -36 54 -30" stroke="${c}" stroke-width="2.4" fill="none" stroke-linecap="round"/></g>`
 };
 
@@ -152,6 +153,7 @@ const DIOSES = {
   demeter: { nombre: 'Demeter', h: 88, h2: 70, tocado: ['trigo', '#e3bb55'], barba: ['', ''], emblema: ['espiga', '#e3bb55'], boca: 'sonrisa', ojos: 'sereno' },
   hecate: { nombre: 'Hecate', h: 278, h2: 262, tocado: ['antorchas', '#7d6bb0', '#ffb74d'], barba: ['', ''], emblema: ['llave', '#d9cff2'], boca: 'seria', ojos: 'vivo' },
   mnemosine: { nombre: 'Mnemosine', h: 172, h2: 186, tocado: ['diadema', '#cdb86a', '#59d6c0'], barba: ['', ''], emblema: ['pergamino', '#efe4c9'], boca: 'sonrisa', ojos: 'sereno' },
+  hera: { nombre: 'Hera', h: 330, h2: 310, tocado: ['diadema', '#e8c86a', '#d8dff0'], barba: ['', ''], emblema: ['pavo', '#6fae8f'], boca: 'seria', ojos: 'sereno' },
   hestia: { nombre: 'Hestia', h: 14, h2: 32, tocado: ['velo', '#d8b39a'], barba: ['', ''], emblema: ['llamaEmb', '#ff9f43'], boca: 'sonrisa', ojos: 'sereno' }
 };
 

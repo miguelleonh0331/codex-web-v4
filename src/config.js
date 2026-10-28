@@ -11,6 +11,7 @@ const DEFAULTS = {
   dataDir: '/var/lib/codex-web-v4',
   appDir: path.resolve(__dirname, '..'),
   sessionDir: null,           // se deriva de dataDir si viene null
+  sessionSource: null,        // credenciales de origen: si la sesion caduca, se recupera de aqui
   claudeBin: null,            // autodeteccion si viene null
   model: 'sonnet',
   maxConcurrentTurns: 2,

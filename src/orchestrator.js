@@ -1,6 +1,7 @@
 'use strict';
 const path = require('node:path');
 const { runTurn } = require('./runner');
+const sesion = require('./session');
 
 /**
  * Motor de turnos: decide quien ejecuta, entrega el correo entre agentes
@@ -12,6 +13,7 @@ class Orchestrator {
     this.store = store;
     this.timer = null;
     this.active = new Map();   // turnId -> agentId
+    this.reintentados = new Set();   // turnos que ya se reintentaron tras recuperar la sesion
     this.stopping = false;
   }
 
@@ -129,6 +131,21 @@ class Orchestrator {
     }
 
     this.active.delete(turn.id);
+
+    // Una sesion caducada no es culpa del turno: se recupera y se reintenta una vez.
+    if (!out.ok && /oauth|authenticate|session expired|not logged in/i.test(out.error || '') && !this.reintentados.has(turn.id)) {
+      this.reintentados.add(turn.id);
+      const r = sesion.recuperar(this.cfg);
+      this.store.event('session.recuperada', agent.id, { turn_id: turn.id, ok: r.ok, motivo: r.motivo || null, expira: r.expira || null });
+      if (r.ok) {
+        console.warn(`[orq] sesion caducada: recuperada del origen (vence ${r.expira}); reintentando turno ${turn.id}`);
+        this.store.db.prepare("UPDATE turns SET status='pending', started_at=NULL WHERE id = ?").run(turn.id);
+        this.store.updateAgent(agent.id, { status: 'idle' });
+        return;
+      }
+      console.error(`[orq] sesion caducada y no se pudo recuperar: ${r.motivo}`);
+      out = { ok: false, error: `Sesion de Claude caducada y no se pudo recuperar: ${r.motivo}. Actualiza ${sesion.archivoSesion(this.cfg)}` };
+    }
 
     if (out.ok) {
       if (out.sessionId) this.store.updateAgent(agent.id, { session_id: out.sessionId });

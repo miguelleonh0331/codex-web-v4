@@ -45,15 +45,27 @@ Opciones: `--data-dir`, `--config-dir`, `--service-name`, `--group`, `--node`.
 
 ### La sesion compartida
 
-El servicio arranca los agentes con `CLAUDE_CONFIG_DIR` apuntando a
-`<data-dir>/session`. Ahi debe haber un `.credentials.json` valido. Dos formas:
+El servicio arranca los agentes con `CLAUDE_CONFIG_DIR` apuntando a `sessionDir`, donde
+debe haber un `.credentials.json` valido.
 
-- copiarlo de un perfil que ya tenga sesion: `--session-from <dir>`;
+**Comparte el directorio, no copies el archivo.** Un token OAuth se refresca y rota: si
+existen dos copias, la primera que refresque invalida a la otra y el sistema se queda sin
+sesion sin previo aviso. Apunta `sessionDir` al directorio de un perfil que ya tenga
+sesion y habra un unico archivo para todos:
+
+```bash
+sudo ./install.sh ... --session-dir /ruta/al/perfil/con/sesion
+```
+
+Las otras dos formas, menos recomendables:
+
+- `--session-from <dir>` copia las credenciales a `<data-dir>/session` (sirve si ese
+  perfil no se va a usar nunca mas desde ningun otro sitio);
 - iniciar sesion a mano:
   `sudo -u <user> env HOME=<data-dir> CLAUDE_CONFIG_DIR=<data-dir>/session claude /login`.
 
-Esa copia es **propiedad de v4**: cuando el token se refresca se reescribe aqui, no en el
-perfil de origen.
+`/api/health` publica `session.valida` y `session.expira`, y el autodiagnostico falla si
+la sesion caduco: es el punto mas fragil del sistema y conviene vigilarlo.
 
 ## Uso
 
