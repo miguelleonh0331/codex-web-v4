@@ -81,6 +81,11 @@ async function refreshAll() {
       if (dl && dl.children.length !== OPCIONES.modelos.length) {
         dl.innerHTML = OPCIONES.modelos.map((m) => `<option value="${escapeHtml(m)}">`).join('');
       }
+      // No basta con decir "por defecto": hay que decir cual es.
+      const inputModelo = document.querySelector('#agent-form [name=model]');
+      if (inputModelo) inputModelo.placeholder = `por defecto (${OPCIONES.modeloPorDefecto || 'sin fijar'})`;
+      const selEsf = document.querySelector('#agent-form [name=effort] option[value=""]');
+      if (selEsf) selEsf.textContent = `por defecto (${OPCIONES.esfuerzoPorDefecto || 'el del CLI'})`;
     }
     if (selected) {
       const act = agents.find((x) => x.id === selected);
@@ -155,7 +160,14 @@ async function renderMessages(force) {
       el.innerHTML = (emisor ? avatar(emisor, 30, 'normal')
                              : robotSvg((m.meta && m.meta.from) || 'peer', 'normal', 30)) + cuerpo;
     } else {
-      el.innerHTML = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${escapeHtml(m.body)}`;
+      const adj = (m.meta && m.meta.attachments) || [];
+      el.innerHTML = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${escapeHtml(m.body)}` +
+        (adj.length ? `<div class="adjuntos">${adj.map((f) => `
+          <a class="adj" href="${f.url}" target="_blank" rel="noopener">
+            ${esImagen(f.nombre) ? `<img src="${f.url}" alt="">` : '<span>📄</span>'}
+            <span class="nom">${escapeHtml(f.nombre)}</span>
+            <span class="peso">${pesoLegible(f.bytes || 0)}</span>
+          </a>`).join('')}</div>` : '');
     }
     box.appendChild(el);
   }
@@ -208,12 +220,87 @@ document.querySelectorAll('.tab').forEach((t) => {
 
 // ----------------------------------------------------------------- acciones
 
+// ------------------------------------------------------------- adjuntos
+
+let adjuntos = [];   // {nombre, ruta, bytes, url, esImagen}
+
+const esImagen = (n) => /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i.test(n);
+const pesoLegible = (b) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`;
+
+function pintarAdjuntos() {
+  const caja = $('#adjuntos-pendientes');
+  caja.hidden = adjuntos.length === 0;
+  caja.innerHTML = adjuntos.map((f, i) => `
+    <div class="adj ${f.subiendo ? 'subiendo' : ''}">
+      ${f.url && esImagen(f.nombre) ? `<img src="${f.url}" alt="">` : '<span>📄</span>'}
+      <span class="nom">${escapeHtml(f.nombre)}</span>
+      <span class="peso">${f.subiendo ? '…' : pesoLegible(f.bytes)}</span>
+      <button type="button" class="quitar-adj" data-i="${i}" title="Quitar">×</button>
+    </div>`).join('');
+  caja.querySelectorAll('.quitar-adj').forEach((b) => {
+    b.onclick = () => { adjuntos.splice(Number(b.dataset.i), 1); pintarAdjuntos(); };
+  });
+}
+
+async function subir(archivos) {
+  if (!selected) return;
+  for (const file of archivos) {
+    const pendiente = { nombre: file.name || 'captura.png', bytes: file.size, subiendo: true };
+    adjuntos.push(pendiente);
+    pintarAdjuntos();
+    try {
+      const res = await fetch(`/api/agents/${selected}/attachments`, {
+        method: 'POST',
+        headers: { 'x-v4-token': TOKEN, 'x-v4-filename': encodeURIComponent(pendiente.nombre) },
+        body: file
+      });
+      const out = await res.json();
+      if (!res.ok) throw new Error(out.error || 'no se pudo subir');
+      Object.assign(pendiente, out, { subiendo: false });
+    } catch (err) {
+      adjuntos = adjuntos.filter((x) => x !== pendiente);
+      alert(`No se pudo adjuntar ${pendiente.nombre}: ${err.message}`);
+    }
+    pintarAdjuntos();
+  }
+}
+
+// pegar: lo habitual para una captura de pantalla
+$('#send-text').addEventListener('paste', (e) => {
+  const archivos = [...(e.clipboardData?.files || [])];
+  if (archivos.length) { e.preventDefault(); subir(archivos); }
+});
+
+// arrastrar y soltar sobre el cuadro de escritura
+const composer = $('#send-form');
+['dragenter', 'dragover'].forEach((ev) => composer.addEventListener(ev, (e) => {
+  e.preventDefault(); composer.classList.add('arrastrando');
+}));
+['dragleave', 'drop'].forEach((ev) => composer.addEventListener(ev, (e) => {
+  e.preventDefault(); composer.classList.remove('arrastrando');
+}));
+composer.addEventListener('drop', (e) => {
+  const archivos = [...(e.dataTransfer?.files || [])];
+  if (archivos.length) subir(archivos);
+});
+
+$('#btn-adjuntar').onclick = () => $('#file-input').click();
+$('#file-input').onchange = (e) => { subir([...e.target.files]); e.target.value = ''; };
+
 $('#send-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const text = $('#send-text').value.trim();
-  if (!text || !selected) return;
+  const listos = adjuntos.filter((f) => !f.subiendo);
+  if ((!text && !listos.length) || !selected) return;
+  if (adjuntos.some((f) => f.subiendo)) return alert('Espera a que terminen de subir los archivos.');
+
   $('#send-text').value = '';
-  await api(`/api/agents/${selected}/messages`, { method: 'POST', body: JSON.stringify({ text }) });
+  adjuntos = [];
+  pintarAdjuntos();
+  await api(`/api/agents/${selected}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ text, attachments: listos.map((f) => ({ nombre: f.nombre, ruta: f.ruta, url: f.url, bytes: f.bytes })) })
+  });
   await renderMessages(true);
 });
 

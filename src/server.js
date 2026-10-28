@@ -81,6 +81,39 @@ function bridgeOk(req) {
   return req.headers['x-v4-bridge-token'] === cfg.bridgeToken;
 }
 
+// ---------------------------------------------------------------- adjuntos
+
+/**
+ * Se admite cualquier tipo de archivo, pero NUNCA el nombre tal cual viene del
+ * navegador: se le quita la ruta y se dejan solo caracteres inofensivos, para
+ * que un nombre como "../../etc/passwd" no pueda escribir fuera del workspace.
+ */
+function nombreSeguro(bruto) {
+  const base = path.basename(String(bruto || 'archivo')).replace(/[\x00-\x1f]/g, '');
+  const limpio = base.replace(/[^\w.\- ]+/g, '_').replace(/^\.+/, '').trim();
+  return (limpio || 'archivo').slice(0, 120);
+}
+
+function leerBinario(req, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const trozos = [];
+    let total = 0;
+    req.on('data', (c) => {
+      total += c.length;
+      if (total > maxBytes) { reject(new Error(`el archivo supera ${Math.round(maxBytes / 1048576)} MB`)); req.destroy(); return; }
+      trozos.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(trozos)));
+    req.on('error', reject);
+  });
+}
+
+function dirAdjuntos(agent) {
+  const dir = path.join(agent.workspace, 'adjuntos');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 // ---------------------------------------------------------------- agentes
 
 function createAgent(body) {
@@ -347,6 +380,50 @@ async function api(req, res, url) {
     }
   }
 
+  mm = p.match(/^\/api\/agents\/([^/]+)\/attachments$/);
+  if (mm && m === 'POST') {
+    const a = store.getAgent(decodeURIComponent(mm[1]));
+    if (!a) return json(res, 404, { error: 'agente no encontrado' });
+
+    const nombre = nombreSeguro(decodeURIComponent(req.headers['x-v4-filename'] || 'archivo'));
+    let datos;
+    try {
+      datos = await leerBinario(req, (cfg.maxUploadMb || 50) * 1048576);
+    } catch (e) {
+      return json(res, 413, { error: e.message });
+    }
+    if (!datos.length) return json(res, 400, { error: 'archivo vacio' });
+
+    const dir = dirAdjuntos(a);
+    const sello = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+    let final = `${sello}-${nombre}`;
+    let n = 1;
+    while (fs.existsSync(path.join(dir, final))) final = `${sello}-${n++}-${nombre}`;
+
+    const destino = path.join(dir, final);
+    fs.writeFileSync(destino, datos, { mode: 0o640 });
+    store.event('adjunto', a.id, { archivo: final, bytes: datos.length });
+
+    return json(res, 201, {
+      nombre: final, ruta: destino, bytes: datos.length,
+      url: `/api/agents/${a.id}/attachments/${encodeURIComponent(final)}`
+    });
+  }
+
+  mm = p.match(/^\/api\/agents\/([^/]+)\/attachments\/(.+)$/);
+  if (mm && m === 'GET') {
+    const a = store.getAgent(decodeURIComponent(mm[1]));
+    if (!a) return json(res, 404, { error: 'agente no encontrado' });
+    const dir = dirAdjuntos(a);
+    const archivo = path.join(dir, nombreSeguro(decodeURIComponent(mm[2])));
+    if (!archivo.startsWith(dir) || !fs.existsSync(archivo)) return json(res, 404, { error: 'archivo no encontrado' });
+
+    const ext = path.extname(archivo).toLowerCase();
+    const tipo = MIME[ext] || (/(jpg|jpeg)/.test(ext) ? 'image/jpeg' : /webp/.test(ext) ? 'image/webp' : /gif/.test(ext) ? 'image/gif' : 'application/octet-stream');
+    res.writeHead(200, { 'content-type': tipo, 'cache-control': 'private, max-age=3600' });
+    return fs.createReadStream(archivo).pipe(res);
+  }
+
   mm = p.match(/^\/api\/agents\/([^/]+)\/messages$/);
   if (mm) {
     const id = decodeURIComponent(mm[1]);
@@ -364,9 +441,19 @@ async function api(req, res, url) {
     if (m === 'POST') {
       const body = await readBody(req);
       const text = String(body.text || '').trim();
-      if (!text) return json(res, 400, { error: 'mensaje vacio' });
-      store.addMessage(id, 'user', text);
-      const turnId = store.enqueueTurn({ agentId: id, prompt: text, origin: 'user', chainId: uid('chain'), hop: 0 });
+      const adjuntos = Array.isArray(body.attachments) ? body.attachments.slice(0, 20) : [];
+      if (!text && !adjuntos.length) return json(res, 400, { error: 'mensaje vacio' });
+
+      store.addMessage(id, 'user', text || '(archivos adjuntos)', adjuntos.length ? { attachments: adjuntos } : null);
+
+      // Al agente se le pasa la RUTA real: asi abre el archivo con su propia
+      // herramienta de lectura en vez de recibir una copia en el texto.
+      const prompt = adjuntos.length
+        ? `${text || 'Revisa los archivos adjuntos.'}\n\nArchivos adjuntos (abrelos con tu herramienta de lectura):\n` +
+          adjuntos.map((f) => `- ${f.ruta}`).join('\n')
+        : text;
+
+      const turnId = store.enqueueTurn({ agentId: id, prompt, origin: 'user', chainId: uid('chain'), hop: 0 });
       return json(res, 202, { ok: true, turn_id: turnId });
     }
   }

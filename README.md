@@ -141,6 +141,25 @@ esfuerzo alto; un especialista que solo consulta rutas va sobrado con `haiku` y 
 El servidor rechaza un esfuerzo que el CLI no admita, para que un error de escritura no
 tumbe el turno.
 
+## Adjuntar archivos
+
+El cuadro de escritura acepta **cualquier tipo de archivo**, de tres formas: pegando con
+Ctrl+V (lo normal para una captura de pantalla), arrastrando y soltando, o con el boton
+del clip. Se suben antes de enviar y se ven como miniatura o como ficha con su nombre.
+
+Lo importante es que al especialista **no le llega una copia en el texto, sino la ruta
+real**: el archivo se guarda en `adjuntos/` dentro de su workspace y el agente lo abre
+con su propia herramienta de lectura. Por eso puede mirar de verdad una captura y
+decirte que ve en ella.
+
+El nombre que manda el navegador nunca se usa tal cual: se le quita la ruta y se dejan
+solo caracteres inofensivos, de modo que un nombre como `../../etc/passwd` acaba escrito
+como `passwd` dentro del workspace y no fuera. El tope por archivo es `maxUploadMb`
+(50 MB por defecto).
+
+Aviso: los especialistas corren con permisos reales sobre el servidor. Lo que subas, el
+agente puede leerlo y usarlo.
+
 ## Como colaboran
 
 Cada agente recibe estas herramientas en su sesion:

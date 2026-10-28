@@ -106,6 +106,39 @@ function check(nombre, condicion, detalle) {
     est.data.opciones.modelos.includes('opus'));
   await req(`/api/agents/${conModelo.data.id}`, { method: 'DELETE' });
 
+  // --- adjuntos ---
+  const subir = async (nombre, cuerpo) => {
+    const r = await fetch(`${await base()}/api/agents/${A}/attachments`, {
+      method: 'POST',
+      headers: { 'x-v4-filename': encodeURIComponent(nombre), ...(cfg.authToken && cfg.requireAuth ? { 'x-v4-token': cfg.authToken } : {}) },
+      body: cuerpo
+    });
+    return { status: r.status, data: await r.json().catch(() => ({})) };
+  };
+
+  const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+  const sub = await subir('prueba de adjunto.png', png);
+  check('admite cualquier archivo adjunto', sub.status === 201 && sub.data.bytes === png.length, JSON.stringify(sub.data).slice(0, 120));
+  check('el adjunto queda en el workspace del agente',
+    sub.data.ruta && sub.data.ruta.startsWith(a1.data.workspace) && fs.existsSync(sub.data.ruta));
+
+  const trampa = await subir('../../../etc/passwd', Buffer.from('x'));
+  check('un nombre con ruta no escapa del workspace',
+    trampa.status === 201 && !trampa.data.ruta.includes('..') && trampa.data.ruta.startsWith(a1.data.workspace),
+    JSON.stringify(trampa.data).slice(0, 140));
+
+  check('rechaza un adjunto vacio', (await subir('vacio.txt', Buffer.alloc(0))).status === 400);
+
+  const descarga = await fetch(`${await base()}${sub.data.url}`, cfg.requireAuth ? { headers: { 'x-v4-token': cfg.authToken } } : {});
+  check('el adjunto se puede recuperar', descarga.status === 200);
+
+  const conAdj = await req(`/api/agents/${A}/messages`, { method: 'POST', body: {
+    text: '', attachments: [{ nombre: sub.data.nombre, ruta: sub.data.ruta, url: sub.data.url, bytes: sub.data.bytes }] } });
+  check('se puede enviar un mensaje solo con adjuntos', conAdj.status === 202, JSON.stringify(conAdj.data));
+
+  check('sigue rechazando un mensaje del todo vacio',
+    (await req(`/api/agents/${A}/messages`, { method: 'POST', body: { text: '' } })).status === 400);
+
   // --- buzon entre agentes ---
   const bridge = cfg.bridgeToken;
   const m1 = await req('/api/internal/mailbox', { method: 'POST', bridge, token: null, body: { from: A, to: `ST-Beta-${sufijo}`, text: 'hola, resuelve por nombre' } });
