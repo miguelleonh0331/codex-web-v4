@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Avatar animado · prototipo</title>
+<style>
+:root{--bg:#0f1115;--bg2:#151821;--line:#262b36;--fg:#e6e9ef;--muted:#8b93a7;--accent:#5b9dff}
+*{box-sizing:border-box}
+body{margin:0;background:
+  radial-gradient(900px 500px at 50% -10%, #1a2740 0%, transparent 60%), var(--bg);
+  color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  min-height:100dvh;padding:2rem 1rem 4rem}
+h1{font-size:1.25rem;margin:0 0 .2rem;text-align:center}
+.sub{color:var(--muted);text-align:center;font-size:.85rem;margin:0 0 2rem}
+.escena{display:flex;flex-direction:column;align-items:center;gap:1.2rem}
+.marco{background:var(--bg2);border:1px solid var(--line);border-radius:24px;padding:1.2rem;
+  box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.estado-actual{font-size:.8rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.botones{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;max-width:620px}
+.botones button{font:inherit;font-size:.82rem;cursor:pointer;color:var(--fg);background:var(--bg2);
+  border:1px solid var(--line);padding:.5rem .85rem;border-radius:999px}
+.botones button:hover{border-color:var(--accent)}
+.botones button.sel{background:var(--accent);border-color:var(--accent);color:#06101f;font-weight:600}
+.galeria{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:.9rem;
+  max-width:860px;margin:2.6rem auto 0}
+.celda{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:.7rem;text-align:center}
+.celda small{display:block;color:var(--muted);font-size:.7rem;margin-top:.3rem;text-transform:uppercase;letter-spacing:.06em}
+.tamanos{display:flex;align-items:flex-end;gap:1.1rem;justify-content:center;margin-top:2.4rem}
+.nota{max-width:620px;margin:2.6rem auto 0;color:var(--muted);font-size:.84rem;line-height:1.55;text-align:center}
+
+/* ------------------------------------------------------------- animaciones */
+.robot{display:block;overflow:visible}
+.robot .cuerpo{transform-box:fill-box;transform-origin:center;animation:flotar 3.4s ease-in-out infinite}
+.robot .antena-luz{transform-box:fill-box;transform-origin:center;animation:latido 2.1s ease-in-out infinite}
+.robot .nucleo{transform-box:fill-box;transform-origin:center;animation:latido 2.6s ease-in-out infinite}
+.robot .barrido{animation:barrer 4.2s linear infinite}
+.robot .ojos{transform-box:fill-box;transform-origin:center;animation:parpadeo 5.2s infinite}
+.robot .rayo{transform-box:fill-box;transform-origin:center;animation:chispa 4.6s ease-in-out infinite}
+
+@keyframes flotar{0%,100%{transform:translateY(0)}50%{transform:translateY(-3%)}}
+@keyframes latido{0%,100%{opacity:.5;transform:scale(.86)}50%{opacity:1;transform:scale(1.14)}}
+@keyframes barrer{0%{transform:translateY(0);opacity:.05}50%{opacity:.18}100%{transform:translateY(32px);opacity:.05}}
+@keyframes parpadeo{0%,94%,100%{transform:scaleY(1)}96%,98%{transform:scaleY(.1)}}
+@keyframes chispa{0%,88%,100%{opacity:.9;filter:none}92%{opacity:1}94%{opacity:.55}}
+
+/* escucha: las barras laten como un ecualizador */
+.robot.escucha .led-barra{transform-box:fill-box;transform-origin:center;animation:escuchar .9s ease-in-out infinite}
+.robot.escucha .ojos{animation:none}
+@keyframes escuchar{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.55)}}
+
+/* piensa: la mirada sube y los puntos se encienden por turnos */
+.robot.piensa .led-arriba{transform-box:fill-box;transform-origin:center;animation:mirar-arriba 2.4s ease-in-out infinite}
+.robot.piensa .ojos{animation:none}
+.robot.piensa .punto{opacity:.2;animation:pensar 1.4s infinite}
+.robot.piensa .punto.p1{animation-delay:.18s}
+.robot.piensa .punto.p2{animation-delay:.36s}
+@keyframes mirar-arriba{0%,100%{transform:translate(0,0)}50%{transform:translate(2px,-2.5px)}}
+@keyframes pensar{0%,70%,100%{opacity:.2}35%{opacity:1}}
+
+/* responde: la onda de voz */
+.robot.responde .onda-barra{transform-box:fill-box;transform-origin:center;animation:hablar .5s ease-in-out infinite}
+.robot.responde .onda-barra.o1{animation-delay:.08s}
+.robot.responde .onda-barra.o2{animation-delay:.16s}
+.robot.responde .onda-barra.o3{animation-delay:.24s}
+.robot.responde .onda-barra.o4{animation-delay:.32s}
+@keyframes hablar{0%,100%{transform:scaleY(.45)}50%{transform:scaleY(1.5)}}
+
+/* alerta: parpadeo de aviso */
+.robot.alerta .ojos{animation:avisar .8s steps(1) infinite}
+@keyframes avisar{0%,60%{opacity:1}61%,100%{opacity:.35}}
+
+/* error: temblor y apagon */
+.robot.error .cuerpo{animation:flotar 3.4s ease-in-out infinite, fallo .32s steps(2) 6}
+.robot.error .ojos{animation:apagon 1.6s infinite}
+@keyframes fallo{0%{transform:translateX(0)}50%{transform:translateX(2.5px)}100%{transform:translateX(-2.5px)}}
+@keyframes apagon{0%,46%,54%,100%{opacity:1}48%,52%{opacity:.2}}
+
+/* curioso: ladea la cabeza */
+.robot.curioso .cuerpo{animation:flotar 3.4s ease-in-out infinite, ladear 3s ease-in-out infinite}
+@keyframes ladear{0%,100%{rotate:0deg}50%{rotate:-6deg}}
+
+@media (prefers-reduced-motion:reduce){.robot *{animation:none!important}}
+</style>
+</head>
+<body>
+<h1>Avatar animado — prototipo</h1>
+<p class="sub">Zeus, el Arquitecto. Un solo dios para que juzgues el estilo antes de hacer los diez.</p>
+
+<div class="escena">
+  <div class="marco" id="grande"></div>
+  <div class="estado-actual" id="etiqueta">normal</div>
+  <div class="botones" id="botones"></div>
+</div>
+
+<div class="tamanos" id="tamanos"></div>
+
+<div class="galeria" id="galeria"></div>
+
+<p class="nota">
+  Arriba, el estado que elijas. Abajo, los ocho a la vez y el mismo avatar a los tamanos
+  reales de la aplicacion: 34 px en la lista, 40 px en la cabecera y 28 px junto a cada mensaje.
+</p>
+
+<script src="/robot.js"></script>
+<script>
+  const estados = window.ESTADOS_ROBOT;
+  let actual = 'normal';
+
+  function pintar() {
+    document.getElementById('grande').innerHTML = robotSvg('zeus', actual, 240);
+    document.getElementById('etiqueta').textContent = actual;
+    document.querySelectorAll('#botones button').forEach((b) => {
+      b.classList.toggle('sel', b.dataset.e === actual);
+    });
+  }
+
+  document.getElementById('botones').innerHTML =
+    estados.map((e) => `<button data-e="${e}">${e}</button>`).join('');
+  document.querySelectorAll('#botones button').forEach((b) => {
+    b.onclick = () => { actual = b.dataset.e; pintar(); };
+  });
+
+  document.getElementById('galeria').innerHTML = estados.map((e) =>
+    `<div class="celda">${robotSvg('zeus', e, 88)}<small>${e}</small></div>`).join('');
+
+  document.getElementById('tamanos').innerHTML =
+    [40, 34, 28].map((t) => `<div>${robotSvg('zeus', 'normal', t)}</div>`).join('');
+
+  pintar();
+</script>
+</body>
+</html>
