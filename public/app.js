@@ -344,11 +344,66 @@ $('#send-text').addEventListener('keydown', (e) => {
 
 // ----------------------------------------------------------- proveedor
 
+// Los limites se refrescan solos: guardamos el instante en que llegaron y
+// descontamos en local, para que el reloj corra sin castigar al servidor.
+let LIMITES = { datos: [], recibido: 0 };
+
+function formatoReloj(seg) {
+  if (seg === null || seg === undefined) return '—';
+  if (seg <= 0) return 'ya';
+  const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60), s2 = seg % 60;
+  if (seg >= 86400) { const d = Math.floor(seg / 86400); return `${d} d ${Math.floor((seg % 86400) / 3600)} h`; }
+  return h ? `${h} h ${String(m).padStart(2, '0')} min` : `${m}:${String(s2).padStart(2, '0')}`;
+}
+
+function restante(l) {
+  if (l.faltan_seg === null || l.faltan_seg === undefined) return null;
+  return Math.max(0, l.faltan_seg - Math.floor((Date.now() - LIMITES.recibido) / 1000));
+}
+
+function pintarLimites() {
+  const caja = $('#prov-limites');
+  if (!caja) return;
+  if (!LIMITES.datos.length) {
+    caja.innerHTML = '<p class="muted" style="font-size:.78rem">Todavia no hay datos de uso. Llegan del propio Claude cuando un especialista trabaja.</p>';
+    return;
+  }
+  caja.innerHTML = LIMITES.datos.map((l) => {
+    const seg = restante(l);
+    const pct = l.usado_pct;
+    return `<div class="lim ${l.sobreuso ? 'sobreuso' : ''}">
+      <div class="cab"><b>Ventana de ${escapeHtml(l.etiqueta)}</b>
+        <span class="reloj">reinicia en ${formatoReloj(seg)}</span></div>
+      ${pct === null
+        ? '<div class="nota">Claude solo informa del porcentaje cuando te acercas al limite.</div>'
+        : `<div class="barra ${pct >= 80 ? 'alto' : ''}"><i style="width:${Math.min(100, pct)}%"></i></div>
+           <div class="nota">${pct}% consumido</div>`}
+      <div class="nota">estado: ${escapeHtml(l.estado || '—')}${l.sobreuso ? ' · usando sobreconsumo' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function pintarUsoMini() {
+  const mini = $('#proveedor-uso');
+  if (!mini) return;
+  const cinco = LIMITES.datos.find((l) => l.tipo === 'five_hour');
+  const semana = LIMITES.datos.find((l) => String(l.tipo).startsWith('seven_day'));
+  const trozos = [];
+  if (cinco) trozos.push(`5h ${cinco.usado_pct !== null ? cinco.usado_pct + '% · ' : ''}${formatoReloj(restante(cinco))}`);
+  if (semana) trozos.push(`7d ${semana.usado_pct !== null ? semana.usado_pct + '% · ' : ''}${formatoReloj(restante(semana))}`);
+  mini.textContent = trozos.join('  ·  ');
+}
+
+setInterval(() => { pintarUsoMini(); if ($('#proveedor-dialog').open) pintarLimites(); }, 1000);
+
 async function pintarProveedor() {
   const caja = $('#proveedor-estado');
   try {
     const { proveedores } = await api('/api/providers');
     const p = proveedores[0];
+    LIMITES = { datos: p.limites || [], recibido: Date.now() };
+    pintarLimites();
+    pintarUsoMini();
     const cad = p.credenciales && p.credenciales.expiraIso
       ? new Date(p.credenciales.expiraIso).toLocaleString() : '—';
     const vigente = p.credenciales && p.credenciales.vigente;
@@ -437,6 +492,8 @@ async function vigilarProveedor() {
   try {
     const { proveedores } = await api('/api/providers');
     const p = proveedores[0];
+    LIMITES = { datos: p.limites || [], recibido: Date.now() };
+    pintarUsoMini();
     const malo = !(p.conectado && p.credenciales && p.credenciales.vigente);
     $('#btn-proveedor').classList.toggle('aviso', malo);
     $('#proveedor-etiqueta').textContent = malo ? 'Proveedor · sin sesion' : `Proveedor · ${p.cuenta || 'conectado'}`;

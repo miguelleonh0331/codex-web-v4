@@ -418,3 +418,17 @@ select:focus{outline:none;border-color:var(--accent)}
 .prov-url a{color:var(--accent)}
 #btn-proveedor{text-align:left}
 #btn-proveedor.aviso{border-color:var(--err);color:var(--err)}
+
+/* ------------------------------------------------- limites de uso */
+.prov-limites{display:flex;flex-direction:column;gap:.7rem;margin-bottom:1rem}
+.lim{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);padding:.6rem .7rem}
+.lim .cab{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;font-size:.8rem;margin-bottom:.4rem}
+.lim .cab b{font-weight:600}
+.lim .reloj{font-variant-numeric:tabular-nums;color:var(--accent);font-size:.82rem}
+.lim .barra{height:6px;border-radius:3px;background:var(--bg3);overflow:hidden}
+.lim .barra i{display:block;height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:3px;
+  transition:width .4s ease}
+.lim .barra.alto i{background:linear-gradient(90deg,var(--warn),var(--err))}
+.lim .nota{font-size:.7rem;color:var(--muted);margin-top:.35rem}
+.lim.sobreuso{border-color:var(--warn)}
+.uso-mini{display:block;font-size:.66rem;color:var(--muted);margin-top:.15rem;font-variant-numeric:tabular-nums}

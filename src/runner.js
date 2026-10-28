@@ -98,7 +98,7 @@ function writeMcpConfig(cfg, agent, { chainId, hop }) {
 /**
  * Ejecuta un turno del agente. Devuelve { ok, text, sessionId, cost, numTurns, raw, error }.
  */
-function runTurn(cfg, agent, turn, log) {
+function runTurn(cfg, agent, turn, log, onLimites) {
   return new Promise((resolve) => {
     if (!cfg.claudeBin) {
       return resolve({ ok: false, error: 'No se encontro el binario de Claude Code (config.claudeBin).' });
@@ -110,7 +110,9 @@ function runTurn(cfg, agent, turn, log) {
     const mcpFile = writeMcpConfig(cfg, agent, { chainId: turn.chain_id, hop: turn.hop });
     const args = [
       '-p', turn.prompt,
-      '--output-format', 'json',
+      // En streaming llegan ademas los avisos de limite de uso (rate_limit_event),
+      // que es la unica forma de saber cuando se reinicia la ventana.
+      '--output-format', 'stream-json', '--verbose',
       '--permission-mode', 'bypassPermissions',
       '--mcp-config', mcpFile,
       '--append-system-prompt', buildSystemPrompt(agent, cfg)
@@ -162,8 +164,21 @@ function runTurn(cfg, agent, turn, log) {
         } catch { /* el log no debe tumbar el turno */ }
       }
 
+      // La salida es NDJSON: nos quedamos con el evento final y con los avisos
+      // de limite que hayan llegado por el camino.
       let parsed = null;
-      try { parsed = JSON.parse(stdout); } catch { /* salida no JSON */ }
+      for (const linea of stdout.split('\n')) {
+        const t = linea.trim();
+        if (!t) continue;
+        let ev;
+        try { ev = JSON.parse(t); } catch { continue; }
+        if (ev.type === 'result') parsed = ev;
+        else if (ev.type === 'rate_limit_event' && ev.rate_limit_info && onLimites) {
+          try { onLimites(ev.rate_limit_info); } catch { /* no debe tumbar el turno */ }
+        }
+      }
+      // Compatibilidad: si alguna version devolviera un unico objeto JSON.
+      if (!parsed) { try { parsed = JSON.parse(stdout); } catch { /* nada */ } }
 
       if (!parsed) {
         const detalle = (stderr || stdout || '').trim().slice(-600);
@@ -185,6 +200,7 @@ function runTurn(cfg, agent, turn, log) {
         sessionId: parsed.session_id,
         cost: parsed.total_cost_usd,
         numTurns: parsed.num_turns,
+        uso: parsed.usage || null,
         raw: parsed
       });
     });

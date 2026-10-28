@@ -86,12 +86,22 @@ function check(nombre, condicion, detalle) {
     `conectado=${pr && pr.conectado} vigente=${pr && pr.credenciales && pr.credenciales.vigente}`);
   check('informa de la cuenta y el plan', !!(pr && pr.cuenta && pr.plan), JSON.stringify(pr && { cuenta: pr.cuenta, plan: pr.plan }));
 
+  check('publica las ventanas de uso', Array.isArray(pr && pr.limites), JSON.stringify(pr && pr.limites));
+  if (pr && pr.limites && pr.limites.length) {
+    const l = pr.limites[0];
+    check('cada ventana trae su cuenta atras y su duracion',
+      typeof l.faltan_seg === 'number' && l.faltan_seg >= 0 && l.ventana_min > 0 && !!l.etiqueta,
+      JSON.stringify(l));
+  }
+
   const sinCodigo = await req('/api/providers/claude/code', { method: 'POST', body: { codigo: '' } });
   check('rechaza un codigo vacio', sinCodigo.status === 400 && sinCodigo.data.ok === false);
 
   const indexProv = await (await fetch((await base()) + '/')).text();
   check('la interfaz tiene pantalla de proveedor',
     /proveedor-dialog/.test(indexProv) && /prov-login/.test(indexProv) && /prov-codigo/.test(indexProv));
+  check('la interfaz muestra el uso y su cuenta atras',
+    /prov-limites/.test(indexProv) && /proveedor-uso/.test(indexProv));
 
   // --- avatar y color por especialista ---
   const conColor = await req(`/api/agents/${a1.data.id}`, { method: 'PATCH', body: { avatarSeed: 'poseidon', avatarColor: '#ff00aa' } });

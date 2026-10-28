@@ -125,7 +125,7 @@ class Orchestrator {
     const log = path.join(this.cfg.logsDir, `${agent.id}.log`);
     let out;
     try {
-      out = await runTurn(this.cfg, agent, turn, log);
+      out = await runTurn(this.cfg, agent, turn, log, (info) => this.store.guardarLimite(info));
     } catch (err) {
       out = { ok: false, error: err.message };
     }

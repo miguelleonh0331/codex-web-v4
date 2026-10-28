@@ -469,7 +469,20 @@ async function api(req, res, url) {
 
   // --- proveedores de modelo ---
   if (p === '/api/providers' && m === 'GET') {
-    return json(res, 200, { proveedores: [await auth.estado(cfg)] });
+    const VENTANAS = { five_hour: 300, seven_day: 10080, seven_day_opus: 10080, seven_day_sonnet: 10080, seven_day_overage_included: 10080 };
+    const ahora = Math.floor(Date.now() / 1000);
+    const limites = store.listarLimites().map((l) => ({
+      tipo: l.tipo,
+      etiqueta: l.tipo === 'five_hour' ? '5 horas' : l.tipo.startsWith('seven_day') ? '7 dias' : l.tipo,
+      ventana_min: VENTANAS[l.tipo] || null,
+      usado_pct: l.utilizacion === null ? null : Math.round(l.utilizacion * 100),
+      reinicia_en: l.reinicia_en,
+      faltan_seg: l.reinicia_en ? Math.max(0, l.reinicia_en - ahora) : null,
+      estado: l.estado,
+      sobreuso: !!l.sobreuso,
+      visto_en: l.visto_en
+    }));
+    return json(res, 200, { proveedores: [{ ...(await auth.estado(cfg)), limites }] });
   }
 
   if (p === '/api/providers/claude/login' && m === 'POST') {

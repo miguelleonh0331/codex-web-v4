@@ -88,6 +88,14 @@ Desde ahi se inicia sesion sin tocar la terminal: la aplicacion lanza el flujo
 OAuth del CLI, te muestra **la direccion que debes abrir**, y tu pegas el codigo
 que te devuelve Claude. Tambien se puede cerrar sesion o cambiar de cuenta.
 
+Ademas muestra **cuanto queda de cada ventana de uso**: la de 5 horas y la semanal,
+con su cuenta atras en vivo y, cuando Claude lo informa, el porcentaje consumido. El
+dato no se inventa ni se estima: llega del propio CLI en sus avisos `rate_limit_event`
+mientras los especialistas trabajan, y por eso el porcentaje solo aparece cuando te
+acercas al limite, que es cuando Claude lo manda.
+
+La barra lateral lleva un resumen permanente bajo el boton de proveedor.
+
 Un detalle que importa: el exito no se da por supuesto. Se comprueba que el
 archivo de credenciales **cambio de verdad**, porque preguntar solo "hay sesion"
 daria por bueno un codigo invalido cuando ya existia una sesion anterior.

@@ -72,6 +72,15 @@ CREATE TABLE IF NOT EXISTS claims (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS limites (
+  tipo        TEXT PRIMARY KEY,            -- five_hour | seven_day | seven_day_opus...
+  utilizacion REAL,                        -- 0..1, solo llega cerca del limite
+  reinicia_en INTEGER,                     -- epoch en segundos
+  estado      TEXT,
+  sobreuso    INTEGER NOT NULL DEFAULT 0,
+  visto_en    TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS events (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   kind       TEXT NOT NULL,
@@ -120,6 +129,30 @@ class Store {
 
   listEvents(sinceId = 0, limit = 200) {
     return this.db.prepare('SELECT * FROM events WHERE id > ? ORDER BY id DESC LIMIT ?').all(sinceId, limit);
+  }
+
+  // ---------- limites de uso del proveedor ----------
+  /** Guarda el ultimo aviso de cada ventana tal y como lo manda el CLI. */
+  guardarLimite(info) {
+    if (!info || !info.rateLimitType) return;
+    this.db.prepare(`INSERT INTO limites (tipo, utilizacion, reinicia_en, estado, sobreuso, visto_en)
+                     VALUES (?,?,?,?,?,?)
+                     ON CONFLICT(tipo) DO UPDATE SET
+                       utilizacion = excluded.utilizacion,
+                       reinicia_en = excluded.reinicia_en,
+                       estado = excluded.estado,
+                       sobreuso = excluded.sobreuso,
+                       visto_en = excluded.visto_en`)
+      .run(String(info.rateLimitType),
+           typeof info.utilization === 'number' ? info.utilization : null,
+           Number(info.resetsAt) || null,
+           String(info.status || ''),
+           info.isUsingOverage ? 1 : 0,
+           now());
+  }
+
+  listarLimites() {
+    return this.db.prepare('SELECT * FROM limites ORDER BY tipo').all();
   }
 
   // ---------- agentes ----------
