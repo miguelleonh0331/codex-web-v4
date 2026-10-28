@@ -261,6 +261,16 @@ un gesto del usuario antes de reproducir nada.
 Lo que ya leiste no vuelve a avisar: se guarda por especialista en el navegador, de modo
 que abrir su conversacion lo da por revisado.
 
+## Eliminar un especialista
+
+En **Instrucciones** hay un boton **Eliminar**. Por defecto lo saca de la lista y
+conserva su conversacion en la base, por si hiciera falta recuperar algo. Marcando
+*borrar tambien su conversacion* desaparece del todo: mensajes, turnos, actividad y
+correo incluidos, sin vuelta atras.
+
+Si estaba trabajando se le detiene primero: borrarlo a media faena dejaria un proceso
+suelto gastando cuota.
+
 ## Compactar
 
 **Compactar** resume la conversacion y libera contexto conservando lo importante: en que

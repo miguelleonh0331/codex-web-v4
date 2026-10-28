@@ -708,6 +708,44 @@ if ($('#broadcast-form')) $('#broadcast-form').addEventListener('submit', async 
 $('#edit-agent').onclick = () => openDialog(agents.find((a) => a.id === selected));
 $('#dialog-cancel').onclick = () => $('#agent-dialog').close();
 
+$('#eliminar').onclick = async () => {
+  if (!editing) return;
+  const purgar = $('#eliminar-purgar').checked;
+  const aviso = purgar
+    ? `Se eliminara "${editing.name}" Y SU CONVERSACION ENTERA, sin vuelta atras.\n\n¿Seguro?`
+    : `Se eliminara "${editing.name}" de la lista.\n\nSu conversacion se conserva en la base por si hiciera falta.\n\n¿Seguro?`;
+  if (!confirm(aviso)) return;
+
+  const b = $('#eliminar');
+  b.disabled = true;
+  const previo = b.textContent;
+  b.textContent = 'Eliminando…';
+  try {
+    // Si estaba trabajando, primero se le para: borrarlo a media faena
+    // dejaria un proceso suelto gastando cuota.
+    await api(`/api/agents/${editing.id}/stop`, { method: 'POST' }).catch(() => {});
+    await api(`/api/agents/${editing.id}${purgar ? '?purgar=1' : ''}`, { method: 'DELETE' });
+
+    if (selected === editing.id) {
+      selected = null;
+      $('#messages').innerHTML = '';
+      $('#chat-name').textContent = 'Selecciona un especialista';
+      $('#chat-area').textContent = '';
+      $('#chat-face').innerHTML = '';
+      ['send-form', 'edit-agent', 'reset-session', 'compactar', 'parar', 'ver-actividad-caja']
+        .forEach((id) => { const el = $(`#${id}`); if (el) el.hidden = true; });
+      $('#actividad').hidden = true;
+    }
+    editing = null;
+    $('#agent-dialog').close();
+    await refreshAll();
+  } catch (e) {
+    $('#dialog-error').textContent = `No se pudo eliminar: ${e.message}`;
+  }
+  b.disabled = false;
+  b.textContent = previo;
+};
+
 $('#parar').onclick = async () => {
   if (!selected) return;
   const b = $('#parar');
@@ -854,6 +892,10 @@ function openDialog(agent) {
   montarModelos(agent ? (agent.model || '') : '');
   c.effort.value = agent ? (agent.effort || '') : '';
   $('#dialog-error').textContent = '';
+  // Solo se puede eliminar lo que ya existe.
+  $('#eliminar').hidden = !agent;
+  $('#purgar-caja').hidden = !agent;
+  $('#eliminar-purgar').checked = false;
   $('#agent-dialog').showModal();
 }
 

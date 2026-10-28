@@ -189,7 +189,12 @@
       </label>
     </div>
     <p class="error" id="dialog-error"></p>
-    <menu>
+    <menu class="menu-editar">
+      <label class="check" id="purgar-caja" hidden>
+        <input type="checkbox" id="eliminar-purgar"> borrar tambien su conversacion
+      </label>
+      <button type="button" id="eliminar" class="peligro" hidden>Eliminar</button>
+      <span class="separa"></span>
       <button value="cancel" type="button" id="dialog-cancel">Cancelar</button>
       <button value="ok" id="dialog-save" class="primary">Guardar</button>
     </menu>

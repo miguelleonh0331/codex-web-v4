@@ -156,6 +156,31 @@ function check(nombre, condicion, detalle) {
   check('hay estilo de bloque de codigo, enlace y ruta copiable',
     /\.bloque pre/.test(cssFmt) && /code\.copiable/.test(cssFmt) && /\.msg a\b/.test(cssFmt));
 
+  // --- eliminar especialistas ---
+  const temp = await req('/api/agents', { method: 'POST', body: {
+    name: `ST-Borrar-${sufijo}`, area: 'prueba', instructions: 'temporal' } });
+  const T = temp.data.id;
+
+  await req(`/api/agents/${T}`, { method: 'DELETE' });
+  const listaNormal = (await req('/api/agents')).data.agents;
+  const listaTodos = (await req('/api/agents?all=1')).data.agents;
+  check('eliminar lo saca de la lista pero conserva su historial',
+    !listaNormal.some((x) => x.id === T) && listaTodos.some((x) => x.id === T));
+
+  const purga = await req(`/api/agents/${T}?purgar=1`, { method: 'DELETE' });
+  const trasPurga = (await req('/api/agents?all=1')).data.agents;
+  check('con purgar se borra del todo',
+    purga.data.borrado === true && !trasPurga.some((x) => x.id === T));
+
+  const idxDel = await (await fetch((await base()) + '/')).text();
+  check('la interfaz tiene boton de eliminar con opcion de purgar',
+    /id="eliminar"/.test(idxDel) && /id="eliminar-purgar"/.test(idxDel));
+
+  const appDel = await (await fetch((await base()) + '/app.js')).text();
+  check('antes de eliminar se detiene al especialista',
+    /\/stop`, \{ method: 'POST' \}\)\.catch\(\(\) => \{\}\);[\s\S]{0,200}method: 'DELETE'/.test(appDel),
+    'borrarlo a media faena dejaria un proceso suelto');
+
   // --- rastro de las ediciones ---
   const antesEv = (await req('/api/events')).data.events.length;
   await req(`/api/agents/${A}`, { method: 'PATCH', body: { model: 'haiku' } });
