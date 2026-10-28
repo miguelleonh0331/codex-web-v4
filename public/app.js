@@ -89,9 +89,13 @@ async function refreshAll() {
       const selEsf = document.querySelector('#agent-form [name=effort] option[value=""]');
       if (selEsf) selEsf.textContent = `por defecto (${OPCIONES.esfuerzoPorDefecto || 'el del CLI'})`;
     }
+    if (verActividad) await refrescarActividad(false);
     if (selected) {
       const act = agents.find((x) => x.id === selected);
-      if (act) $('#chat-face').innerHTML = avatar(act, 42);
+      if (act) {
+        $('#chat-face').innerHTML = avatar(act, 42);
+        $('#chat-area').textContent = resumenAgente(act);
+      }
       await renderMessages();
     }
     await renderPanel();
@@ -134,6 +138,8 @@ function renderAgents() {
         ${a.status === 'working'
           ? cintaTrabajando(a)
           : `<span class="a">${escapeHtml(a.area || 'sin area')}</span>`}
+        ${a.contexto ? `<span class="ctx ${a.contexto.pct >= 90 ? 'alto' : a.contexto.pct >= 70 ? 'medio' : ''}"
+             title="contexto ${a.contexto.usado.toLocaleString()} / ${a.contexto.ventana.toLocaleString()} (${a.contexto.pct}%)"><i style="width:${a.contexto.pct}%"></i></span>` : ''}
         ${(a.model || a.effort) ? `<span class="meta">
            ${a.model ? `<span class="tag">${escapeHtml(a.model)}</span>` : ''}
            ${a.effort ? `<span class="tag">${escapeHtml(a.effort)}</span>` : ''}</span>` : ''}
@@ -147,17 +153,75 @@ async function selectAgent(id) {
   selected = id;
   const a = agents.find((x) => x.id === id);
   $('#chat-name').textContent = a ? a.name : '';
-  $('#chat-area').textContent = a
-    ? [a.area, a.model, a.effort].filter(Boolean).join(' · ')
-    : '';
+  $('#chat-area').textContent = a ? resumenAgente(a) : '';
   $('#chat-face').innerHTML = a ? avatar(a, 42) : '';
   $('#send-form').hidden = false;
   $('#edit-agent').hidden = false;
   $('#reset-session').hidden = false;
+  $('#ver-actividad-caja').hidden = false;
+  verActividad = localStorage.getItem(claveActividad(id)) === '1';
+  $('#ver-actividad').checked = verActividad;
+  $('#actividad').hidden = !verActividad;
+  await refrescarActividad(true);
   renderAgents();
   setView('chat');
   await renderMessages(true);
 }
+
+function resumenAgente(a) {
+  const trozos = [a.area, a.model, a.effort].filter(Boolean);
+  if (a.contexto) {
+    const miles = (n) => n >= 1000 ? `${(n / 1000).toFixed(n >= 100000 ? 0 : 1)}k` : String(n);
+    trozos.push(`contexto ${miles(a.contexto.usado)} / ${miles(a.contexto.ventana)} · ${a.contexto.pct}%`);
+  }
+  return trozos.join(' · ');
+}
+
+// ------------------------------------------------------------ actividad
+
+let actividadDesde = 0;
+let verActividad = false;
+
+function claveActividad(id) { return `v4-actividad-${id}`; }
+
+async function refrescarActividad(reiniciar) {
+  if (!verActividad || !selected) return;
+  if (reiniciar) { actividadDesde = 0; $('#actividad').innerHTML = ''; }
+  try {
+    const { actividad } = await api(`/api/agents/${selected}/activity?desde=${actividadDesde}`);
+    if (!actividad.length) {
+      if (!$('#actividad').children.length) {
+        $('#actividad').innerHTML = '<div class="vacia">Sin actividad registrada todavia. Aparecera aqui en cuanto el especialista use una herramienta.</div>';
+      }
+      return;
+    }
+    const vacia = $('#actividad').querySelector('.vacia');
+    if (vacia) vacia.remove();
+    const abajo = $('#actividad').scrollHeight - $('#actividad').scrollTop - $('#actividad').clientHeight < 40;
+    for (const a of actividad) {
+      actividadDesde = Math.max(actividadDesde, a.id);
+      const el = document.createElement('div');
+      el.className = 'act';
+      el.innerHTML = `<span class="hora">${new Date(a.created_at).toLocaleTimeString()}</span>
+        <span class="herr">${escapeHtml(a.herramienta || a.tipo)}</span>
+        <span class="res" title="pulsa para ver el detalle">${escapeHtml(a.resumen || '')}</span>`;
+      const res = el.querySelector('.res');
+      res.onclick = () => {
+        res.classList.toggle('abierto');
+        res.textContent = res.classList.contains('abierto') ? (a.detalle || a.resumen || '') : (a.resumen || '');
+      };
+      $('#actividad').appendChild(el);
+    }
+    if (abajo) $('#actividad').scrollTop = $('#actividad').scrollHeight;
+  } catch { /* se reintenta en el siguiente ciclo */ }
+}
+
+$('#ver-actividad').addEventListener('change', (e) => {
+  verActividad = e.target.checked;
+  $('#actividad').hidden = !verActividad;
+  if (selected) localStorage.setItem(claveActividad(selected), verActividad ? '1' : '0');
+  if (verActividad) refrescarActividad(true);
+});
 
 function roleLabel(m) {
   if (m.role === 'user') return 'tu';

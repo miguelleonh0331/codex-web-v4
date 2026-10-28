@@ -56,11 +56,15 @@
         </div>
       </div>
       <div class="chat-actions">
+        <label id="ver-actividad-caja" class="check" hidden>
+          <input type="checkbox" id="ver-actividad"> Ver actividad
+        </label>
         <button id="edit-agent" hidden>Instrucciones</button>
         <button id="reset-session" hidden>Reiniciar contexto</button>
       </div>
     </header>
     <div id="messages" class="messages"></div>
+    <div id="actividad" class="actividad" hidden></div>
     <form id="send-form" class="composer" hidden>
       <div class="composer-cuerpo">
         <div id="adjuntos-pendientes" class="adjuntos" hidden></div>

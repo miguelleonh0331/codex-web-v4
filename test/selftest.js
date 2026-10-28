@@ -77,6 +77,23 @@ function check(nombre, condicion, detalle) {
     (await req('/api/agents', { method: 'POST', body: { name: `ST-Gamma-${sufijo}` } })).status === 400);
   check('crea el workspace en disco', fs.existsSync(a1.data.workspace));
 
+  // --- actividad en vivo y contexto ---
+  const actv = await req(`/api/agents/${A}/activity`);
+  check('publica la actividad del especialista', actv.status === 200 && Array.isArray(actv.data.actividad));
+
+  const conAct = await req('/api/agents');
+  const alguno = conAct.data.agents.find((x) => x.contexto);
+  check('informa del contexto consumido con su ventana real',
+    !!alguno && alguno.contexto.ventana > 0 && alguno.contexto.pct >= 0 && alguno.contexto.pct <= 100,
+    alguno ? JSON.stringify(alguno.contexto) : 'ningun agente tiene contexto medido todavia');
+
+  const indexAct = await (await fetch((await base()) + '/')).text();
+  check('la interfaz trae el interruptor de actividad',
+    /id="ver-actividad"/.test(indexAct) && /id="actividad"/.test(indexAct));
+
+  const cssAct = await (await fetch((await base()) + '/style.css')).text();
+  check('la lista dibuja la barra de contexto', /\.ctx\b/.test(cssAct) && /\.ctx\.alto/.test(cssAct));
+
   // --- proveedor de modelo ---
   const prov = await req('/api/providers');
   const pr = prov.data.proveedores && prov.data.proveedores[0];

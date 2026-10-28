@@ -98,7 +98,7 @@ function writeMcpConfig(cfg, agent, { chainId, hop }) {
 /**
  * Ejecuta un turno del agente. Devuelve { ok, text, sessionId, cost, numTurns, raw, error }.
  */
-function runTurn(cfg, agent, turn, log, onLimites) {
+function runTurn(cfg, agent, turn, log, onEvento) {
   return new Promise((resolve) => {
     if (!cfg.claudeBin) {
       return resolve({ ok: false, error: 'No se encontro el binario de Claude Code (config.claudeBin).' });
@@ -135,6 +135,24 @@ function runTurn(cfg, agent, turn, log, onLimites) {
     let stdout = '';
     let stderr = '';
     let settled = false;
+    let resto = '';          // ultima linea a medio llegar
+    let resultado = null;    // evento final, capturado al vuelo
+
+    // El CLI escribe NDJSON segun avanza. Interpretarlo al momento es lo que
+    // permite ver la actividad en vivo en vez de un volcado al terminar.
+    const procesar = (trozo) => {
+      resto += trozo;
+      let corte;
+      while ((corte = resto.indexOf('\n')) >= 0) {
+        const linea = resto.slice(0, corte).trim();
+        resto = resto.slice(corte + 1);
+        if (!linea) continue;
+        let ev;
+        try { ev = JSON.parse(linea); } catch { continue; }
+        if (ev.type === 'result') resultado = ev;
+        if (onEvento) { try { onEvento(ev); } catch { /* nunca debe tumbar el turno */ } }
+      }
+    };
 
     const timer = setTimeout(() => {
       if (settled) return;
@@ -143,7 +161,7 @@ function runTurn(cfg, agent, turn, log, onLimites) {
       resolve({ ok: false, error: `Tiempo agotado tras ${Math.round(cfg.turnTimeoutMs / 1000)}s`, timeout: true });
     }, cfg.turnTimeoutMs);
 
-    child.stdout.on('data', (d) => { stdout += d; });
+    child.stdout.on('data', (d) => { stdout += d; procesar(String(d)); });
     child.stderr.on('data', (d) => { stderr += d; });
 
     child.on('error', (err) => {
@@ -164,19 +182,8 @@ function runTurn(cfg, agent, turn, log, onLimites) {
         } catch { /* el log no debe tumbar el turno */ }
       }
 
-      // La salida es NDJSON: nos quedamos con el evento final y con los avisos
-      // de limite que hayan llegado por el camino.
-      let parsed = null;
-      for (const linea of stdout.split('\n')) {
-        const t = linea.trim();
-        if (!t) continue;
-        let ev;
-        try { ev = JSON.parse(t); } catch { continue; }
-        if (ev.type === 'result') parsed = ev;
-        else if (ev.type === 'rate_limit_event' && ev.rate_limit_info && onLimites) {
-          try { onLimites(ev.rate_limit_info); } catch { /* no debe tumbar el turno */ }
-        }
-      }
+      procesar('\n');              // por si la ultima linea llego sin salto
+      let parsed = resultado;
       // Compatibilidad: si alguna version devolviera un unico objeto JSON.
       if (!parsed) { try { parsed = JSON.parse(stdout); } catch { /* nada */ } }
 
@@ -201,6 +208,7 @@ function runTurn(cfg, agent, turn, log, onLimites) {
         cost: parsed.total_cost_usd,
         numTurns: parsed.num_turns,
         uso: parsed.usage || null,
+        modelUsage: parsed.modelUsage || null,
         raw: parsed
       });
     });

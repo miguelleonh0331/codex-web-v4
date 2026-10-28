@@ -224,6 +224,31 @@ como `passwd` dentro del workspace y no fuera. El tope por archivo es `maxUpload
 Aviso: los especialistas corren con permisos reales sobre el servidor. Lo que subas, el
 agente puede leerlo y usarlo.
 
+## Ver lo que esta haciendo
+
+La cabecera del chat tiene una casilla **Ver actividad**. Al encenderla aparece una tira
+en vivo con cada herramienta que usa el especialista: `ejecuta: wc -l CONTRACT.md`,
+`lee: Dialer.php`, `escribe a: Consultas`. Pulsando una linea se despliega el argumento
+completo.
+
+Sale apagada por defecto y se recuerda por especialista, porque ahi se ven rutas y
+comandos reales: es justo lo util, y tambien lo que no conviene tener siempre a la vista.
+
+Se guardan los ultimos 200 eventos por agente y los viejos se podan solos: un turno
+largo son cientos de llamadas y la base no debe crecer sin freno.
+
+## Cuanto contexto lleva cada uno
+
+Cada especialista tiene su propia sesion, asi que el contexto es **suyo**: uno puede ir
+al 70% mientras otro esta al 3%. Por eso no hay una barra global.
+
+- en la cabecera del chat: `contexto 73,8k / 1000k · 7%`
+- bajo cada fila de la lista, una barra fina que pasa a ambar al 70% y a rojo al 90%
+
+La ventana se toma del modelo real que uso en el ultimo turno, no de una constante: un
+`opus[1m]` y un `sonnet` no miden igual. Con eso, **Reiniciar contexto** deja de ser una
+corazonada.
+
 ## Como colaboran
 
 Cada agente recibe estas herramientas en su sesion:

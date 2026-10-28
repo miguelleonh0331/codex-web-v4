@@ -72,6 +72,18 @@ CREATE TABLE IF NOT EXISTS claims (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS actividad (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent_id   TEXT NOT NULL,
+  turn_id    INTEGER,
+  tipo       TEXT NOT NULL,               -- herramienta | texto | fin
+  herramienta TEXT,
+  resumen    TEXT,
+  detalle    TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_actividad_agente ON actividad(agent_id, id);
+
 CREATE TABLE IF NOT EXISTS limites (
   tipo        TEXT PRIMARY KEY,            -- five_hour | seven_day | seven_day_opus...
   utilizacion REAL,                        -- 0..1, solo llega cerca del limite
@@ -99,7 +111,11 @@ function uid(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 const COLUMNAS_NUEVAS = [
   ['agents', 'avatar_seed', 'TEXT'],
   ['agents', 'effort', 'TEXT'],
-  ['agents', 'avatar_color', 'TEXT']
+  ['agents', 'avatar_color', 'TEXT'],
+  ['agents', 'ctx_usado', 'INTEGER'],
+  ['agents', 'ctx_ventana', 'INTEGER'],
+  ['agents', 'ctx_modelo', 'TEXT'],
+  ['agents', 'ctx_visto', 'TEXT']
 ];
 
 function migrar(db) {
@@ -129,6 +145,34 @@ class Store {
 
   listEvents(sinceId = 0, limit = 200) {
     return this.db.prepare('SELECT * FROM events WHERE id > ? ORDER BY id DESC LIMIT ?').all(sinceId, limit);
+  }
+
+  // ---------- actividad en vivo ----------
+  /**
+   * Deja constancia de cada herramienta que usa el especialista. Se poda a los
+   * ultimos MAX por agente: un turno largo son cientos de llamadas y la base no
+   * debe crecer sin freno.
+   */
+  registrarActividad(agentId, turnId, { tipo, herramienta, resumen, detalle }, max = 200) {
+    this.db.prepare(`INSERT INTO actividad (agent_id, turn_id, tipo, herramienta, resumen, detalle, created_at)
+                     VALUES (?,?,?,?,?,?,?)`)
+      .run(agentId, turnId || null, tipo, herramienta || null,
+           (resumen || '').slice(0, 400), detalle ? String(detalle).slice(0, 4000) : null, now());
+
+    this.db.prepare(`DELETE FROM actividad WHERE agent_id = ? AND id NOT IN
+                     (SELECT id FROM actividad WHERE agent_id = ? ORDER BY id DESC LIMIT ?)`)
+      .run(agentId, agentId, max);
+  }
+
+  listarActividad(agentId, desde = 0, limite = 150) {
+    return this.db.prepare('SELECT * FROM actividad WHERE agent_id = ? AND id > ? ORDER BY id ASC LIMIT ?')
+      .all(agentId, desde, limite);
+  }
+
+  /** Contexto consumido en el ultimo turno, con la ventana real de su modelo. */
+  guardarContexto(agentId, { usado, ventana, modelo }) {
+    this.db.prepare('UPDATE agents SET ctx_usado = ?, ctx_ventana = ?, ctx_modelo = ?, ctx_visto = ? WHERE id = ?')
+      .run(usado || null, ventana || null, modelo || null, now(), agentId);
   }
 
   // ---------- limites de uso del proveedor ----------

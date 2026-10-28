@@ -3,6 +3,42 @@ const path = require('node:path');
 const { runTurn } = require('./runner');
 const sesion = require('./session');
 
+/** Resume la llamada a una herramienta en una linea legible. */
+function resumirHerramienta(nombre, entrada) {
+  const e = entrada || {};
+  const corto = (v, n = 160) => String(v).replace(/\s+/g, ' ').slice(0, n);
+  switch (nombre) {
+    case 'Bash': return corto(e.command || '');
+    case 'Read': return corto(e.file_path || e.path || '');
+    case 'Write': case 'Edit': case 'NotebookEdit': return corto(e.file_path || '');
+    case 'Grep': return `"${corto(e.pattern || '', 60)}"${e.path ? ` en ${corto(e.path, 60)}` : ''}`;
+    case 'Glob': return corto(e.pattern || '');
+    case 'WebFetch': case 'WebSearch': return corto(e.url || e.query || '');
+    case 'mcp__v4__send_message': return `a ${corto(e.to || '?', 40)}: ${corto(e.text || '', 90)}`;
+    case 'mcp__v4__ask_team': return `a todo el equipo: ${corto(e.text || '', 110)}`;
+    case 'mcp__v4__claim_files': case 'mcp__v4__release_files': return corto((e.paths || []).join(', '));
+    case 'mcp__v4__create_specialist': return corto(e.name || '');
+    default: {
+      const primera = Object.values(e).find((v) => typeof v === 'string');
+      return primera ? corto(primera) : '';
+    }
+  }
+}
+
+/** Nombre amable para la tira de actividad. */
+function etiquetaHerramienta(nombre) {
+  const mapa = {
+    Bash: 'ejecuta', Read: 'lee', Write: 'escribe', Edit: 'edita', Grep: 'busca',
+    Glob: 'lista', WebFetch: 'consulta la web', WebSearch: 'busca en la web',
+    TodoWrite: 'planifica', Task: 'delega',
+    mcp__v4__send_message: 'escribe a', mcp__v4__ask_team: 'pregunta al equipo',
+    mcp__v4__claim_files: 'reserva', mcp__v4__release_files: 'libera',
+    mcp__v4__list_agents: 'mira el equipo', mcp__v4__read_inbox: 'lee su buzon',
+    mcp__v4__list_claims: 'mira las reservas', mcp__v4__create_specialist: 'crea especialista'
+  };
+  return mapa[nombre] || nombre;
+}
+
 /**
  * Motor de turnos: decide quien ejecuta, entrega el correo entre agentes
  * y mantiene la conversacion de cada especialista.
@@ -116,6 +152,39 @@ class Orchestrator {
     }
   }
 
+  /** Cada evento del CLI segun llega: limites, herramientas y contexto. */
+  alVuelo(agent, turn, ev) {
+    if (ev.type === 'rate_limit_event' && ev.rate_limit_info) {
+      return this.store.guardarLimite(ev.rate_limit_info);
+    }
+
+    if (ev.type === 'assistant' && ev.message && Array.isArray(ev.message.content)) {
+      for (const bloque of ev.message.content) {
+        if (bloque.type === 'tool_use') {
+          this.store.registrarActividad(agent.id, turn.id, {
+            tipo: 'herramienta',
+            herramienta: etiquetaHerramienta(bloque.name),
+            resumen: resumirHerramienta(bloque.name, bloque.input),
+            detalle: JSON.stringify(bloque.input || {})
+          });
+        }
+      }
+    }
+
+    if (ev.type === 'result') {
+      const mu = ev.modelUsage || {};
+      const modelo = Object.keys(mu)[0];
+      const u = modelo ? mu[modelo] : null;
+      if (u && u.contextWindow) {
+        this.store.guardarContexto(agent.id, {
+          usado: (u.inputTokens || 0) + (u.cacheReadInputTokens || 0) + (u.cacheCreationInputTokens || 0),
+          ventana: u.contextWindow,
+          modelo
+        });
+      }
+    }
+  }
+
   async execute(turn, agent) {
     this.active.set(turn.id, turn.agent_id);
     this.store.markTurnRunning(turn.id);
@@ -125,7 +194,7 @@ class Orchestrator {
     const log = path.join(this.cfg.logsDir, `${agent.id}.log`);
     let out;
     try {
-      out = await runTurn(this.cfg, agent, turn, log, (info) => this.store.guardarLimite(info));
+      out = await runTurn(this.cfg, agent, turn, log, (ev) => this.alVuelo(agent, turn, ev));
     } catch (err) {
       out = { ok: false, error: err.message };
     }

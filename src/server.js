@@ -59,6 +59,13 @@ function agentPublic(a) {
     effort: a.effort || null,
     avatar_seed: a.avatar_seed || a.id,
     avatar_color: a.avatar_color || null,
+    contexto: a.ctx_ventana ? {
+      usado: a.ctx_usado || 0,
+      ventana: a.ctx_ventana,
+      pct: Math.min(100, Math.round(((a.ctx_usado || 0) / a.ctx_ventana) * 100)),
+      modelo: a.ctx_modelo || null,
+      visto: a.ctx_visto || null
+    } : null,
     created_at: a.created_at, updated_at: a.updated_at,
     has_session: !!a.session_id
   };
@@ -457,6 +464,14 @@ async function api(req, res, url) {
       const turnId = store.enqueueTurn({ agentId: id, prompt, origin: 'user', chainId: uid('chain'), hop: 0 });
       return json(res, 202, { ok: true, turn_id: turnId });
     }
+  }
+
+  mm = p.match(/^\/api\/agents\/([^/]+)\/activity$/);
+  if (mm && m === 'GET') {
+    const id = decodeURIComponent(mm[1]);
+    if (!store.getAgent(id)) return json(res, 404, { error: 'agente no encontrado' });
+    const desde = Number(url.searchParams.get('desde') || 0);
+    return json(res, 200, { actividad: store.listarActividad(id, desde) });
   }
 
   mm = p.match(/^\/api\/agents\/([^/]+)\/reset$/);

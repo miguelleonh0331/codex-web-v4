@@ -432,3 +432,22 @@ select:focus{outline:none;border-color:var(--accent)}
 .lim .nota{font-size:.7rem;color:var(--muted);margin-top:.35rem}
 .lim.sobreuso{border-color:var(--warn)}
 .uso-mini{display:block;font-size:.66rem;color:var(--muted);margin-top:.15rem;font-variant-numeric:tabular-nums}
+
+/* ------------------------------------------------- actividad y contexto */
+.check{display:inline-flex;align-items:center;gap:.35rem;font-size:.76rem;color:var(--muted);
+  cursor:pointer;user-select:none;white-space:nowrap}
+.check input{width:auto;margin:0;accent-color:var(--accent)}
+
+.actividad{max-height:34vh;overflow-y:auto;border-top:1px solid var(--line);background:#0c0e13;
+  padding:.5rem .9rem;font-size:.76rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.actividad .act{display:flex;gap:.5rem;padding:.18rem 0;align-items:baseline;border-bottom:1px solid rgba(255,255,255,.03)}
+.actividad .hora{color:var(--muted);font-size:.68rem;flex:0 0 auto}
+.actividad .herr{color:var(--accent2);flex:0 0 auto}
+.actividad .res{color:var(--fg);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;cursor:pointer}
+.actividad .res.abierto{white-space:pre-wrap;opacity:1}
+.actividad .vacia{color:var(--muted);padding:.4rem 0}
+
+.ctx{display:block;height:3px;border-radius:2px;background:var(--bg3);margin-top:.3rem;overflow:hidden}
+.ctx i{display:block;height:100%;background:var(--accent);border-radius:2px;transition:width .5s ease}
+.ctx.medio i{background:var(--warn)}
+.ctx.alto i{background:var(--err)}
