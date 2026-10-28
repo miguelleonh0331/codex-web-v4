@@ -84,7 +84,7 @@ async function refreshAll() {
     }
     if (selected) {
       const act = agents.find((x) => x.id === selected);
-      if (act) $('#chat-face').innerHTML = caraSvg(act.avatar_seed || act.id, act.status, 40);
+      if (act) $('#chat-face').innerHTML = avatar(act, 42);
       await renderMessages();
     }
     await renderPanel();
@@ -97,7 +97,7 @@ function renderAgents() {
   for (const a of agents) {
     const el = document.createElement('div');
     el.className = 'agent' + (selected === a.id ? ' sel' : '');
-    el.innerHTML = `${caraSvg(a.avatar_seed || a.id, a.status, 34)}
+    el.innerHTML = `${avatar(a, 36)}
       <span class="txt">
         <span class="n"><i class="pill ${a.status}"></i>${escapeHtml(a.name)}</span>
         <span class="a">${escapeHtml(a.area || 'sin area')}</span>
@@ -117,7 +117,7 @@ async function selectAgent(id) {
   $('#chat-area').textContent = a
     ? [a.area, a.model, a.effort].filter(Boolean).join(' · ')
     : '';
-  $('#chat-face').innerHTML = a ? caraSvg(a.avatar_seed || a.id, a.status, 40) : '';
+  $('#chat-face').innerHTML = a ? avatar(a, 42) : '';
   $('#send-form').hidden = false;
   $('#edit-agent').hidden = false;
   $('#reset-session').hidden = false;
@@ -149,10 +149,11 @@ async function renderMessages(force) {
     const cuerpo = `<div class="cuerpo-msg"><div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${escapeHtml(m.body)}</div>`;
 
     if (m.role === 'assistant' && actual) {
-      el.innerHTML = caraSvg(actual.avatar_seed || actual.id, 'idle', 28) + cuerpo;
+      el.innerHTML = avatar(actual, 30, 'normal') + cuerpo;
     } else if (m.role === 'peer') {
       const emisor = agents.find((x) => x.name === (m.meta && m.meta.from));
-      el.innerHTML = caraSvg(emisor ? (emisor.avatar_seed || emisor.id) : (m.meta && m.meta.from) || 'peer', 'idle', 28) + cuerpo;
+      el.innerHTML = (emisor ? avatar(emisor, 30, 'normal')
+                             : robotSvg((m.meta && m.meta.from) || 'peer', 'normal', 30)) + cuerpo;
     } else {
       el.innerHTML = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${escapeHtml(m.body)}`;
     }
@@ -251,24 +252,69 @@ $('#reset-session').onclick = async () => {
   alert('Contexto reiniciado: el proximo mensaje empieza una conversacion nueva.');
 };
 
+const COLORES = ['#5b9dff','#2bd4a0','#b98cff','#ffb020','#ff6b6b','#ff8fc7','#4fd1e8','#9ad14b','#c0893f','#8b93a7'];
+
+function expresionDe(estado) {
+  return estado === 'working' ? 'piensa' : 'normal';
+}
+
+/** Un unico punto para dibujar a un especialista, mire donde se mire. */
+function avatar(a, tam, estado) {
+  if (!a) return '';
+  return robotSvg(a.avatar_seed || a.id, estado || expresionDe(a.status), tam, a.avatar_color || null);
+}
+
 function caraDe(id, nombre) {
   const a = agents.find((x) => x.id === id) || agents.find((x) => x.name === nombre);
-  return caraSvg(a ? (a.avatar_seed || a.id) : (id || nombre || '?'), 'idle', 20);
+  return a ? avatar(a, 22, 'normal') : robotSvg(id || nombre || '?', 'normal', 22);
 }
 
 let semillaActual = null;
+let colorActual = null;
+
 function pintarPreview() {
-  $('#face-preview').innerHTML = caraSvg(semillaActual, 'idle', 62);
+  $('#face-preview').innerHTML = robotSvg(semillaActual, 'normal', 74, colorActual);
+  const d = listaDioses().find((x) => x.clave === String(semillaActual).toLowerCase());
+  $('#avatar-nombre').textContent = d ? d.nombre : 'Propio';
+  document.querySelectorAll('#galeria-avatares button').forEach((b) => {
+    b.classList.toggle('sel', b.dataset.clave === semillaActual);
+  });
+  document.querySelectorAll('#colores button[data-color]').forEach((b) => {
+    b.classList.toggle('sel', b.dataset.color === colorActual);
+  });
+  if ($('#color-libre')) $('#color-libre').value = colorActual || '#5b9dff';
 }
 
-if ($('#shuffle-face')) $('#shuffle-face').onclick = () => {
-  semillaActual = 'cara-' + Math.random().toString(36).slice(2, 10);
-  pintarPreview();
-};
+function montarSelector() {
+  const g = $('#galeria-avatares');
+  if (g && !g.children.length) {
+    g.innerHTML = listaDioses().map((d) =>
+      `<button type="button" data-clave="${d.clave}" title="${d.nombre}">${robotSvg(d.clave, 'normal', 38)}</button>`).join('');
+    g.querySelectorAll('button').forEach((b) => {
+      b.onclick = () => { semillaActual = b.dataset.clave; pintarPreview(); };
+    });
+  }
+  const c = $('#colores');
+  if (c && !c.children.length) {
+    c.innerHTML = COLORES.map((col) =>
+      `<button type="button" data-color="${col}" style="background:${col}" title="${col}"></button>`).join('') +
+      `<input type="color" id="color-libre" title="Color a medida">` +
+      `<button type="button" class="quitar" id="color-quitar">por defecto</button>`;
+    c.querySelectorAll('button[data-color]').forEach((b) => {
+      b.onclick = () => { colorActual = b.dataset.color; pintarPreview(); };
+    });
+    $('#color-libre').oninput = (e) => { colorActual = e.target.value; pintarPreview(); };
+    $('#color-quitar').onclick = () => { colorActual = null; pintarPreview(); };
+  }
+}
 
 function openDialog(agent) {
   editing = agent || null;
-  semillaActual = agent ? (agent.avatar_seed || agent.id) : 'cara-' + Math.random().toString(36).slice(2, 10);
+  montarSelector();
+  const dioses = listaDioses();
+  semillaActual = agent ? (agent.avatar_seed || agent.id)
+                        : dioses[Math.floor(Math.random() * dioses.length)].clave;
+  colorActual = agent ? (agent.avatar_color || null) : null;
   pintarPreview();
   const f = $('#agent-form');
   $('#dialog-title').textContent = agent ? `Editar ${agent.name}` : 'Nuevo especialista';
@@ -289,7 +335,8 @@ $('#agent-form').addEventListener('submit', async (e) => {
     instructions: f.instructions.value.trim(),
     model: f.model.value.trim() || null,
     effort: f.effort.value || null,
-    avatarSeed: semillaActual
+    avatarSeed: semillaActual,
+    avatarColor: colorActual
   };
   e.preventDefault();
   try {

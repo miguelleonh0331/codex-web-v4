@@ -105,11 +105,15 @@
     <h3 id="dialog-title">Nuevo especialista</h3>
     <div class="vista-previa">
       <span id="face-preview"></span>
-      <div>
-        <button type="button" id="shuffle-face">Otra cara</button>
-        <p class="muted" style="margin:.4rem 0 0;font-size:.76rem">Cada especialista tiene un rostro propio.</p>
+      <div class="previa-texto">
+        <strong id="avatar-nombre">Zeus</strong>
+        <p class="muted">Elige el avatar y su color.</p>
       </div>
     </div>
+    <div class="galeria-avatares" id="galeria-avatares"></div>
+    <label>Color
+      <div class="colores" id="colores"></div>
+    </label>
     <label>Nombre<input name="name" required placeholder="Telefonia"></label>
     <label>Area<input name="area" placeholder="Asterisk, troncales, dialplan"></label>
     <label>Instrucciones
@@ -139,7 +143,7 @@
   </form>
 </dialog>
 
-<script src="/faces.js"></script>
+<script src="/robot.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

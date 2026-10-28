@@ -77,6 +77,13 @@ function check(nombre, condicion, detalle) {
     (await req('/api/agents', { method: 'POST', body: { name: `ST-Gamma-${sufijo}` } })).status === 400);
   check('crea el workspace en disco', fs.existsSync(a1.data.workspace));
 
+  // --- avatar y color por especialista ---
+  const conColor = await req(`/api/agents/${a1.data.id}`, { method: 'PATCH', body: { avatarSeed: 'poseidon', avatarColor: '#ff00aa' } });
+  check('se puede fijar avatar y color', conColor.data.avatar_seed === 'poseidon' && conColor.data.avatar_color === '#ff00aa',
+    JSON.stringify(conColor.data).slice(0, 120));
+  const colorMal = await req(`/api/agents/${a1.data.id}`, { method: 'PATCH', body: { avatarColor: 'rojo' } });
+  check('rechaza un color que no es hexadecimal', colorMal.status === 400);
+
   // --- modelo y esfuerzo por especialista ---
   const conModelo = await req('/api/agents', { method: 'POST', body: {
     name: `ST-Modelo-${sufijo}`, area: 'prueba', instructions: 'Agente de autodiagnostico.',
@@ -177,12 +184,17 @@ function check(nombre, condicion, detalle) {
 
   // --- dioses ---
   const dioses = execFileSync(process.execPath, ['-e',
-    'const f=require("' + __dirname + '/../public/faces.js");' +
-    'const l=f.listaDioses();const s=l.map(d=>f.caraSvg(d.clave));' +
-    'process.stdout.write(JSON.stringify({n:l.length,unicos:new Set(s).size,nombres:l.map(d=>d.nombre)}))'],
+    'const f=require("' + __dirname + '/../public/robot.js");' +
+    'const l=f.listaDioses();const s=l.map(d=>f.robotSvg(d.clave));' +
+    'const est=f.ESTADOS.map(e=>f.robotSvg("zeus",e));' +
+    'process.stdout.write(JSON.stringify({n:l.length,unicos:new Set(s).size,' +
+    'estados:f.ESTADOS.length,estadosUnicos:new Set(est).size,' +
+    'recolor:f.robotSvg("zeus","normal",40)!==f.robotSvg("zeus","normal",40,"#ff00aa")}))'],
     { encoding: 'utf8' });
   const dd = JSON.parse(dioses);
-  check('hay un dios distinto por especialista', dd.n >= 10 && dd.unicos === dd.n, dioses);
+  check('hay al menos diez avatares distintos', dd.n >= 10 && dd.unicos === dd.n, dioses);
+  check('cada estado tiene su expresion', dd.estados === 8 && dd.estadosUnicos === 8, dioses);
+  check('el color se puede personalizar', dd.recolor === true, dioses);
 
   // --- PWA y movil ---
   const assets = ['/manifest.webmanifest', '/sw.js', '/icons/icon-192.png', '/icons/icon-512.png',
@@ -206,21 +218,21 @@ function check(nombre, condicion, detalle) {
     /rel="manifest"/.test(indice) && /theme-color/.test(indice) &&
     /viewport-fit=cover/.test(indice) && /mobile-nav/.test(indice));
 
-  const caras = await (await fetch((await base()) + '/faces.js')).text();
-  check('sirve el generador de caras', /caraSvg/.test(caras));
+  const caras = await (await fetch((await base()) + '/robot.js')).text();
+  check('sirve el generador de avatares', /robotSvg/.test(caras));
 
   const prueba = execFileSync(process.execPath, ['-e',
-    'global.window={};require("' + __dirname + '/../public/faces.js");' +
-    'const a=window.caraSvg("uno"),b=window.caraSvg("dos");' +
-    'process.stdout.write(JSON.stringify({dist:a!==b,estable:a===window.caraSvg("uno"),svg:a.startsWith("<svg")}))'],
+    'const f=require("' + __dirname + '/../public/robot.js");' +
+    'const a=f.robotSvg("uno"),b=f.robotSvg("dos");' +
+    'process.stdout.write(JSON.stringify({dist:a!==b,estable:a===f.robotSvg("uno"),svg:a.startsWith("<svg")}))'],
     { encoding: 'utf8' });
   const cr = JSON.parse(prueba);
   check('cada especialista tiene una cara propia y estable', cr.dist && cr.estable && cr.svg, prueba);
 
   const css = await (await fetch((await base()) + '/style.css')).text();
   check('el diseno tiene reglas para movil', /max-width:900px/.test(css) && /safe-area-inset/.test(css));
-  check('las caras estan animadas', /@keyframes parpadear/.test(css) && /@keyframes hablar/.test(css) &&
-    /prefers-reduced-motion/.test(css));
+  check('los avatares estan animados', /@keyframes parpadeo/.test(css) && /@keyframes hablar/.test(css) &&
+    /@keyframes pensar/.test(css) && /prefers-reduced-motion/.test(css));
 
   // --- limpieza ---
   await req(`/api/agents/${A}`, { method: 'DELETE' });

@@ -85,12 +85,14 @@ h1{font-size:1.25rem;margin:0 0 .2rem;text-align:center}
 </head>
 <body>
 <h1>Avatar animado — prototipo</h1>
-<p class="sub">Zeus, el Arquitecto. Un solo dios para que juzgues el estilo antes de hacer los diez.</p>
+<p class="sub">Quince avatares, ocho estados y color a medida. Elige arriba y mira abajo.</p>
 
 <div class="escena">
   <div class="marco" id="grande"></div>
   <div class="estado-actual" id="etiqueta">normal</div>
   <div class="botones" id="botones"></div>
+  <div class="botones" id="dioses"></div>
+  <div class="botones" id="paleta"></div>
 </div>
 
 <div class="tamanos" id="tamanos"></div>
@@ -105,14 +107,19 @@ h1{font-size:1.25rem;margin:0 0 .2rem;text-align:center}
 <script src="/robot.js"></script>
 <script>
   const estados = window.ESTADOS_ROBOT;
+  const dioses = window.listaDioses();
+  const COLORES = ['#5b9dff','#2bd4a0','#b98cff','#ffb020','#ff6b6b','#ff8fc7','#4fd1e8','#9ad14b'];
   let actual = 'normal';
+  let dios = 'zeus';
+  let color = null;
 
   function pintar() {
-    document.getElementById('grande').innerHTML = robotSvg('zeus', actual, 240);
+    document.getElementById('grande').innerHTML = robotSvg(dios, actual, 240, color);
     document.getElementById('etiqueta').textContent = actual;
-    document.querySelectorAll('#botones button').forEach((b) => {
-      b.classList.toggle('sel', b.dataset.e === actual);
-    });
+    document.querySelectorAll('#botones button').forEach((b) => b.classList.toggle('sel', b.dataset.e === actual));
+    document.querySelectorAll('#dioses button').forEach((b) => b.classList.toggle('sel', b.dataset.d === dios));
+    document.querySelectorAll('#paleta button').forEach((b) => b.classList.toggle('sel', (b.dataset.c || null) === color));
+    pintarGaleria();
   }
 
   document.getElementById('botones').innerHTML =
@@ -121,11 +128,26 @@ h1{font-size:1.25rem;margin:0 0 .2rem;text-align:center}
     b.onclick = () => { actual = b.dataset.e; pintar(); };
   });
 
-  document.getElementById('galeria').innerHTML = estados.map((e) =>
-    `<div class="celda">${robotSvg('zeus', e, 88)}<small>${e}</small></div>`).join('');
+  document.getElementById('dioses').innerHTML =
+    dioses.map((d) => `<button data-d="${d.clave}">${d.nombre}</button>`).join('');
+  document.querySelectorAll('#dioses button').forEach((b) => {
+    b.onclick = () => { dios = b.dataset.d; pintar(); };
+  });
 
-  document.getElementById('tamanos').innerHTML =
-    [40, 34, 28].map((t) => `<div>${robotSvg('zeus', 'normal', t)}</div>`).join('');
+  document.getElementById('paleta').innerHTML =
+    COLORES.map((c) => `<button data-c="${c}" style="background:${c};width:26px;height:26px;border-radius:50%"></button>`).join('') +
+    '<button data-c="">color del dios</button>';
+  document.querySelectorAll('#paleta button').forEach((b) => {
+    b.onclick = () => { color = b.dataset.c || null; pintar(); };
+  });
+
+  function pintarGaleria() {
+    document.getElementById('galeria').innerHTML = estados.map((e) =>
+      `<div class="celda">${robotSvg(dios, e, 88, color)}<small>${e}</small></div>`).join('') +
+      dioses.map((d) => `<div class="celda">${robotSvg(d.clave, 'normal', 88, color)}<small>${d.nombre}</small></div>`).join('');
+    document.getElementById('tamanos').innerHTML =
+      [42, 36, 30].map((t) => `<div>${robotSvg(dios, 'normal', t, color)}</div>`).join('');
+  }
 
   pintar();
 </script>

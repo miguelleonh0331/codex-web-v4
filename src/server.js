@@ -57,6 +57,7 @@ function agentPublic(a) {
     status: a.status, archived: !!a.archived, workspace: a.workspace,
     effort: a.effort || null,
     avatar_seed: a.avatar_seed || a.id,
+    avatar_color: a.avatar_color || null,
     created_at: a.created_at, updated_at: a.updated_at,
     has_session: !!a.session_id
   };
@@ -105,6 +106,7 @@ function createAgent(body) {
     model: body.model || null, effort: body.effort || null, home, workspace,
     avatarSeed: body.avatarSeed || id
   });
+  if (body.avatarColor) store.updateAgent(agent.id, { avatar_color: String(body.avatarColor) });
 
   if (body.initialMessage) {
     store.addMessage(id, 'user', String(body.initialMessage));
@@ -324,6 +326,11 @@ async function api(req, res, url) {
         return json(res, 400, { error: 'ya existe otro especialista con ese nombre' });
       }
       if (body.avatarSeed) body.avatar_seed = body.avatarSeed;
+      if (body.avatarColor !== undefined) {
+        const c = String(body.avatarColor || '').trim();
+        if (c && !/^#[0-9a-f]{6}$/i.test(c)) return json(res, 400, { error: 'color invalido: usa formato #rrggbb' });
+        body.avatar_color = c || null;
+      }
       if (body.effort !== undefined && body.effort !== null && body.effort !== '' && !ESFUERZOS.includes(body.effort)) {
         return json(res, 400, { error: `Esfuerzo invalido "${body.effort}". Admitidos: ${ESFUERZOS.join(', ')}.` });
       }

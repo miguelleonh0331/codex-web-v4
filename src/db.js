@@ -89,7 +89,8 @@ function uid(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 // ya existente siga funcionando sin tocarla a mano.
 const COLUMNAS_NUEVAS = [
   ['agents', 'avatar_seed', 'TEXT'],
-  ['agents', 'effort', 'TEXT']
+  ['agents', 'effort', 'TEXT'],
+  ['agents', 'avatar_color', 'TEXT']
 ];
 
 function migrar(db) {
@@ -152,7 +153,7 @@ class Store {
   }
 
   updateAgent(id, fields) {
-    const allowed = ['name', 'area', 'instructions', 'model', 'effort', 'status', 'session_id', 'archived', 'avatar_seed'];
+    const allowed = ['name', 'area', 'instructions', 'model', 'effort', 'status', 'session_id', 'archived', 'avatar_seed', 'avatar_color'];
     const keys = Object.keys(fields).filter((k) => allowed.includes(k));
     if (!keys.length) return this.getAgent(id);
     const sets = keys.map((k) => `${k} = ?`).join(', ');

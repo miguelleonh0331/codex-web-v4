@@ -108,19 +108,26 @@ v4ctl turns                       # ultimos turnos, con coste
 v4ctl claims                      # archivos reservados ahora mismo
 ```
 
-## Las caras
+## Los avatares
 
-Cada especialista tiene un rostro propio, generado a partir de su semilla: el mismo
-agente se ve siempre igual en cualquier navegador y no se guarda ninguna imagen. Son
-SVG y la animacion la lleva el CSS, asi que no pesan nada.
+Cada especialista lleva un robot con visor y ojos LED, vestido del dios que le toca.
+Hay **quince** (`zeus`, `hera`, `atenea`, `hermes`, `apolo`, `ares`, `artemisa`,
+`afrodita`, `poseidon`, `hades`, `hefesto`, `demeter`, `hecate`, `hestia`, `mnemosine`)
+y cualquier otra semilla genera uno propio y estable, de modo que un especialista nuevo
+tiene avatar desde el primer dia.
 
-En reposo parpadean y flotan, cada uno a su ritmo. **Mientras el especialista trabaja,
-su cara habla**: la boca se mueve y el parpadeo se acelera, de modo que de un vistazo
-se ve quien esta ocupado. Se respeta `prefers-reduced-motion`.
+Son SVG generados al vuelo y animados por CSS: ni imagenes ni fotogramas. **La expresion
+cuenta lo que esta pasando**: en reposo parpadea y flota; mientras trabaja, la mirada
+sube y tres puntos se encienden por turnos. El generador admite ocho estados (normal,
+escucha, piensa, responde, feliz, curioso, alerta, error) y respeta
+`prefers-reduced-motion`.
 
-La cara aparece en la lista, en la cabecera de la conversacion, junto a cada respuesta y
-en el buzon, donde se ve quien escribe a quien. Al crear o editar un especialista hay una
-vista previa con un boton para cambiarla; la semilla se guarda en `avatar_seed`.
+**El color se personaliza por especialista.** Al crear o editar hay una galeria con los
+quince y una paleta, mas un selector de color libre. El color elegido tine el halo, los
+LED y los remates, dejando el metal neutro; se guarda en `avatar_color` y vacio significa
+el color propio del dios.
+
+Hay una pagina para verlos todos: `/demo-avatar.html`.
 
 ## Modelo y esfuerzo por especialista
 
