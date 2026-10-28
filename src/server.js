@@ -252,6 +252,7 @@ async function api(req, res, url) {
       ok: true, version: '1.0.0', agents: store.listAgents().length,
       running: orq.busy, claude: !!cfg.claudeBin, port: cfg.port,
       auth: !!cfg.requireAuth,
+      ui: assetVersion(),
       session: (() => { const e = sesion.estado(sesion.archivoSesion(cfg)); return { valida: e.vigente, expira: e.expiraIso }; })()
     });
   }
@@ -615,6 +616,8 @@ function assetVersion() {
 function renderIndex() {
   let html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
   const v = assetVersion();
+  // La pagina sabe con que version se cargo; si el servidor sirve otra, avisa.
+  html = html.replace('</head>', `<script>window.V4_VERSION='${v}';</script>\n</head>`);
   for (const recurso of ['/app.js', '/style.css', '/faces.js']) {
     html = html.replace(`"${recurso}"`, `"${recurso}?v=${v}"`);
   }

@@ -89,6 +89,19 @@ function check(nombre, condicion, detalle) {
     /submit[^]{0,400}e\.preventDefault\(\)[^]{0,200}const c = e\.target\.elements/.test(appForm),
     'si falla despues, el dialogo se cierra solo y el cambio se pierde');
 
+  // --- interfaz desactualizada ---
+  const salud2 = await req('/api/health', { token: null });
+  check('la salud publica la version de interfaz', !!salud2.data.ui);
+  const idxVer = await (await fetch((await base()) + '/')).text();
+  const inyectada = (idxVer.match(/V4_VERSION='(\d+)'/) || [])[1];
+  check('la pagina se carga sabiendo su version', inyectada === String(salud2.data.ui),
+    `pagina=${inyectada} servidor=${salud2.data.ui}`);
+  const appVer = await (await fetch((await base()) + '/app.js')).text();
+  check('avisa si el navegador trae una interfaz vieja',
+    /vigilarVersion/.test(appVer) && /aviso-version/.test(appVer) && /caches\.delete/.test(appVer));
+  check('un fallo al guardar se muestra en el formulario',
+    /No se guardo: \$\{err/.test(appVer) && /console\.error\('\[v4\] fallo al guardar/.test(appVer));
+
   // --- avisos de trabajo terminado ---
   const est2 = await req('/api/state');
   const conMsg = est2.data.agents.find((x) => x.ultimo_mensaje);

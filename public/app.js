@@ -66,6 +66,8 @@ function start() {
   setInterval(refreshAll, 2500);
   vigilarProveedor();
   setInterval(vigilarProveedor, 60000);
+  vigilarVersion();
+  setInterval(vigilarVersion, 30000);
 }
 
 // ----------------------------------------------------------------- datos
@@ -650,6 +652,26 @@ $('#prov-logout').onclick = async () => {
 };
 
 // Aviso permanente en la barra lateral si la sesion no sirve.
+async function vigilarVersion() {
+  try {
+    const h = await (await fetch('/api/health', { cache: 'no-store' })).json();
+    if (window.V4_VERSION && h.ui && String(h.ui) !== String(window.V4_VERSION)) {
+      $('#aviso-version').hidden = false;
+    }
+  } catch { /* se reintenta */ }
+}
+if ($('#recargar-ya')) $('#recargar-ya').onclick = async () => {
+  // Una recarga normal puede seguir sirviendo lo cacheado: se limpia antes.
+  try {
+    if (window.caches) for (const k of await caches.keys()) await caches.delete(k);
+    if (navigator.serviceWorker) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+  } catch { /* da igual: recargamos igualmente */ }
+  location.reload(true);
+};
+
 async function vigilarProveedor() {
   try {
     const { proveedores } = await api('/api/providers');
@@ -803,19 +825,37 @@ $('#agent-form').addEventListener('submit', async (e) => {
     avatarSeed: semillaActual,
     avatarColor: colorActual
   };
+  const guardar = $('#dialog-save');
+  guardar.disabled = true;
+  const textoPrevio = guardar.textContent;
+  guardar.textContent = 'Guardando…';
   try {
-    if (editing) {
-      await api(`/api/agents/${editing.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
-    } else {
-      const a = await api('/api/agents', { method: 'POST', body: JSON.stringify(payload) });
-      selected = a.id;
+    const guardado = editing
+      ? await api(`/api/agents/${editing.id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+      : await api('/api/agents', { method: 'POST', body: JSON.stringify(payload) });
+    selected = guardado.id;
+
+    // Se confirma contra lo que devolvio el servidor, no contra lo que creiamos
+    // haber enviado: si no cuadra, es mejor saberlo aqui que descubrirlo luego.
+    if ((guardado.model || null) !== (payload.model || null) ||
+        (guardado.effort || null) !== (payload.effort || null)) {
+      $('#dialog-error').textContent =
+        `El servidor guardo modelo="${guardado.model || 'por defecto'}" y esfuerzo="${guardado.effort || 'por defecto'}". Revisa.`;
+      guardar.disabled = false;
+      guardar.textContent = textoPrevio;
+      return;
     }
+
     $('#agent-dialog').close();
     await refreshAll();
     if (selected) selectAgent(selected);
   } catch (err) {
-    $('#dialog-error').textContent = err.message;
+    // Cualquier fallo, incluido uno de programacion, se ve aqui.
+    $('#dialog-error').textContent = `No se guardo: ${err && err.message ? err.message : err}`;
+    console.error('[v4] fallo al guardar el especialista', err);
   }
+  guardar.disabled = false;
+  guardar.textContent = textoPrevio;
 });
 
 const PLANTILLA = `Tu responsabilidad es [ALCANCE].
