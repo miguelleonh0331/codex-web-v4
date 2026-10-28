@@ -331,7 +331,13 @@ $('#send-form').addEventListener('submit', async (e) => {
 });
 
 $('#send-text').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('#send-form').requestSubmit();
+  if (e.key !== 'Enter') return;
+  // Enter envia; Mayus+Enter hace salto de linea. En movil manda el boton:
+  // el Enter del teclado virtual es el salto de linea de toda la vida.
+  if (e.shiftKey || e.isComposing) return;
+  if (esMovil() && !(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  $('#send-form').requestSubmit();
 });
 
 $('#new-agent').onclick = () => openDialog(null);
