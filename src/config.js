@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const CONFIG_PATH = process.env.V4_CONFIG || '/etc/codex-web-v4/config.json';
 
 const DEFAULTS = {
+  nombre: 'codex-web-v4',     // como se llama ESTA instalacion; se ve en la interfaz
   port: 3212,
   bindHosts: ['127.0.0.1'],
   dataDir: '/var/lib/codex-web-v4',

@@ -89,6 +89,17 @@ function check(nombre, condicion, detalle) {
     /submit[^]{0,400}e\.preventDefault\(\)[^]{0,200}const c = e\.target\.elements/.test(appForm),
     'si falla despues, el dialogo se cierra solo y el cambio se pierde');
 
+  // --- nombre de la instalacion ---
+  const est3 = await req('/api/state');
+  check('la instalacion publica su nombre', !!(est3.data.app && est3.data.app.nombre), JSON.stringify(est3.data.app));
+  const idxNom = await (await fetch((await base()) + '/')).text();
+  const nombre = est3.data.app.nombre;
+  check('el nombre sale ya en el titulo y la marca',
+    idxNom.includes(`<title>${nombre}`) && idxNom.includes(`<strong>${nombre}</strong>`),
+    'debe venir en el documento, no pintarse despues');
+  const man = await (await fetch((await base()) + '/manifest.webmanifest')).json();
+  check('la aplicacion instalada tambien lleva ese nombre', man.name === nombre, JSON.stringify(man.name));
+
   // --- el selector de modelo debe dejar cambiar ---
   const idxModelo = await (await fetch((await base()) + '/')).text();
   check('el modelo se elige con un selector, no con una lista que filtra',

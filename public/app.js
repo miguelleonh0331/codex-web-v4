@@ -7,6 +7,7 @@ let agents = [];
 let lastEventId = 0;
 let editing = null;
 let OPCIONES = null;
+let NOMBRE_APP = 'codex-web-v4';
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -82,6 +83,10 @@ async function refreshAll() {
     $('#status-line').textContent = `${agents.length} especialistas · ${state.running} en ejecucion · ${state.pending} en cola`;
     if (state.project && state.project.name) {
       $('#project-label').textContent = state.project.name;
+    }
+    if (state.app && state.app.nombre && state.app.nombre !== NOMBRE_APP) {
+      NOMBRE_APP = state.app.nombre;
+      document.querySelector('.brand strong').textContent = NOMBRE_APP;
     }
     if (state.opciones) {
       OPCIONES = state.opciones;
@@ -197,7 +202,7 @@ function detectarFinales(lista) {
   else if (huboFinal) sonar('fin');
 
   const pendientes = lista.filter(tienePendiente).length;
-  document.title = pendientes ? `(${pendientes}) codex-web-v4` : 'codex-web-v4 · especialistas';
+  document.title = pendientes ? `(${pendientes}) ${NOMBRE_APP}` : NOMBRE_APP;
 }
 
 function renderAgents() {

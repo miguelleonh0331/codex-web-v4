@@ -17,6 +17,7 @@ CONFIG_DIR="/etc/codex-web-v4"
 BIND="127.0.0.1"
 PROJECT_PATH=""
 PROJECT_NAME="proyecto"
+APP_NAME="codex-web-v4"
 SESSION_FROM=""
 SESSION_DIR=""
 CLAUDE_BIN=""
@@ -38,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     --bind) BIND="$2"; shift 2 ;;
     --project-path) PROJECT_PATH="$2"; shift 2 ;;
     --project-name) PROJECT_NAME="$2"; shift 2 ;;
+    --name) APP_NAME="$2"; shift 2 ;;
     --session-from) SESSION_FROM="$2"; shift 2 ;;
     --session-dir) SESSION_DIR="$2"; shift 2 ;;
     --node) NODE_BIN="$2"; shift 2 ;;
@@ -115,6 +117,7 @@ else
   BIND_JSON="$(printf '%s' "$BIND" | awk -F, '{for(i=1;i<=NF;i++){printf "%s\"%s\"", (i>1?", ":""), $i}}')"
   cat > "$CONFIG_FILE" <<JSON
 {
+  "nombre": "${APP_NAME}",
   "port": ${PORT},
   "bindHosts": [${BIND_JSON}],
   "dataDir": "${DATA_DIR}",

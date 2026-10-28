@@ -76,7 +76,11 @@ directorios, genera los tokens, escribe la unidad de systemd a partir de la plan
 reserva el puerto frente al rango efimero y espera a que el servicio responda. Al
 terminar imprime la URL con el token.
 
-Opciones: `--data-dir`, `--config-dir`, `--service-name`, `--group`, `--node`.
+Opciones: `--name`, `--data-dir`, `--config-dir`, `--service-name`, `--group`, `--node`.
+
+Con varios servidores conviene darle nombre propio a cada uno (`--name "Masterchief ·
+vicibox05"`): asi la pestana, la barra lateral y el icono de la aplicacion instalada
+dicen en cual estas, en vez de tres ventanas identicas.
 
 ## Proveedor y sesion
 
@@ -329,6 +333,7 @@ que dos agentes no pueden quedarse dandose las gracias indefinidamente.
 
 | Clave | Significado |
 | --- | --- |
+| `nombre` | como se llama esta instalacion; sale en la marca, la pestana y la aplicacion instalada |
 | `port`, `bindHosts` | donde escucha; se puede atar a loopback y a una IP de tailnet |
 | `dataDir` | base de datos, sesion, workspaces y registros |
 | `model` | modelo por defecto; cada especialista puede llevar el suyo |

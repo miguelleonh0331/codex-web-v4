@@ -344,6 +344,7 @@ async function api(req, res, url) {
       running: orq.busy,
       pending: store.nextPendingTurns(100).length,
       project: cfg.project,
+      app: { nombre: cfg.nombre || 'codex-web-v4' },
       opciones: { modelos: MODELOS_SUGERIDOS, esfuerzos: ESFUERZOS, modeloPorDefecto: cfg.model, esfuerzoPorDefecto: cfg.effort }
     });
   }
@@ -613,11 +614,21 @@ function assetVersion() {
   } catch { return '1'; }
 }
 
+function escaparHtml(t) {
+  return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 function renderIndex() {
   let html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
   const v = assetVersion();
   // La pagina sabe con que version se cargo; si el servidor sirve otra, avisa.
   html = html.replace('</head>', `<script>window.V4_VERSION='${v}';</script>\n</head>`);
+
+  // El nombre de la instalacion viaja en el documento: asi la pestana y la
+  // marca ya salen bien en la primera pintada, sin esperar a la API.
+  const nombre = cfg.nombre || 'codex-web-v4';
+  html = html.replace('<title>codex-web-v4 · especialistas</title>', `<title>${escaparHtml(nombre)}</title>`);
+  html = html.replace('>codex-web-v4<', `>${escaparHtml(nombre)}<`);
   for (const recurso of ['/app.js', '/style.css', '/faces.js']) {
     html = html.replace(`"${recurso}"`, `"${recurso}?v=${v}"`);
   }
@@ -631,6 +642,18 @@ function renderIndex() {
 }
 
 function serveStatic(req, res, url) {
+  // El manifiesto tambien lleva el nombre: instalada como aplicacion, cada
+  // servidor debe distinguirse en el escritorio.
+  if (url.pathname === '/manifest.webmanifest') {
+    try {
+      const man = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'manifest.webmanifest'), 'utf8'));
+      man.name = cfg.nombre || man.name;
+      man.short_name = (cfg.nombre || man.short_name).slice(0, 12);
+      res.writeHead(200, { 'content-type': MIME['.webmanifest'], 'cache-control': 'no-store' });
+      return res.end(JSON.stringify(man, null, 2));
+    } catch { /* si falla, se sirve el archivo tal cual */ }
+  }
+
   if (url.pathname === '/' || url.pathname === '/index.html') {
     const html = renderIndex();
     res.writeHead(200, { 'content-type': MIME['.html'], 'cache-control': 'no-store, must-revalidate' });
