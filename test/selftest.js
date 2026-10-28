@@ -83,6 +83,8 @@ function check(nombre, condicion, detalle) {
     /function formatearCuerpo/.test(appTxt) && /formatearCuerpo\(m\.body\)/.test(appTxt));
   check('el texto del modelo se escapa antes de transformarlo',
     /enriquecer\(escapeHtml\(parte\)\)/.test(appTxt));
+  check('cada mensaje lleva su boton de copiar',
+    /class="copiar-msg"/.test(appTxt) && /closest\('\.copiar-msg'\)/.test(appTxt));
   check('hay copia con respaldo para HTTP sin cifrar',
     /execCommand\('copy'\)/.test(appTxt) && /isSecureContext/.test(appTxt));
 

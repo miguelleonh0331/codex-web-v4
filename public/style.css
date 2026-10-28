@@ -475,3 +475,13 @@ button.copiar.copiado{border-color:var(--accent2);color:var(--accent2)}
 .msg .copiado{background:rgba(43,212,160,.25)!important}
 .msg a{color:var(--accent);text-decoration:underline;text-underline-offset:2px;word-break:break-all}
 .msg a:hover{color:var(--accent2)}
+
+/* botón de copiar en cada mensaje: discreto hasta que pasas por encima */
+.msg .who{display:flex;align-items:center;gap:.5rem}
+button.copiar-msg{margin-left:auto;font-size:.64rem;padding:.1rem .4rem;border-radius:5px;
+  text-transform:none;letter-spacing:0;color:var(--muted);border-color:transparent;background:transparent;
+  opacity:0;transition:opacity .15s ease}
+.msg:hover button.copiar-msg,button.copiar-msg:focus{opacity:1}
+button.copiar-msg:hover{color:var(--fg);border-color:var(--line);background:var(--bg3)}
+button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opacity:1}
+@media (max-width:900px){button.copiar-msg{opacity:.65}}

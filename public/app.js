@@ -245,7 +245,9 @@ async function renderMessages(force) {
   for (const m of messages) {
     const el = document.createElement('div');
     el.className = `msg ${m.role}`;
-    const cuerpo = `<div class="cuerpo-msg"><div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${formatearCuerpo(m.body)}</div>`;
+    const cabecera = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}
+      <button type="button" class="copiar-msg" title="Copiar este mensaje">⧉ copiar</button></div>`;
+    const cuerpo = `<div class="cuerpo-msg">${cabecera}${formatearCuerpo(m.body)}</div>`;
 
     if (m.role === 'assistant' && actual) {
       el.innerHTML = avatar(actual, 30, 'normal') + cuerpo;
@@ -255,7 +257,8 @@ async function renderMessages(force) {
                              : robotSvg((m.meta && m.meta.from) || 'peer', 'normal', 30)) + cuerpo;
     } else {
       const adj = (m.meta && m.meta.attachments) || [];
-      el.innerHTML = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${formatearCuerpo(m.body)}` +
+      el.innerHTML = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}
+        <button type="button" class="copiar-msg" title="Copiar este mensaje">⧉ copiar</button></div>${formatearCuerpo(m.body)}` +
         (adj.length ? `<div class="adjuntos">${adj.map((f) => `
           <a class="adj" href="${f.url}" target="_blank" rel="noopener">
             ${esImagen(f.nombre) ? `<img src="${f.url}" alt="">` : '<span>📄</span>'}
@@ -850,6 +853,16 @@ document.addEventListener('click', (e) => {
     const pre = boton.closest('.bloque').querySelector('code');
     return copiarTexto(pre.textContent, boton);
   }
+  const botonMsg = e.target.closest('.copiar-msg');
+  if (botonMsg) {
+    // Se copia el texto tal cual lo escribio el especialista, sin el formato.
+    const msg = botonMsg.closest('.msg');
+    const cuerpo = msg.querySelector('.cuerpo-msg') || msg;
+    const copia = cuerpo.cloneNode(true);
+    copia.querySelectorAll('.who').forEach((x) => x.remove());
+    return copiarTexto(copia.innerText.trim(), botonMsg);
+  }
+
   const trozo = e.target.closest('.copiable');
   if (trozo) {
     copiarTexto(trozo.textContent);
