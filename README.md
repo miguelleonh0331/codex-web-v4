@@ -360,10 +360,10 @@ Un mensaje, una linea. **La franja de color ocupa el turno entero**, de lado a l
 lleva el color de quien habla: el del especialista es el de su avatar. Con eso se sigue
 una conversacion de tres de un vistazo y sobran los simbolos delante.
 
-**Lo tuyo va alineado a la derecha** dentro de su franja, asi que distingues pregunta de
-respuesta sin leer nada. El texto mantiene un ancho maximo aunque la franja llegue al
-borde, porque una linea que cruza la pantalla entera no se lee aunque este bien
-formateada; lo que da la vuelta se alinea bajo el texto y no bajo el nombre.
+La respuesta del especialista **aprovecha todo el ancho del chat**, que es donde van los
+bloques de codigo y las rutas largas. **Lo tuyo se queda recogido a la derecha**, asi que
+distingues pregunta de respuesta sin leer nada. Lo que da la vuelta se alinea bajo el
+texto y no bajo el nombre.
 
 La hora y el boton de copiar solo aparecen al pasar por encima: mientras lees, estorban.
 Los avatares no se repiten en cada linea, solo en la lista y la cabecera. La barra lateral y el panel derecho se quedan

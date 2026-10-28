@@ -576,9 +576,11 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 /* lo tuyo, a la derecha dentro de su franja */
 .messages .msg.user{border-left:none;border-right:3px solid var(--color-quien,#2bd4a0);text-align:right}
 
-/* el texto mantiene ancho legible aunque la franja llegue de lado a lado */
-.messages .linea{display:inline-block;text-align:left;max-width:92ch;
+/* La respuesta del especialista aprovecha todo el ancho del chat; lo tuyo se
+   queda recogido a la derecha para distinguirse de un vistazo. */
+.messages .linea{display:inline-block;text-align:left;width:100%;
   padding-left:.85rem;text-indent:-.85rem}
+.messages .msg.user .linea{width:auto;max-width:72ch}
 
 .messages .quien{font-weight:700;white-space:nowrap}
 .messages .sep{color:#5a6673;margin:0 .35rem 0 .25rem}

@@ -154,9 +154,10 @@ function check(nombre, condicion, detalle) {
     'resaltar solo el texto dejaba las filas sueltas');
   check('cada mensaje se tine del color de quien habla',
     /background-color:color-mix\(insrgb,var\(--color-quien/.test(cssChat));
-  check('el texto tiene un ancho legible dentro de la franja',
-    /\.messages\.linea\{[^}]*max-width:92ch/.test(cssChat),
-    'una linea que cruza la pantalla entera no se lee');
+  check('la respuesta del especialista usa todo el ancho',
+    /\.messages\.linea\{[^}]*width:100%/.test(cssChat));
+  check('lo tuyo se queda recogido a la derecha',
+    /\.messages\.msg\.user\.linea\{[^}]*max-width:72ch/.test(cssChat));
 
   check('cada mensaje cabe en una linea: nombre > texto',
     /class="sep"/.test(appChat) && /class="dicho"/.test(appChat) && !/marca = /.test(appChat),
