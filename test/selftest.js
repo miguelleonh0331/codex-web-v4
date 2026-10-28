@@ -95,7 +95,8 @@ function check(nombre, condicion, detalle) {
   const idxNom = await (await fetch((await base()) + '/')).text();
   const nombre = est3.data.app.nombre;
   check('el nombre sale ya en el titulo y la marca',
-    idxNom.includes(`<title>${nombre}`) && idxNom.includes(`<strong>${nombre}</strong>`),
+    idxNom.includes(`<title>${nombre}`) &&
+    new RegExp(`<strong id="app-nombre"[^>]*>${nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</strong>`).test(idxNom),
     'debe venir en el documento, no pintarse despues');
   const man = await (await fetch((await base()) + '/manifest.webmanifest')).json();
   check('la aplicacion instalada tambien lleva ese nombre', man.name === nombre, JSON.stringify(man.name));
