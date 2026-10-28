@@ -101,6 +101,55 @@ function check(nombre, condicion, detalle) {
   const man = await (await fetch((await base()) + '/manifest.webmanifest')).json();
   check('la aplicacion instalada tambien lleva ese nombre', man.name === nombre, JSON.stringify(man.name));
 
+  // --- exportar e importar el equipo ---
+  const expo = await req('/api/export');
+  const uno = expo.data.especialistas && expo.data.especialistas[0];
+  check('exporta el equipo completo',
+    expo.status === 200 && Array.isArray(expo.data.especialistas) && expo.data.especialistas.length > 0 && expo.data.version === 1);
+  check('la exportacion no lleva sesiones ni rutas internas',
+    !!uno && !('workspace' in uno) && !('id' in uno) && !('session_id' in uno) && !('has_session' in uno),
+    JSON.stringify(uno && Object.keys(uno)));
+  check('guarda de que proyecto venia', !!expo.data.proyecto);
+
+  const ensayo = await req('/api/import', { method: 'POST', body: {
+    especialistas: [{ name: `ST-Imp-${sufijo}`, area: 'x', instructions: 'y' }, { name: 'Sin texto' }],
+    dryRun: true } });
+  check('la importacion avisa antes de tocar nada',
+    ensayo.data.ensayo === true && ensayo.data.nuevos.includes(`ST-Imp-${sufijo}`) &&
+    ensayo.data.invalidos.includes('Sin texto'),
+    JSON.stringify(ensayo.data).slice(0, 160));
+
+  const real = await req('/api/import', { method: 'POST', body: {
+    especialistas: [{ name: `ST-Imp-${sufijo}`, area: 'x', instructions: 'y', model: 'haiku' }],
+    dryRun: false, modo: 'saltar' } });
+  check('importa de verdad cuando se confirma', real.data.creados.includes(`ST-Imp-${sufijo}`));
+
+  const repe = await req('/api/import', { method: 'POST', body: {
+    especialistas: [{ name: `ST-Imp-${sufijo}`, area: 'x', instructions: 'z' }], dryRun: false, modo: 'saltar' } });
+  check('no duplica lo que ya existe', repe.data.saltados.includes(`ST-Imp-${sufijo}`));
+
+  const act = await req('/api/import', { method: 'POST', body: {
+    especialistas: [{ name: `ST-Imp-${sufijo}`, area: 'x', instructions: 'z', model: 'sonnet' }], dryRun: false, modo: 'actualizar' } });
+  check('en modo actualizar sobreescribe', act.data.actualizados.includes(`ST-Imp-${sufijo}`));
+
+  const impId = (await req('/api/agents')).data.agents.find((x) => x.name === `ST-Imp-${sufijo}`);
+  if (impId) await req(`/api/agents/${impId.id}?purgar=1`, { method: 'DELETE' });
+
+  const idxExp = await (await fetch((await base()) + '/')).text();
+  check('la interfaz tiene exportar e importar', /id="exportar"/.test(idxExp) && /id="importar"/.test(idxExp));
+
+  // --- aspecto de terminal ---
+  check('la conversacion tiene fondo matrix con interruptor',
+    /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));
+  const cssTerm = await (await fetch((await base()) + '/style.css')).text();
+  check('el centro se ve como una terminal',
+    /\.messages\{font-family:ui-monospace/.test(cssTerm.replace(/\s+/g, '')) ||
+    /\.messages/.test(cssTerm) && /ui-monospace/.test(cssTerm));
+  const appMat = await (await fetch((await base()) + '/app.js')).text();
+  check('la animacion se detiene con la pestana oculta',
+    /visibilitychange/.test(appMat) && /document\.hidden/.test(appMat),
+    'una animacion continua gasta bateria sin que nadie la mire');
+
   // --- renombrar desde la web ---
   const original = est3.data.app.nombre;
   const nuevo = await req('/api/app', { method: 'PATCH', body: { nombre: `ST-Nombre-${sufijo}` } });
@@ -271,8 +320,10 @@ function check(nombre, condicion, detalle) {
     alguno ? JSON.stringify(alguno.contexto) : 'ningun agente tiene contexto medido todavia');
 
   const indexAct = await (await fetch((await base()) + '/')).text();
-  check('la interfaz trae el interruptor de actividad',
-    /id="ver-actividad"/.test(indexAct) && /id="actividad"/.test(indexAct));
+  check('la salida vive en su propia pestana del panel',
+    /data-tab="salida"/.test(indexAct) && /id="tab-salida"/.test(indexAct) &&
+    !/id="ver-actividad"/.test(indexAct),
+    'bajo el chat le robaba alto a la conversacion');
 
   const cssAct = await (await fetch((await base()) + '/style.css')).text();
   check('la lista dibuja la barra de contexto', /\.ctx\b/.test(cssAct) && /\.ctx\.alto/.test(cssAct));

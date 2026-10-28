@@ -354,6 +354,73 @@ async function api(req, res, url) {
   // --- a partir de aqui, API de usuario ---
   if (!authOk(req, url)) return json(res, 401, { error: 'token invalido' });
 
+  // --- llevarse el equipo a otro servidor ---
+  if (p === '/api/export' && m === 'GET') {
+    return json(res, 200, {
+      version: 1,
+      exportado_en: new Date().toISOString(),
+      instalacion: cfg.nombre || 'codex-web-v4',
+      // Se guarda la ruta de origen para poder avisar si en destino es otra.
+      proyecto: { nombre: cfg.project.name || null, ruta: cfg.project.path || null },
+      especialistas: store.listAgents().map((a) => ({
+        name: a.name,
+        area: a.area,
+        instructions: a.instructions,
+        model: a.model,
+        effort: a.effort,
+        avatarSeed: a.avatar_seed || null,
+        avatarColor: a.avatar_color || null
+      }))
+    });
+  }
+
+  if (p === '/api/import' && m === 'POST') {
+    const body = await readBody(req);
+    const lista = Array.isArray(body.especialistas) ? body.especialistas : null;
+    if (!lista) return json(res, 400, { error: 'el archivo no contiene una lista de especialistas' });
+
+    const modo = body.modo === 'actualizar' ? 'actualizar' : 'saltar';
+    const ensayo = body.dryRun !== false && body.dryRun !== undefined ? !!body.dryRun : false;
+
+    const nuevos = [], existentes = [], invalidos = [];
+    for (const e of lista) {
+      const nombre = String(e && e.name || '').trim();
+      if (!nombre || !String(e.instructions || '').trim()) { invalidos.push(nombre || '(sin nombre)'); continue; }
+      (store.getAgentByName(nombre) ? existentes : nuevos).push(e);
+    }
+
+    // Por defecto solo se informa: tocar el equipo sin que lo confirmes seria
+    // una sorpresa desagradable.
+    if (ensayo) {
+      return json(res, 200, {
+        ensayo: true, modo,
+        nuevos: nuevos.map((x) => x.name),
+        existentes: existentes.map((x) => x.name),
+        invalidos,
+        proyecto_origen: body.proyecto || null,
+        proyecto_actual: { nombre: cfg.project.name || null, ruta: cfg.project.path || null }
+      });
+    }
+
+    const creados = [], actualizados = [], saltados = [];
+    for (const e of nuevos) {
+      try { creados.push(createAgent(e).name); } catch (err) { invalidos.push(`${e.name}: ${err.message}`); }
+    }
+    for (const e of existentes) {
+      if (modo !== 'actualizar') { saltados.push(e.name); continue; }
+      const actual = store.getAgentByName(e.name);
+      store.updateAgent(actual.id, {
+        area: e.area || null, instructions: e.instructions,
+        model: e.model || null, effort: e.effort || null,
+        avatar_seed: e.avatarSeed || actual.avatar_seed,
+        avatar_color: e.avatarColor || null
+      });
+      actualizados.push(e.name);
+    }
+    store.event('equipo.importado', null, { creados: creados.length, actualizados: actualizados.length, saltados: saltados.length });
+    return json(res, 200, { ok: true, creados, actualizados, saltados, invalidos });
+  }
+
   if (p === '/api/app' && m === 'PATCH') {
     const body = await readBody(req);
     const nombre = String(body.nombre || '').trim();

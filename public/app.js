@@ -63,6 +63,7 @@ function start() {
   $('#app').hidden = false;
   if (history.replaceState) history.replaceState({}, '', location.pathname);
   setView(esMovil() ? 'agents' : 'agents');
+  MATRIZ.iniciar();
   refreshAll();
   setInterval(refreshAll, 2500);
   vigilarProveedor();
@@ -93,7 +94,7 @@ async function refreshAll() {
       const selEsf = document.querySelector('#agent-form [name=effort] option[value=""]');
       if (selEsf) selEsf.textContent = `por defecto (${OPCIONES.esfuerzoPorDefecto || 'el del CLI'})`;
     }
-    if (verActividad) await refrescarActividad(false);
+    await refrescarActividad(false);
     if (selected) {
       const act = agents.find((x) => x.id === selected);
       if (act) {
@@ -255,6 +256,7 @@ async function selectAgent(id) {
   marcarVisto(id);
   renderAgents();
   setView('chat');
+  setTimeout(() => MATRIZ.remedir(), 50);   // el lienzo cambia de tamano al abrir el chat
   await renderMessages(true);
 }
 
@@ -270,24 +272,37 @@ function resumenAgente(a) {
 // ------------------------------------------------------------ actividad
 
 let actividadDesde = 0;
-let verActividad = false;
+let agenteActividad = null;   // de quien es lo que hay pintado ahora
 
-function claveActividad(id) { return `v4-actividad-${id}`; }
+function pestanaActiva() {
+  const t = document.querySelector('.tab.active');
+  return t ? t.dataset.tab : 'mailbox';
+}
 
 async function refrescarActividad(reiniciar) {
-  if (!verActividad || !selected) return;
-  if (reiniciar) { actividadDesde = 0; $('#actividad').innerHTML = ''; }
+  if (pestanaActiva() !== 'salida') return;
+  const caja = $('#tab-salida');
+  if (!selected) {
+    caja.innerHTML = '<p class="muted" style="font-size:.78rem">Elige un especialista para ver lo que ejecuta.</p>';
+    return;
+  }
+  // Al cambiar de especialista se empieza de cero, o se mezclarian salidas.
+  if (reiniciar || agenteActividad !== selected) {
+    actividadDesde = 0;
+    agenteActividad = selected;
+    caja.innerHTML = '';
+  }
   try {
     const { actividad } = await api(`/api/agents/${selected}/activity?desde=${actividadDesde}`);
     if (!actividad.length) {
-      if (!$('#actividad').children.length) {
-        $('#actividad').innerHTML = '<div class="vacia">Sin actividad registrada todavia. Aparecera aqui en cuanto el especialista use una herramienta.</div>';
+      if (!caja.children.length) {
+        caja.innerHTML = '<div class="vacia">Sin salida todavia. Aparecera aqui en cuanto el especialista use una herramienta.</div>';
       }
       return;
     }
-    const vacia = $('#actividad').querySelector('.vacia');
+    const vacia = caja.querySelector('.vacia');
     if (vacia) vacia.remove();
-    const abajo = $('#actividad').scrollHeight - $('#actividad').scrollTop - $('#actividad').clientHeight < 40;
+    const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
     for (const a of actividad) {
       actividadDesde = Math.max(actividadDesde, a.id);
       const el = document.createElement('div');
@@ -300,18 +315,11 @@ async function refrescarActividad(reiniciar) {
         res.classList.toggle('abierto');
         res.textContent = res.classList.contains('abierto') ? (a.detalle || a.resumen || '') : (a.resumen || '');
       };
-      $('#actividad').appendChild(el);
+      caja.appendChild(el);
     }
-    if (abajo) $('#actividad').scrollTop = $('#actividad').scrollHeight;
+    if (abajo) caja.scrollTop = caja.scrollHeight;
   } catch { /* se reintenta en el siguiente ciclo */ }
 }
-
-$('#ver-actividad').addEventListener('change', (e) => {
-  verActividad = e.target.checked;
-  $('#actividad').hidden = !verActividad;
-  if (selected) localStorage.setItem(claveActividad(selected), verActividad ? '1' : '0');
-  if (verActividad) refrescarActividad(true);
-});
 
 function roleLabel(m) {
   if (m.role === 'user') return 'tu';
@@ -360,7 +368,8 @@ async function renderMessages(force) {
 }
 
 async function renderPanel() {
-  const active = document.querySelector('.tab.active').dataset.tab;
+  const active = pestanaActiva();
+  if (active === 'salida') return refrescarActividad(false);
 
   if (active === 'mailbox') {
     const { mailbox } = await api('/api/mailbox?limit=60');
@@ -398,7 +407,7 @@ document.querySelectorAll('.tab').forEach((t) => {
   t.onclick = () => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
     t.classList.add('active');
-    ['mailbox', 'claims', 'activity'].forEach((n) => { $(`#tab-${n}`).hidden = n !== t.dataset.tab; });
+    ['mailbox', 'salida', 'claims', 'activity'].forEach((n) => { $(`#tab-${n}`).hidden = n !== t.dataset.tab; });
     renderPanel();
   };
 });
@@ -765,6 +774,138 @@ async function vigilarProveedor() {
 
 // Renombrar la instalacion desde la propia barra: con varios servidores,
 // saber en cual estas no deberia exigir editar un archivo por SSH.
+// ------------------------------------------------------------- fondo matrix
+
+/**
+ * Lluvia de caracteres detras de la conversacion. Suave a proposito: si pelea
+ * con el texto deja de ser ambiente y pasa a estorbar.
+ *
+ * Se detiene cuando la pestana no se ve, porque una animacion continua gasta
+ * bateria sin que nadie la mire.
+ */
+const MATRIZ = (() => {
+  const letras = 'アイウエオカキクケコサシスセソタチツテトナニヌネノ01'.split('');
+  let cv, ctx, cols = [], ancho = 0, alto = 0, timer = null, encendido = true;
+
+  function medir() {
+    if (!cv) return;
+    const r = cv.getBoundingClientRect();
+    ancho = cv.width = Math.max(1, Math.floor(r.width));
+    alto = cv.height = Math.max(1, Math.floor(r.height));
+    const paso = 16;
+    cols = new Array(Math.ceil(ancho / paso)).fill(0).map(() => Math.random() * -alto);
+  }
+
+  function pintar() {
+    if (!ctx) return;
+    // Un velo oscuro en vez de borrar: deja la estela que da la sensacion de caida.
+    ctx.fillStyle = 'rgba(8,10,13,0.08)';
+    ctx.fillRect(0, 0, ancho, alto);
+    ctx.font = '13px ui-monospace, monospace';
+    for (let i = 0; i < cols.length; i++) {
+      const x = i * 16;
+      const y = cols[i];
+      ctx.fillStyle = Math.random() < 0.015 ? '#9ff5cf' : '#2bd4a0';
+      ctx.fillText(letras[Math.floor(Math.random() * letras.length)], x, y);
+      cols[i] = y > alto + Math.random() * 400 ? 0 : y + 16;
+    }
+  }
+
+  function arrancar() {
+    if (timer || !encendido || document.hidden) return;
+    timer = setInterval(pintar, 110);
+  }
+  function parar() { clearInterval(timer); timer = null; }
+
+  return {
+    iniciar() {
+      cv = document.getElementById('matrix');
+      if (!cv) return;
+      ctx = cv.getContext('2d');
+      medir();
+      window.addEventListener('resize', () => { medir(); });
+      document.addEventListener('visibilitychange', () => (document.hidden ? parar() : arrancar()));
+      encendido = localStorage.getItem('v4-matrix') !== '0';
+      const casilla = document.getElementById('matrix-on');
+      if (casilla) {
+        casilla.checked = encendido;
+        casilla.addEventListener('change', (e) => {
+          encendido = e.target.checked;
+          localStorage.setItem('v4-matrix', encendido ? '1' : '0');
+          cv.style.display = encendido ? '' : 'none';
+          encendido ? arrancar() : parar();
+        });
+      }
+      cv.style.display = encendido ? '' : 'none';
+      arrancar();
+    },
+    remedir: medir
+  };
+})();
+
+// ------------------------------------------------- exportar e importar
+
+$('#exportar').onclick = async () => {
+  try {
+    const datos = await api('/api/export');
+    const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const sello = new Date().toISOString().slice(0, 10);
+    a.download = `equipo-${(datos.instalacion || 'v4').replace(/[^\w.-]+/g, '-')}-${sello}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  } catch (e) { alert(`No se pudo exportar: ${e.message}`); }
+};
+
+$('#importar').onclick = () => $('#importar-archivo').click();
+
+$('#importar-archivo').onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+
+  let datos;
+  try { datos = JSON.parse(await file.text()); }
+  catch { return alert('Ese archivo no es un JSON valido.'); }
+
+  try {
+    // Primero un ensayo: nada se toca hasta que tu lo confirmes.
+    const previa = await api('/api/import', { method: 'POST', body: JSON.stringify({ ...datos, dryRun: true }) });
+
+    const lineas = [];
+    lineas.push(`Nuevos: ${previa.nuevos.length}${previa.nuevos.length ? ` (${previa.nuevos.slice(0, 6).join(', ')}${previa.nuevos.length > 6 ? '…' : ''})` : ''}`);
+    lineas.push(`Ya existen: ${previa.existentes.length}`);
+    if (previa.invalidos.length) lineas.push(`Descartados por incompletos: ${previa.invalidos.join(', ')}`);
+
+    const rutaOrigen = previa.proyecto_origen && previa.proyecto_origen.ruta;
+    const rutaActual = previa.proyecto_actual && previa.proyecto_actual.ruta;
+    if (rutaOrigen && rutaActual && rutaOrigen !== rutaActual) {
+      lineas.push('');
+      lineas.push('AVISO: el equipo venia de un proyecto en');
+      lineas.push(`  ${rutaOrigen}`);
+      lineas.push('y aqui el proyecto esta en');
+      lineas.push(`  ${rutaActual}`);
+      lineas.push('Sus instrucciones apuntaran a rutas que no existen hasta que las revises.');
+    }
+
+    let modo = 'saltar';
+    if (previa.existentes.length) {
+      modo = confirm(`${lineas.join('\n')}\n\n¿Actualizar tambien los ${previa.existentes.length} que ya existen?\n\nAceptar = actualizarlos · Cancelar = dejarlos como estan`)
+        ? 'actualizar' : 'saltar';
+    } else if (!confirm(`${lineas.join('\n')}\n\n¿Importar?`)) {
+      return;
+    }
+
+    const out = await api('/api/import', { method: 'POST', body: JSON.stringify({ ...datos, modo, dryRun: false }) });
+    await refreshAll();
+    alert(`Importado.\n\nCreados: ${out.creados.length}\nActualizados: ${out.actualizados.length}\nSin tocar: ${out.saltados.length}` +
+      (out.invalidos.length ? `\nDescartados: ${out.invalidos.length}` : ''));
+  } catch (err) {
+    alert(`No se pudo importar: ${err.message}`);
+  }
+};
+
 $('#app-nombre').onclick = () => {
   const campo = $('#app-nombre-edit');
   campo.value = NOMBRE_APP;
@@ -845,9 +986,8 @@ $('#eliminar').onclick = async () => {
       $('#chat-name').textContent = 'Selecciona un especialista';
       $('#chat-area').textContent = '';
       $('#chat-face').innerHTML = '';
-      ['send-form', 'edit-agent', 'reset-session', 'compactar', 'parar', 'ver-actividad-caja']
+      ['send-form', 'edit-agent', 'reset-session', 'compactar', 'parar']
         .forEach((id) => { const el = $(`#${id}`); if (el) el.hidden = true; });
-      $('#actividad').hidden = true;
     }
     editing = null;
     $('#agent-dialog').close();

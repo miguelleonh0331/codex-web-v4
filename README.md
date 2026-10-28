@@ -237,15 +237,37 @@ como `passwd` dentro del workspace y no fuera. El tope por archivo es `maxUpload
 Aviso: los especialistas corren con permisos reales sobre el servidor. Lo que subas, el
 agente puede leerlo y usarlo.
 
+## Llevarse el equipo a otro servidor
+
+En la barra lateral, **Exportar** descarga un JSON con todos los especialistas: nombre,
+area, instrucciones, modelo, esfuerzo, avatar y color. **Importar** lo carga en otra
+instalacion.
+
+No se exportan conversaciones, sesiones ni credenciales: son de esa maquina y de esa
+cuenta, y llevarselas no serviria de nada ademas de convertir el archivo en algo
+delicado de guardar. Lo que viaja es el equipo, no su historial.
+
+Al importar nunca se toca nada sin confirmar: primero se muestra cuantos son nuevos,
+cuantos ya existen y cuales se descartan por incompletos. Los repetidos se saltan por
+defecto, o se actualizan si lo eliges; nunca se duplican.
+
+El archivo guarda de que proyecto venia, asi que si lo llevas a un servidor donde el
+codigo esta en otra ruta, la importacion te avisa de que las instrucciones apuntaran a
+sitios que no existen hasta que las revises.
+
+Sirve tambien de copia de seguridad del equipo.
+
 ## Ver lo que esta haciendo
 
-La cabecera del chat tiene una casilla **Ver actividad**. Al encenderla aparece una tira
-en vivo con cada herramienta que usa el especialista: `ejecuta: wc -l CONTRACT.md`,
-`lee: Dialer.php`, `escribe a: Consultas`. Pulsando una linea se despliega el argumento
-completo.
+El panel de la derecha tiene una pestana **Salida** con lo que ejecuta el especialista
+que estas mirando: `ejecuta: wc -l CONTRACT.md`, `lee: Dialer.php`, `escribe a:
+Consultas`. Pulsando una linea se despliega el argumento completo.
 
-Sale apagada por defecto y se recuerda por especialista, porque ahi se ven rutas y
-comandos reales: es justo lo util, y tambien lo que no conviene tener siempre a la vista.
+Antes vivia debajo de la conversacion y le robaba alto justo cuando mas falta hacia.
+En el panel tiene columna propia y el chat no se mueve.
+
+La pestana **Sistema**, al lado, es otra cosa: eventos de todo el equipo (turnos, correo,
+reservas), no lo que teclea un especialista.
 
 Se guardan los ultimos 200 eventos por agente y los viejos se podan solos: un turno
 largo son cientos de llamadas y la base no debe crecer sin freno.
@@ -321,6 +343,18 @@ al 70% mientras otro esta al 3%. Por eso no hay una barra global.
 La ventana se toma del modelo real que uso en el ultimo turno, no de una constante: un
 `opus[1m]` y un `sonnet` no miden igual. Con eso, **Reiniciar contexto** deja de ser una
 corazonada.
+
+## Aspecto
+
+La zona de conversacion se ve como una terminal: tipografia monoespaciada, mensajes como
+lineas de consola con su marca de color en el margen en vez de burbujas, y el cuadro de
+escritura con aire de linea de comandos. La barra lateral y el panel derecho se quedan
+como estaban.
+
+Detras de la conversacion cae una lluvia de caracteres, deliberadamente tenue: si pelea
+con el texto deja de ser ambiente y pasa a estorbar. Se apaga desde la casilla **Fondo
+matrix**, se detiene sola cuando la pestana no se ve, y no se dibuja si el sistema pide
+menos animacion.
 
 ## Como colaboran
 

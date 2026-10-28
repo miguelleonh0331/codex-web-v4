@@ -42,6 +42,11 @@
     </header>
     <button id="new-agent" class="primary">+ Nuevo especialista</button>
     <button id="ask-team">📣 Preguntar a todo el equipo</button>
+    <div class="fila-botones">
+      <button id="exportar" title="Descargar la configuracion del equipo">⇩ Exportar</button>
+      <button id="importar" title="Cargar un equipo desde un archivo">⇧ Importar</button>
+      <input type="file" id="importar-archivo" accept=".json,application/json" hidden>
+    </div>
     <button id="btn-proveedor">🔌 <span id="proveedor-etiqueta">Claudio</span>
       <small id="proveedor-uso" class="uso-mini"></small></button>
     <nav id="agent-list" class="agents"></nav>
@@ -49,6 +54,9 @@
       <span id="status-line">·</span>
       <label class="check" id="sonido-caja" title="Sonido al terminar un trabajo">
         <input type="checkbox" id="sonido" checked> <span id="sonido-icono">🔔</span> Avisos
+      </label>
+      <label class="check" title="Lluvia de caracteres detras de la conversacion">
+        <input type="checkbox" id="matrix-on" checked> Fondo matrix
       </label>
     </footer>
   </aside>
@@ -64,17 +72,14 @@
         </div>
       </div>
       <div class="chat-actions">
-        <label id="ver-actividad-caja" class="check" hidden>
-          <input type="checkbox" id="ver-actividad"> Ver actividad
-        </label>
         <button id="parar" class="peligro" hidden>⏹ Parar</button>
         <button id="edit-agent" hidden>Instrucciones</button>
         <button id="compactar" hidden title="Resume la conversacion y libera contexto, conservando lo importante">Compactar</button>
         <button id="reset-session" hidden>Reiniciar contexto</button>
       </div>
     </header>
+    <canvas id="matrix" class="matrix" aria-hidden="true"></canvas>
     <div id="messages" class="messages"></div>
-    <div id="actividad" class="actividad" hidden></div>
     <form id="send-form" class="composer" hidden>
       <div class="composer-cuerpo">
         <div id="adjuntos-pendientes" class="adjuntos" hidden></div>
@@ -94,10 +99,12 @@
   <aside class="panel">
     <div class="tabs">
       <button class="tab active" data-tab="mailbox">Entre agentes</button>
+      <button class="tab" data-tab="salida">Salida</button>
       <button class="tab" data-tab="claims">Reservas</button>
-      <button class="tab" data-tab="activity">Actividad</button>
+      <button class="tab" data-tab="activity">Sistema</button>
     </div>
     <div id="tab-mailbox" class="tab-body"></div>
+    <div id="tab-salida" class="tab-body" hidden></div>
     <div id="tab-claims" class="tab-body" hidden></div>
     <div id="tab-activity" class="tab-body" hidden></div>
   </aside>

@@ -523,3 +523,52 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 #app-nombre{cursor:pointer;border-bottom:1px dotted transparent}
 #app-nombre:hover{border-bottom-color:var(--muted)}
 #app-nombre-edit{font:inherit;font-weight:700;padding:.1rem .3rem;width:100%}
+
+/* la salida vive ahora en el panel derecho */
+#tab-salida{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.74rem;
+  background:#0c0e13;gap:0}
+#tab-salida .act{display:flex;gap:.45rem;padding:.2rem 0;align-items:baseline;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+#tab-salida .hora{color:var(--muted);font-size:.66rem;flex:0 0 auto}
+#tab-salida .herr{color:var(--accent2);flex:0 0 auto}
+#tab-salida .res{color:var(--fg);opacity:.85;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;flex:1;cursor:pointer}
+#tab-salida .res.abierto{white-space:pre-wrap;opacity:1}
+#tab-salida .vacia{color:var(--muted);padding:.4rem 0}
+
+.fila-botones{display:flex;gap:.4rem}
+.fila-botones button{flex:1;font-size:.76rem;padding:.4rem .3rem}
+
+/* ===================================================== centro: terminal */
+.chat{position:relative;background:#080a0d}
+.matrix{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:.14}
+.chat-head,.messages,.composer{position:relative;z-index:1}
+
+.chat-head{background:rgba(10,13,17,.92);border-bottom:1px solid #1d2a22}
+.messages{font-family:ui-monospace,SFMono-Regular,Menlo,"Cascadia Mono",monospace;
+  background:transparent;gap:.55rem}
+
+/* los mensajes dejan de ser burbujas y pasan a ser lineas de consola */
+.messages .msg{max-width:100%;border:none;background:transparent;border-radius:0;
+  padding:.15rem 0 .15rem .9rem;border-left:2px solid transparent;font-size:.86rem;line-height:1.5}
+.messages .msg .who{text-transform:none;letter-spacing:0;font-size:.7rem;opacity:.75}
+
+.messages .msg.user{align-self:stretch;background:transparent;border-left-color:#2bd4a0}
+.messages .msg.user .cuerpo-msg::before,.messages .msg.user::before{
+  content:"❯ ";color:#2bd4a0;font-weight:700}
+.messages .msg.assistant{border-left-color:#3d6ea8}
+.messages .msg.peer{border-left-color:var(--peer);background:transparent}
+.messages .msg.system{align-self:stretch;border-left-color:var(--warn);background:rgba(255,176,32,.05)}
+
+.messages .msg a{color:#6fe3b0}
+.messages .msg .bloque{background:rgba(0,0,0,.55);border-color:#1d2a22}
+.messages .msg .ruta{color:#8fd6b4;border-bottom-color:#3b5e4e}
+
+/* el cuadro de escritura, como una linea de comandos */
+.composer{background:rgba(10,13,17,.94);border-top:1px solid #1d2a22}
+.composer textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#05070a;
+  border-color:#1d2a22;border-radius:4px}
+.composer textarea:focus{border-color:#2bd4a0;box-shadow:0 0 0 1px rgba(43,212,160,.25)}
+.composer button[type=submit]{border-radius:4px}
+
+@media (prefers-reduced-motion:reduce){.matrix{display:none}}
