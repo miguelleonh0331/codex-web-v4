@@ -782,13 +782,13 @@ function formatearCuerpo(texto) {
   const partes = String(texto == null ? '' : texto).split(/```/);
   return partes.map((parte, i) => {
     if (i % 2 === 1) {
-      // bloque de codigo: la primera linea puede ser el lenguaje
-      const lineas = parte.replace(/^\n/, '').split('\n');
-      // Solo es lenguaje si despues queda codigo: un bloque de una sola linea
-      // como ```hola``` es contenido, no una etiqueta.
-      const posible = (lineas[0] || '').trim();
-      const idioma = (/^[a-z0-9_+-]{1,15}$/i.test(posible) && lineas.slice(1).join('\n').trim() !== '')
-        ? lineas.shift().trim() : '';
+      // El lenguaje va pegado a la apertura (```bash), asi que solo existe si
+      // el bloque NO empieza por salto de linea. Si empieza por salto, la
+      // primera linea ya es codigo aunque parezca el nombre de un lenguaje.
+      const lineas = parte.split('\n');
+      const idioma = (!parte.startsWith('\n') && /^[a-z0-9_+-]{1,15}$/i.test((lineas[0] || '').trim()))
+        ? lineas.shift().trim()
+        : (lineas.shift(), '');
       const codigo = lineas.join('\n').replace(/\n+$/, '');
       return `<div class="bloque">
         <div class="bloque-cab">${escapeHtml(idioma || 'texto')}
