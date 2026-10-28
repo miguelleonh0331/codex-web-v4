@@ -77,6 +77,19 @@ function check(nombre, condicion, detalle) {
     (await req('/api/agents', { method: 'POST', body: { name: `ST-Gamma-${sufijo}` } })).status === 400);
   check('crea el workspace en disco', fs.existsSync(a1.data.workspace));
 
+  // --- parada de un especialista ---
+  const parada = await req(`/api/agents/${A}/stop`, { method: 'POST' });
+  check('se puede detener a un especialista',
+    parada.status === 200 && parada.data.ok === true &&
+    typeof parada.data.en_curso === 'number' && typeof parada.data.en_cola === 'number',
+    JSON.stringify(parada.data));
+
+  check('parar a quien no existe da 404',
+    (await req('/api/agents/agent-inexistente/stop', { method: 'POST' })).status === 404);
+
+  const indexParar = await (await fetch((await base()) + '/')).text();
+  check('la interfaz tiene boton de parar', /id="parar"/.test(indexParar));
+
   // --- actividad en vivo y contexto ---
   const actv = await req(`/api/agents/${A}/activity`);
   check('publica la actividad del especialista', actv.status === 200 && Array.isArray(actv.data.actividad));

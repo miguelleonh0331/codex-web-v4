@@ -451,3 +451,7 @@ select:focus{outline:none;border-color:var(--accent)}
 .ctx i{display:block;height:100%;background:var(--accent);border-radius:2px;transition:width .5s ease}
 .ctx.medio i{background:var(--warn)}
 .ctx.alto i{background:var(--err)}
+
+button.peligro{border-color:var(--err);color:var(--err)}
+button.peligro:hover{background:rgba(255,107,107,.12);border-color:var(--err)}
+.msg.system{border-color:var(--warn)}

@@ -466,6 +466,14 @@ async function api(req, res, url) {
     }
   }
 
+  mm = p.match(/^\/api\/agents\/([^/]+)\/stop$/);
+  if (mm && m === 'POST') {
+    const id = decodeURIComponent(mm[1]);
+    const a = store.getAgent(id);
+    if (!a) return json(res, 404, { error: 'agente no encontrado' });
+    return json(res, 200, { ok: true, ...orq.detener(id) });
+  }
+
   mm = p.match(/^\/api\/agents\/([^/]+)\/activity$/);
   if (mm && m === 'GET') {
     const id = decodeURIComponent(mm[1]);

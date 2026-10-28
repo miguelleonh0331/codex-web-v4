@@ -237,6 +237,16 @@ comandos reales: es justo lo util, y tambien lo que no conviene tener siempre a 
 Se guardan los ultimos 200 eventos por agente y los viejos se podan solos: un turno
 largo son cientos de llamadas y la base no debe crecer sin freno.
 
+## Parar a un especialista
+
+Mientras trabaja, la cabecera del chat muestra **⏹ Parar**. Corta el turno en marcha y
+descarta lo que tuviera en cola, y te dice exactamente que paro. El turno queda como
+`cancelado`, no como error: no fue un fallo del especialista.
+
+Se le pide al proceso que termine por las buenas y, si no obedece en cuatro segundos, se
+fuerza. El especialista queda en reposo y listo para el siguiente mensaje, con su
+conversacion intacta.
+
 ## Cuanto contexto lleva cada uno
 
 Cada especialista tiene su propia sesion, asi que el contexto es **suyo**: uno puede ir

@@ -98,7 +98,7 @@ function writeMcpConfig(cfg, agent, { chainId, hop }) {
 /**
  * Ejecuta un turno del agente. Devuelve { ok, text, sessionId, cost, numTurns, raw, error }.
  */
-function runTurn(cfg, agent, turn, log, onEvento) {
+function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
   return new Promise((resolve) => {
     if (!cfg.claudeBin) {
       return resolve({ ok: false, error: 'No se encontro el binario de Claude Code (config.claudeBin).' });
@@ -131,6 +131,8 @@ function runTurn(cfg, agent, turn, log, onEvento) {
     };
 
     const child = spawn(cfg.claudeBin, args, { cwd: agent.workspace, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    // El orquestador necesita el proceso para poder pararlo a peticion del usuario.
+    if (onProceso) { try { onProceso(child); } catch { /* no debe impedir el turno */ } }
 
     let stdout = '';
     let stderr = '';

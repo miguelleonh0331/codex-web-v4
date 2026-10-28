@@ -95,6 +95,7 @@ async function refreshAll() {
       if (act) {
         $('#chat-face').innerHTML = avatar(act, 42);
         $('#chat-area').textContent = resumenAgente(act);
+        $('#parar').hidden = act.status !== 'working';
       }
       await renderMessages();
     }
@@ -159,6 +160,7 @@ async function selectAgent(id) {
   $('#edit-agent').hidden = false;
   $('#reset-session').hidden = false;
   $('#ver-actividad-caja').hidden = false;
+  $('#parar').hidden = !a || a.status !== 'working';
   verActividad = localStorage.getItem(claveActividad(id)) === '1';
   $('#ver-actividad').checked = verActividad;
   $('#actividad').hidden = !verActividad;
@@ -588,6 +590,23 @@ if ($('#broadcast-form')) $('#broadcast-form').addEventListener('submit', async 
 });
 $('#edit-agent').onclick = () => openDialog(agents.find((a) => a.id === selected));
 $('#dialog-cancel').onclick = () => $('#agent-dialog').close();
+
+$('#parar').onclick = async () => {
+  if (!selected) return;
+  const b = $('#parar');
+  b.disabled = true;
+  try {
+    const out = await api(`/api/agents/${selected}/stop`, { method: 'POST' });
+    const partes = [];
+    if (out.en_curso) partes.push(`${out.en_curso} turno en marcha`);
+    if (out.en_cola) partes.push(`${out.en_cola} en cola`);
+    if (!partes.length) partes.push('no habia nada que parar');
+    $('#chat-area').textContent = `detenido: ${partes.join(' y ')}`;
+    await refreshAll();
+    await renderMessages(true);
+  } catch (e) { alert(`No se pudo parar: ${e.message}`); }
+  b.disabled = false;
+};
 
 $('#reset-session').onclick = async () => {
   if (!selected) return;

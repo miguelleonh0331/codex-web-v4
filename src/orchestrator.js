@@ -50,6 +50,8 @@ class Orchestrator {
     this.timer = null;
     this.active = new Map();   // turnId -> agentId
     this.reintentados = new Set();   // turnos que ya se reintentaron tras recuperar la sesion
+    this.procesos = new Map();       // turnId -> proceso en marcha, para poder pararlo
+    this.cancelados = new Set();     // turnos parados a mano: su error no es un fallo
     this.stopping = false;
   }
 
@@ -185,6 +187,35 @@ class Orchestrator {
     }
   }
 
+  /**
+   * Para lo que el especialista este haciendo y vacia su cola.
+   * Devuelve que se paro, para poder decirselo al usuario con precision.
+   */
+  detener(agentId) {
+    let parado = 0;
+    for (const [turnId, agente] of this.active) {
+      if (agente !== agentId) continue;
+      this.cancelados.add(turnId);
+      const proc = this.procesos.get(turnId);
+      if (proc) {
+        try { proc.kill('SIGTERM'); } catch { /* ya murio */ }
+        // Si no se va por las buenas, se fuerza.
+        setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* ya murio */ } }, 4000).unref();
+      }
+      parado += 1;
+    }
+
+    const enCola = this.store.db
+      .prepare("SELECT id FROM turns WHERE agent_id = ? AND status = 'pending'").all(agentId);
+    for (const t of enCola) {
+      this.store.finishTurn(t.id, { status: 'cancelado', error: 'descartado al detener al especialista' });
+    }
+    if (!parado && !enCola.length) this.store.updateAgent(agentId, { status: 'idle' });
+
+    this.store.event('agente.detenido', agentId, { en_curso: parado, en_cola: enCola.length });
+    return { en_curso: parado, en_cola: enCola.length };
+  }
+
   async execute(turn, agent) {
     this.active.set(turn.id, turn.agent_id);
     this.store.markTurnRunning(turn.id);
@@ -194,12 +225,27 @@ class Orchestrator {
     const log = path.join(this.cfg.logsDir, `${agent.id}.log`);
     let out;
     try {
-      out = await runTurn(this.cfg, agent, turn, log, (ev) => this.alVuelo(agent, turn, ev));
+      out = await runTurn(
+        this.cfg, agent, turn, log,
+        (ev) => this.alVuelo(agent, turn, ev),
+        (proc) => this.procesos.set(turn.id, proc)
+      );
     } catch (err) {
       out = { ok: false, error: err.message };
     }
 
     this.active.delete(turn.id);
+    this.procesos.delete(turn.id);
+
+    // Si lo paro el usuario, no es un error del especialista: se cuenta como tal.
+    if (this.cancelados.has(turn.id)) {
+      this.cancelados.delete(turn.id);
+      this.store.addMessage(agent.id, 'system', 'Turno detenido por el usuario.', { turn_id: turn.id });
+      this.store.finishTurn(turn.id, { status: 'cancelado', error: 'detenido por el usuario' });
+      this.store.event('turn.cancelado', agent.id, { turn_id: turn.id });
+      this.store.updateAgent(agent.id, { status: 'idle' });
+      return;
+    }
 
     // Una sesion caducada no es culpa del turno: se recupera y se reintenta una vez.
     if (!out.ok && /oauth|authenticate|session expired|not logged in/i.test(out.error || '') && !this.reintentados.has(turn.id)) {
