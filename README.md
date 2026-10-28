@@ -94,7 +94,12 @@ dato no se inventa ni se estima: llega del propio CLI en sus avisos `rate_limit_
 mientras los especialistas trabajan, y por eso el porcentaje solo aparece cuando te
 acercas al limite, que es cuando Claude lo manda.
 
-La barra lateral lleva un resumen permanente bajo el boton de proveedor.
+La barra lateral lleva bajo el boton el tiempo que falta para el proximo reinicio, a
+secas: poner "5h" al lado de "3 h 24 min" se leia como dos tiempos distintos. Que
+ventana es se ve al pasar por encima o al abrir el proveedor.
+
+El boton muestra el **nombre del proveedor**, no la cuenta. El correo solo aparece
+dentro, al pulsarlo.
 
 Un detalle que importa: el exito no se da por supuesto. Se comprueba que el
 archivo de credenciales **cambio de verdad**, porque preguntar solo "hay sesion"

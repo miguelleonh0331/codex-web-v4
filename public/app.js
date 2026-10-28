@@ -542,12 +542,18 @@ function pintarLimites() {
 function pintarUsoMini() {
   const mini = $('#proveedor-uso');
   if (!mini) return;
-  const cinco = LIMITES.datos.find((l) => l.tipo === 'five_hour');
-  const semana = LIMITES.datos.find((l) => String(l.tipo).startsWith('seven_day'));
-  const trozos = [];
-  if (cinco) trozos.push(`5h ${cinco.usado_pct !== null ? cinco.usado_pct + '% · ' : ''}${formatoReloj(restante(cinco))}`);
-  if (semana) trozos.push(`7d ${semana.usado_pct !== null ? semana.usado_pct + '% · ' : ''}${formatoReloj(restante(semana))}`);
-  mini.textContent = trozos.join('  ·  ');
+  if (!LIMITES.datos.length) { mini.textContent = ''; return; }
+
+  // Solo el tiempo que queda: poner "5h" junto a "3 h 26 min" se leia como dos
+  // tiempos distintos. Que ventana es se ve al abrir el proveedor.
+  const proxima = LIMITES.datos
+    .filter((l) => restante(l) !== null)
+    .sort((a, b) => restante(a) - restante(b))[0];
+  if (!proxima) { mini.textContent = ''; return; }
+
+  const pct = proxima.usado_pct;
+  mini.textContent = `${pct !== null ? pct + '% · ' : ''}${formatoReloj(restante(proxima))} para reiniciar`;
+  mini.title = `Ventana de ${proxima.etiqueta}`;
 }
 
 setInterval(() => { pintarUsoMini(); if ($('#proveedor-dialog').open) pintarLimites(); }, 1000);
@@ -565,7 +571,7 @@ async function pintarProveedor() {
     const vigente = p.credenciales && p.credenciales.vigente;
 
     caja.innerHTML = `
-      <div class="fila"><span class="k">Proveedor</span><span>Claude</span></div>
+      <div class="fila"><span class="k">Proveedor</span><span>${NOMBRE_PROVEEDOR}</span></div>
       <div class="fila"><span class="k">Estado</span>
         <span class="${p.conectado && vigente ? 'bien' : 'mal'}">
           ${p.conectado ? (vigente ? 'conectado' : 'sesion caducada') : 'sin sesion'}</span></div>
@@ -578,7 +584,7 @@ async function pintarProveedor() {
     const boton = $('#btn-proveedor');
     const malo = !(p.conectado && vigente);
     boton.classList.toggle('aviso', malo);
-    $('#proveedor-etiqueta').textContent = malo ? 'Proveedor · sin sesion' : `Proveedor · ${p.cuenta || 'conectado'}`;
+    $('#proveedor-etiqueta').textContent = malo ? `${NOMBRE_PROVEEDOR} · sin sesion` : NOMBRE_PROVEEDOR;
     $('#prov-logout').hidden = !p.conectado;
   } catch (e) {
     caja.textContent = `No se pudo consultar el proveedor: ${e.message}`;
@@ -652,7 +658,7 @@ async function vigilarProveedor() {
     pintarUsoMini();
     const malo = !(p.conectado && p.credenciales && p.credenciales.vigente);
     $('#btn-proveedor').classList.toggle('aviso', malo);
-    $('#proveedor-etiqueta').textContent = malo ? 'Proveedor · sin sesion' : `Proveedor · ${p.cuenta || 'conectado'}`;
+    $('#proveedor-etiqueta').textContent = malo ? `${NOMBRE_PROVEEDOR} · sin sesion` : NOMBRE_PROVEEDOR;
   } catch { /* se reintenta */ }
 }
 
@@ -704,6 +710,7 @@ $('#reset-session').onclick = async () => {
   alert('Contexto reiniciado: el proximo mensaje empieza una conversacion nueva.');
 };
 
+const NOMBRE_PROVEEDOR = 'Claudio';   // como se llama de cara al usuario
 const COLORES = ['#5b9dff','#2bd4a0','#b98cff','#ffb020','#ff6b6b','#ff8fc7','#4fd1e8','#9ad14b','#c0893f','#8b93a7'];
 
 function expresionDe(estado) {

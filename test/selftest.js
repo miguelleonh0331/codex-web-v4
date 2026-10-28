@@ -176,6 +176,14 @@ function check(nombre, condicion, detalle) {
   check('la interfaz muestra el uso y su cuenta atras',
     /prov-limites/.test(indexProv) && /proveedor-uso/.test(indexProv));
 
+  const appProv = await (await fetch((await base()) + '/app.js')).text();
+  check('el proveedor se muestra por su nombre, no por el correo',
+    /NOMBRE_PROVEEDOR = 'Claudio'/.test(appProv) &&
+    !/proveedor-etiqueta'\)\.textContent = [^;]*p\.cuenta/.test(appProv),
+    'el correo solo debe verse al abrir el proveedor');
+  check('la cinta de uso no repite la ventana junto al tiempo',
+    !/`5h \$\{/.test(appProv) && /para reiniciar/.test(appProv));
+
   // --- avatar y color por especialista ---
   const conColor = await req(`/api/agents/${a1.data.id}`, { method: 'PATCH', body: { avatarSeed: 'poseidon', avatarColor: '#ff00aa' } });
   check('se puede fijar avatar y color', conColor.data.avatar_seed === 'poseidon' && conColor.data.avatar_color === '#ff00aa',
