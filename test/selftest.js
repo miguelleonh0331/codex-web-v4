@@ -146,9 +146,11 @@ function check(nombre, condicion, detalle) {
   check('cada participante tiene su color y su marca',
     /colorDe\(actual\.avatar_seed/.test(appChat) && /class="quien"/.test(appChat) &&
     /marca = '◆'/.test(appChat), 'sin color no se sigue una conversacion de tres');
+  const cssSinEspacios = (await (await fetch((await base()) + '/style.css')).text()).replace(/\s+/g, '');
   check('los mensajes ya no llevan avatar',
-    !/avatar\(actual, 30/.test(appChat) && /\.messages \.msg \.robot\{display:none\}/.test(
-      (await (await fetch((await base()) + '/style.css')).text()).replace(/\s+/g, '')));
+    !/avatar\(actual,/.test(appChat) && !/avatar\(emisor,/.test(appChat) &&
+    cssSinEspacios.includes('.messages.msg.robot{display:none}'),
+    'el avatar repetido en cada linea rompe la alineacion de una consola');
 
   check('el centro se ve como una terminal',
     /\.messages\{font-family:ui-monospace/.test(cssTerm.replace(/\s+/g, '')) ||
