@@ -89,6 +89,18 @@ function check(nombre, condicion, detalle) {
     /submit[^]{0,400}e\.preventDefault\(\)[^]{0,200}const c = e\.target\.elements/.test(appForm),
     'si falla despues, el dialogo se cierra solo y el cambio se pierde');
 
+  // --- el selector de modelo debe dejar cambiar ---
+  const idxModelo = await (await fetch((await base()) + '/')).text();
+  check('el modelo se elige con un selector, no con una lista que filtra',
+    /<select name="model"/.test(idxModelo) && !/name="model" list=/.test(idxModelo),
+    'un input con datalist filtra por lo ya escrito y bloquea el cambio');
+  check('se puede escribir un modelo que no este en la lista',
+    /id="modelo-otro"/.test(idxModelo));
+
+  const appModelo = await (await fetch((await base()) + '/app.js')).text();
+  check('el selector incluye el modelo ya guardado aunque sea raro',
+    /!sugeridos\.includes\(actual\)/.test(appModelo));
+
   // --- interfaz desactualizada ---
   const salud2 = await req('/api/health', { token: null });
   check('la salud publica la version de interfaz', !!salud2.data.ui);

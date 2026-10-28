@@ -85,13 +85,6 @@ async function refreshAll() {
     }
     if (state.opciones) {
       OPCIONES = state.opciones;
-      const dl = $('#modelos');
-      if (dl && dl.children.length !== OPCIONES.modelos.length) {
-        dl.innerHTML = OPCIONES.modelos.map((m) => `<option value="${escapeHtml(m)}">`).join('');
-      }
-      // No basta con decir "por defecto": hay que decir cual es.
-      const inputModelo = document.querySelector('#agent-form [name=model]');
-      if (inputModelo) inputModelo.placeholder = `por defecto (${OPCIONES.modeloPorDefecto || 'sin fijar'})`;
       const selEsf = document.querySelector('#agent-form [name=effort] option[value=""]');
       if (selEsf) selEsf.textContent = `por defecto (${OPCIONES.esfuerzoPorDefecto || 'el del CLI'})`;
     }
@@ -789,6 +782,39 @@ function montarSelector() {
   }
 }
 
+const OTRO = '__otro__';
+
+/**
+ * Rellena el selector de modelo. Antes era un campo con lista, y una lista
+ * filtra por lo ya escrito: con "sonnet" dentro, el desplegable solo ofrecia
+ * "sonnet" y no habia forma de cambiarlo sin vaciar el campo a mano.
+ */
+function montarModelos(actual) {
+  const sel = $('#sel-modelo');
+  if (!sel) return;
+  const sugeridos = (OPCIONES && OPCIONES.modelos) || ['haiku', 'sonnet', 'opus', 'opusplan', 'fable'];
+  const porDefecto = (OPCIONES && OPCIONES.modeloPorDefecto) || 'sonnet';
+
+  const opciones = [`<option value="">por defecto (${escapeHtml(porDefecto)})</option>`]
+    .concat(sugeridos.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`));
+
+  // Un modelo guardado que no este en la lista tambien debe poder verse.
+  if (actual && !sugeridos.includes(actual)) {
+    opciones.push(`<option value="${escapeHtml(actual)}">${escapeHtml(actual)}</option>`);
+  }
+  opciones.push(`<option value="${OTRO}">otro…</option>`);
+  sel.innerHTML = opciones.join('');
+  sel.value = actual || '';
+
+  const otro = $('#modelo-otro');
+  sel.onchange = () => {
+    const libre = sel.value === OTRO;
+    otro.hidden = !libre;
+    if (libre) { otro.value = ''; otro.focus(); }
+  };
+  otro.hidden = true;
+}
+
 function openDialog(agent) {
   editing = agent || null;
   montarSelector();
@@ -802,7 +828,7 @@ function openDialog(agent) {
   c.name.value = agent ? agent.name : '';
   c.area.value = agent ? (agent.area || '') : '';
   c.instructions.value = agent ? agent.instructions : PLANTILLA;
-  c.model.value = agent ? (agent.model || '') : '';
+  montarModelos(agent ? (agent.model || '') : '');
   c.effort.value = agent ? (agent.effort || '') : '';
   $('#dialog-error').textContent = '';
   $('#agent-dialog').showModal();
@@ -820,7 +846,7 @@ $('#agent-form').addEventListener('submit', async (e) => {
     name: c.name.value.trim(),
     area: c.area.value.trim(),
     instructions: c.instructions.value.trim(),
-    model: c.model.value.trim() || null,
+    model: (c.model.value === OTRO ? c.modelOtro.value.trim() : c.model.value.trim()) || null,
     effort: c.effort.value || null,
     avatarSeed: semillaActual,
     avatarColor: colorActual

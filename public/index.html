@@ -172,8 +172,9 @@
     </label>
     <div class="dos-columnas">
       <label>Modelo
-        <input name="model" list="modelos" placeholder="por defecto" autocomplete="off">
-        <datalist id="modelos"></datalist>
+        <select name="model" id="sel-modelo"></select>
+        <input name="modelOtro" id="modelo-otro" placeholder="nombre completo del modelo"
+               autocomplete="off" hidden>
       </label>
       <label>Esfuerzo
         <select name="effort">
