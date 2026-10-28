@@ -156,6 +156,27 @@ function createAgent(body) {
   return agent;
 }
 
+/**
+ * Menciones del tipo "@Consultas" en un mensaje del usuario.
+ * Se comparan contra los nombres reales, de mas largo a mas corto, para que
+ * "Base de Datos" gane sobre cualquier trozo suyo. Lo que no case con un
+ * especialista se ignora: puede ser un correo o una ruta.
+ */
+function mencionados(texto, exceptoId) {
+  const t = String(texto || '');
+  const nombres = store.listAgents()
+    .filter((a) => a.id !== exceptoId)
+    .sort((a, b) => b.name.length - a.name.length);
+  const vistos = [];
+  for (const a of nombres) {
+    const escapado = a.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(`@${escapado}\\b`, 'i').test(t) && !vistos.some((v) => v.id === a.id)) {
+      vistos.push(a);
+    }
+  }
+  return vistos;
+}
+
 // ---------------------------------------------------------------- correo interno
 
 function queueMail({ from, to, text, chainId, hop }) {
@@ -476,10 +497,19 @@ async function api(req, res, url) {
 
       // Al agente se le pasa la RUTA real: asi abre el archivo con su propia
       // herramienta de lectura en vez de recibir una copia en el texto.
-      const prompt = adjuntos.length
+      let prompt = adjuntos.length
         ? `${text || 'Revisa los archivos adjuntos.'}\n\nArchivos adjuntos (abrelos con tu herramienta de lectura):\n` +
           adjuntos.map((f) => `- ${f.ruta}`).join('\n')
         : text;
+
+      // Una mencion deja de ser una sugerencia: se convierte en instruccion.
+      const menciones = mencionados(text, id);
+      if (menciones.length) {
+        prompt += `\n\nEl usuario ha mencionado a ${menciones.map((x) => `"${x.name}"`).join(', ')}. ` +
+          'Consultales con mcp__v4__send_message antes de responder, enviandole a cada uno su parte concreta. ' +
+          'No supongas lo que diran: espera su respuesta, que te llegara como un mensaje nuevo.';
+        store.event('mencion', id, { a: menciones.map((x) => x.name) });
+      }
 
       const turnId = store.enqueueTurn({ agentId: id, prompt, origin: 'user', chainId: uid('chain'), hop: 0 });
       return json(res, 202, { ok: true, turn_id: turnId });

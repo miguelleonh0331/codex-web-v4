@@ -77,7 +77,10 @@
     <form id="send-form" class="composer" hidden>
       <div class="composer-cuerpo">
         <div id="adjuntos-pendientes" class="adjuntos" hidden></div>
-        <textarea id="send-text" rows="3" placeholder="Escribe una tarea…  Enter envia · Mayus+Enter salta de linea · Ctrl+V pega una captura"></textarea>
+        <div class="caja-escribir">
+          <textarea id="send-text" rows="3" placeholder="Escribe una tarea…  @ para mencionar · Enter envia · Mayus+Enter salta de linea"></textarea>
+          <div id="menciones" class="menciones" hidden></div>
+        </div>
       </div>
       <div class="composer-acciones">
         <button type="button" id="btn-adjuntar" class="icon-btn" title="Adjuntar archivos">📎</button>

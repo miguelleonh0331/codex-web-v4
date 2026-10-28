@@ -405,6 +405,72 @@ document.querySelectorAll('.tab').forEach((t) => {
 
 // ----------------------------------------------------------------- acciones
 
+// ------------------------------------------------------------ menciones
+
+let menOpciones = [];
+let menIndice = 0;
+let menInicio = -1;      // posicion del @ que se esta escribiendo
+
+/** Nombres que el texto menciona de verdad, de mas largo a mas corto. */
+function mencionesEn(texto) {
+  return [...agents]
+    .sort((a, b) => b.name.length - a.name.length)
+    .filter((a) => a.id !== selected &&
+      new RegExp(`@${a.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(texto));
+}
+
+function cerrarMenciones() {
+  $('#menciones').hidden = true;
+  menOpciones = [];
+  menInicio = -1;
+}
+
+function pintarMenciones() {
+  const caja = $('#menciones');
+  if (!menOpciones.length) return cerrarMenciones();
+  caja.innerHTML = menOpciones.map((a, i) => `
+    <div class="op ${i === menIndice ? 'sel' : ''}" data-i="${i}">
+      ${avatar(a, 26, 'normal')}
+      <span><b>${escapeHtml(a.name)}</b><br><span class="a">${escapeHtml(a.area || '')}</span></span>
+    </div>`).join('');
+  caja.hidden = false;
+  caja.querySelectorAll('.op').forEach((el) => {
+    el.onmousedown = (e) => { e.preventDefault(); elegirMencion(Number(el.dataset.i)); };
+  });
+}
+
+function elegirMencion(i) {
+  const a = menOpciones[i];
+  if (!a) return;
+  const ta = $('#send-text');
+  const antes = ta.value.slice(0, menInicio);
+  const despues = ta.value.slice(ta.selectionStart);
+  ta.value = `${antes}@${a.name} ${despues}`;
+  const pos = (antes + '@' + a.name + ' ').length;
+  ta.setSelectionRange(pos, pos);
+  cerrarMenciones();
+  ta.focus();
+}
+
+/** Se dispara al escribir: busca el @ mas cercano antes del cursor. */
+function buscarMencion() {
+  const ta = $('#send-text');
+  const hasta = ta.value.slice(0, ta.selectionStart);
+  const m = hasta.match(/@([^@\n]{0,40})$/);
+  if (!m) return cerrarMenciones();
+
+  menInicio = hasta.length - m[0].length;
+  const filtro = m[1].toLowerCase();
+  menOpciones = agents
+    .filter((a) => a.id !== selected && a.name.toLowerCase().includes(filtro))
+    .slice(0, 8);
+  menIndice = 0;
+  pintarMenciones();
+}
+
+$('#send-text').addEventListener('input', buscarMencion);
+$('#send-text').addEventListener('blur', () => setTimeout(cerrarMenciones, 120));
+
 // ------------------------------------------------------------- adjuntos
 
 let adjuntos = [];   // {nombre, ruta, bytes, url, esImagen}
@@ -479,7 +545,14 @@ $('#send-form').addEventListener('submit', async (e) => {
   if ((!text && !listos.length) || !selected) return;
   if (adjuntos.some((f) => f.subiendo)) return alert('Espera a que terminen de subir los archivos.');
 
+  // Un nombre mal escrito costaria un turno entero para acabar en "no existe".
+  const sueltas = (text.match(/@[\w][\w .-]{0,30}/g) || [])
+    .filter((tok) => !agents.some((a) => tok.toLowerCase().startsWith(`@${a.name.toLowerCase()}`)));
+  if (sueltas.length && !confirm(
+    `No reconozco ${sueltas.map((x) => `"${x.trim()}"`).join(', ')} como especialista.\n\n¿Enviar igualmente?`)) return;
+
   $('#send-text').value = '';
+  cerrarMenciones();
   adjuntos = [];
   pintarAdjuntos();
   await api(`/api/agents/${selected}/messages`, {
@@ -490,6 +563,13 @@ $('#send-form').addEventListener('submit', async (e) => {
 });
 
 $('#send-text').addEventListener('keydown', (e) => {
+  // Con la lista de menciones abierta, las flechas y el Enter son suyos.
+  if (!$('#menciones').hidden && menOpciones.length) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); menIndice = (menIndice + 1) % menOpciones.length; return pintarMenciones(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); menIndice = (menIndice - 1 + menOpciones.length) % menOpciones.length; return pintarMenciones(); }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); return elegirMencion(menIndice); }
+    if (e.key === 'Escape') { e.preventDefault(); return cerrarMenciones(); }
+  }
   if (e.key !== 'Enter') return;
   // Enter envia; Mayus+Enter hace salto de linea. En movil manda el boton:
   // el Enter del teclado virtual es el salto de linea de toda la vida.
@@ -1034,6 +1114,12 @@ function formatearCuerpo(texto) {
 
 /** Sobre texto YA escapado: enlaces, codigo en linea y rutas copiables. */
 function enriquecer(seguro) {
+  const nombres = [...agents].sort((a, b) => b.name.length - a.name.length);
+  for (const a of nombres) {
+    const esc = escapeHtml(a.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    seguro = seguro.replace(new RegExp(`@${esc}\\b`, 'gi'),
+      (hit) => `<span class="mencion">${hit}</span>`);
+  }
   return seguro
     // `codigo en linea` -> copiable de un clic
     .replace(/`([^`\n]{1,200})`/g, (_, c) => `<code class="copiable" title="pulsa para copiar">${c}</code>`)

@@ -156,6 +156,25 @@ function check(nombre, condicion, detalle) {
   check('hay estilo de bloque de codigo, enlace y ruta copiable',
     /\.bloque pre/.test(cssFmt) && /code\.copiable/.test(cssFmt) && /\.msg a\b/.test(cssFmt));
 
+  // --- menciones ---
+  const conMencion = await req(`/api/agents/${A}/messages`, { method: 'POST', body: {
+    text: `Consulta esto con @ST-Beta-${sufijo} antes de responder.` } });
+  check('un mensaje con mencion se acepta', conMencion.status === 202);
+  const evMen = (await req('/api/events')).data.events.find((e) => e.kind === 'mencion');
+  check('la mencion se reconoce y queda registrada',
+    !!evMen && Array.isArray(evMen.data.a) && evMen.data.a.includes(`ST-Beta-${sufijo}`),
+    JSON.stringify(evMen && evMen.data));
+
+  const idxMen = await (await fetch((await base()) + '/')).text();
+  check('el cuadro de escritura tiene lista de menciones', /id="menciones"/.test(idxMen));
+
+  const appMen = await (await fetch((await base()) + '/app.js')).text();
+  check('las menciones se autocompletan y se resaltan',
+    /function buscarMencion/.test(appMen) && /class="mencion"/.test(appMen) &&
+    /ArrowDown/.test(appMen));
+  check('avisa si mencionas a alguien que no existe',
+    /No reconozco \$\{sueltas/.test(appMen));
+
   // --- eliminar especialistas ---
   const temp = await req('/api/agents', { method: 'POST', body: {
     name: `ST-Borrar-${sufijo}`, area: 'prueba', instructions: 'temporal' } });

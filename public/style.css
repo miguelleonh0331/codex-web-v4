@@ -507,3 +507,14 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 .menu-editar{flex-wrap:wrap;align-items:center;gap:.6rem}
 .menu-editar .separa{flex:1}
 #purgar-caja{font-size:.72rem}
+
+/* ------------------------------------------------------------ menciones */
+.caja-escribir{position:relative;flex:1;display:flex;flex-direction:column}
+.menciones{position:absolute;bottom:calc(100% + .35rem);left:0;right:0;max-height:220px;overflow-y:auto;
+  background:var(--bg2);border:1px solid var(--accent);border-radius:var(--radius);z-index:20;
+  box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.menciones .op{display:flex;align-items:center;gap:.55rem;padding:.4rem .6rem;cursor:pointer;font-size:.84rem}
+.menciones .op:hover,.menciones .op.sel{background:var(--bg3)}
+.menciones .op .robot{width:26px;height:26px}
+.menciones .op .a{color:var(--muted);font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg .mencion{color:var(--accent);background:rgba(91,157,255,.14);border-radius:4px;padding:0 .25em;font-weight:600}

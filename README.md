@@ -261,6 +261,21 @@ un gesto del usuario antes de reproducir nada.
 Lo que ya leiste no vuelve a avisar: se guarda por especialista en el navegador, de modo
 que abrir su conversacion lo da por revisado.
 
+## Mencionar a otro especialista
+
+Escribiendo `@` en el cuadro de mensaje se despliega la lista del equipo: flechas para
+elegir, Enter o Tab para insertar. Resuelve bien los nombres compuestos como
+`Base de Datos`, que a mano es facil escribir mal.
+
+Una mencion no es una sugerencia: el servidor la reconoce y anade al mensaje la
+instruccion de consultar a esa persona con `send_message` antes de responder, y de
+esperar su respuesta en vez de suponerla. Las menciones quedan resaltadas en la
+conversacion y registradas como evento.
+
+Si mencionas un nombre que no existe, la interfaz avisa antes de enviar: un nombre mal
+escrito costaria un turno entero para acabar en "no existe ese especialista". Lo que no
+case con nadie se ignora, porque puede ser un correo o una ruta.
+
 ## Eliminar un especialista
 
 En **Instrucciones** hay un boton **Eliminar**. Por defecto lo saca de la lista y
