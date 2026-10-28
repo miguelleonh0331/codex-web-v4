@@ -251,6 +251,15 @@ class Store {
     return this.db.prepare('SELECT * FROM messages WHERE agent_id = ? ORDER BY id ASC LIMIT ?').all(agentId, limit);
   }
 
+  /** Ultimo mensaje de cada agente: con eso la interfaz sabe que hay sin leer. */
+  ultimosMensajes() {
+    return this.db.prepare(`
+      SELECT m.agent_id, m.id, m.role, m.created_at
+      FROM messages m
+      JOIN (SELECT agent_id, MAX(id) AS maximo FROM messages GROUP BY agent_id) u
+        ON u.agent_id = m.agent_id AND u.maximo = m.id`).all();
+  }
+
   // ---------- buzon entre agentes ----------
   queueMail({ fromAgent, toAgent, body, chainId, hop }) {
     const ts = now();

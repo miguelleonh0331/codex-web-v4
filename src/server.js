@@ -333,8 +333,12 @@ async function api(req, res, url) {
   if (!authOk(req, url)) return json(res, 401, { error: 'token invalido' });
 
   if (p === '/api/state' && m === 'GET') {
+    const ultimos = new Map(store.ultimosMensajes().map((u) => [u.agent_id, u]));
     return json(res, 200, {
-      agents: store.listAgents().map(agentPublic),
+      agents: store.listAgents().map((a) => {
+        const u = ultimos.get(a.id);
+        return { ...agentPublic(a), ultimo_mensaje: u ? { id: u.id, rol: u.role, en: u.created_at } : null };
+      }),
       claims: store.listClaims().map((c) => ({ ...c, agent_name: nameOf(c.agent_id) })),
       running: orq.busy,
       pending: store.nextPendingTurns(100).length,

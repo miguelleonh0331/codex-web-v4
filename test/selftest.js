@@ -77,6 +77,22 @@ function check(nombre, condicion, detalle) {
     (await req('/api/agents', { method: 'POST', body: { name: `ST-Gamma-${sufijo}` } })).status === 400);
   check('crea el workspace en disco', fs.existsSync(a1.data.workspace));
 
+  // --- avisos de trabajo terminado ---
+  const est2 = await req('/api/state');
+  const conMsg = est2.data.agents.find((x) => x.ultimo_mensaje);
+  check('el estado dice cual es el ultimo mensaje de cada agente',
+    !!conMsg && typeof conMsg.ultimo_mensaje.id === 'number' && !!conMsg.ultimo_mensaje.rol,
+    JSON.stringify(conMsg && conMsg.ultimo_mensaje));
+
+  const appAviso = await (await fetch((await base()) + '/app.js')).text();
+  check('la interfaz marca lo que falta por revisar',
+    /function tienePendiente/.test(appAviso) && /className = 'aviso'/.test(appAviso) && /localStorage.setItem\(VISTOS/.test(appAviso));
+  check('suena al terminar un trabajo, con interruptor',
+    /function sonar/.test(appAviso) && /AudioContext/.test(appAviso) && /v4-sonido/.test(appAviso));
+
+  const cssAviso = await (await fetch((await base()) + '/style.css')).text();
+  check('el aviso se ve en la fila del especialista', /\.agent \.aviso/.test(cssAviso));
+
   // --- formato de los mensajes ---
   const appTxt = await (await fetch((await base()) + '/app.js')).text();
   check('los mensajes se formatean antes de pintarse',

@@ -56,6 +56,8 @@ async function boot() {
 }
 
 function start() {
+  $('#sonido').checked = sonidoActivo;
+  $('#sonido-icono').textContent = sonidoActivo ? '🔔' : '🔕';
   if ($('#login')) $('#login').hidden = true;
   $('#app').hidden = false;
   if (history.replaceState) history.replaceState({}, '', location.pathname);
@@ -72,6 +74,8 @@ async function refreshAll() {
   try {
     const state = await api('/api/state');
     agents = state.agents;
+    detectarFinales(agents);
+    if (selected) marcarVisto(selected);
     renderAgents();
     $('#status-line').textContent = `${agents.length} especialistas · ${state.running} en ejecucion · ${state.pending} en cola`;
     if (state.project && state.project.name) {
@@ -127,12 +131,87 @@ function cintaTrabajando(a) {
     </span>`;
 }
 
+// ------------------------------------------------------- avisos y sonido
+
+const VISTOS = 'v4-vistos';
+let vistos = {};
+try { vistos = JSON.parse(localStorage.getItem(VISTOS) || '{}'); } catch { vistos = {}; }
+let sonidoActivo = localStorage.getItem('v4-sonido') !== '0';
+let audio = null;
+
+function guardarVistos() { localStorage.setItem(VISTOS, JSON.stringify(vistos)); }
+
+function marcarVisto(id) {
+  const a = agents.find((x) => x.id === id);
+  if (a && a.ultimo_mensaje) { vistos[id] = a.ultimo_mensaje.id; guardarVistos(); }
+}
+
+function tienePendiente(a) {
+  if (!a.ultimo_mensaje) return false;
+  if (a.ultimo_mensaje.rol === 'user') return false;   // lo ultimo lo escribiste tu
+  return a.ultimo_mensaje.id > (vistos[a.id] || 0);
+}
+
+/**
+ * Dos notas cortas, sintetizadas al vuelo: no hace falta ningun archivo de
+ * sonido y por tanto tampoco una descarga ni un permiso extra.
+ */
+function sonar(tipo = 'fin') {
+  if (!sonidoActivo) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+    const notas = tipo === 'error' ? [392, 294] : [660, 880];
+    notas.forEach((hz, i) => {
+      const osc = audio.createOscillator();
+      const vol = audio.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = hz;
+      const t0 = audio.currentTime + i * 0.13;
+      vol.gain.setValueAtTime(0.0001, t0);
+      vol.gain.exponentialRampToValueAtTime(0.16, t0 + 0.02);
+      vol.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
+      osc.connect(vol); vol.connect(audio.destination);
+      osc.start(t0); osc.stop(t0 + 0.3);
+    });
+  } catch { /* si el navegador no deja sonar, el aviso visual sigue */ }
+}
+
+$('#sonido').addEventListener('change', (e) => {
+  sonidoActivo = e.target.checked;
+  localStorage.setItem('v4-sonido', sonidoActivo ? '1' : '0');
+  $('#sonido-icono').textContent = sonidoActivo ? '🔔' : '🔕';
+  if (sonidoActivo) sonar();          // confirma que se oye y desbloquea el audio
+});
+
+/** Compara el estado nuevo con el anterior y avisa de lo que acaba de terminar. */
+let ultimoEstado = new Map();
+function detectarFinales(lista) {
+  let huboFinal = false;
+  let huboError = false;
+  for (const a of lista) {
+    const previo = ultimoEstado.get(a.id);
+    const idUlt = a.ultimo_mensaje ? a.ultimo_mensaje.id : 0;
+    if (previo !== undefined && idUlt > previo.id && a.ultimo_mensaje) {
+      if (a.ultimo_mensaje.rol === 'assistant' || a.ultimo_mensaje.rol === 'peer') huboFinal = true;
+      if (a.ultimo_mensaje.rol === 'system') huboError = true;
+    }
+    ultimoEstado.set(a.id, { id: idUlt, estado: a.status });
+  }
+  if (huboError) sonar('error');
+  else if (huboFinal) sonar('fin');
+
+  const pendientes = lista.filter(tienePendiente).length;
+  document.title = pendientes ? `(${pendientes}) codex-web-v4` : 'codex-web-v4 · especialistas';
+}
+
 function renderAgents() {
   const box = $('#agent-list');
   box.innerHTML = '';
   for (const a of agents) {
     const el = document.createElement('div');
-    el.className = 'agent' + (selected === a.id ? ' sel' : '');
+    const pendiente = tienePendiente(a) && selected !== a.id;
+    el.className = 'agent' + (selected === a.id ? ' sel' : '') + (pendiente ? ' pendiente' : '');
     el.innerHTML = `${avatar(a, 36)}
       <span class="txt">
         <span class="n"><i class="pill ${a.status}"></i>${escapeHtml(a.name)}</span>
@@ -145,6 +224,13 @@ function renderAgents() {
            ${a.model ? `<span class="tag">${escapeHtml(a.model)}</span>` : ''}
            ${a.effort ? `<span class="tag">${escapeHtml(a.effort)}</span>` : ''}</span>` : ''}
       </span>`;
+    if (pendiente) {
+      const b = document.createElement('span');
+      b.className = 'aviso';
+      b.textContent = '!';
+      b.title = 'Hay respuesta sin revisar';
+      el.appendChild(b);
+    }
     el.onclick = () => selectAgent(a.id);
     box.appendChild(el);
   }
@@ -165,6 +251,7 @@ async function selectAgent(id) {
   $('#ver-actividad').checked = verActividad;
   $('#actividad').hidden = !verActividad;
   await refrescarActividad(true);
+  marcarVisto(id);
   renderAgents();
   setView('chat');
   await renderMessages(true);

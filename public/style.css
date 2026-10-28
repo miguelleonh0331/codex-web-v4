@@ -485,3 +485,16 @@ button.copiar-msg{margin-left:auto;font-size:.64rem;padding:.1rem .4rem;border-r
 button.copiar-msg:hover{color:var(--fg);border-color:var(--line);background:var(--bg3)}
 button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opacity:1}
 @media (max-width:900px){button.copiar-msg{opacity:.65}}
+
+/* ------------------------------------------------ avisos sin leer */
+.agent{position:relative}
+.agent .aviso{position:absolute;right:.5rem;top:.5rem;min-width:18px;height:18px;border-radius:9px;
+  background:var(--err);color:#fff;font-size:.66rem;font-weight:700;display:flex;align-items:center;
+  justify-content:center;padding:0 .3rem;box-shadow:0 0 0 2px var(--bg2);animation:pulso-aviso 1.8s ease-in-out infinite}
+.agent.sel .aviso{animation:none}
+@keyframes pulso-aviso{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.14);opacity:.8}}
+.agent.pendiente .n{color:var(--fg)}
+.agent.pendiente{background:rgba(255,107,107,.07)}
+.status{display:flex;flex-direction:column;gap:.45rem;align-items:flex-start}
+#sonido-caja{font-size:.72rem}
+@media (prefers-reduced-motion:reduce){.agent .aviso{animation:none}}

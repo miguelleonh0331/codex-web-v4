@@ -237,6 +237,21 @@ comandos reales: es justo lo util, y tambien lo que no conviene tener siempre a 
 Se guardan los ultimos 200 eventos por agente y los viejos se podan solos: un turno
 largo son cientos de llamadas y la base no debe crecer sin freno.
 
+## Avisos cuando termina un trabajo
+
+Al acabar un turno suena un aviso corto y la fila del especialista queda marcada con
+un **!** rojo que late, ademas de teñirse, hasta que abres su conversacion. El titulo de
+la pestaña lleva la cuenta, asi que lo ves aunque estes en otra ventana.
+
+El sonido distingue el desenlace: dos notas ascendentes si termino bien, dos
+descendentes si acabo en error. Se sintetizan al vuelo, sin ningun archivo de audio, y
+hay un interruptor **Avisos** al pie de la barra lateral que se recuerda entre sesiones.
+Encenderlo suena una vez, lo que de paso desbloquea el audio en navegadores que exigen
+un gesto del usuario antes de reproducir nada.
+
+Lo que ya leiste no vuelve a avisar: se guarda por especialista en el navegador, de modo
+que abrir su conversacion lo da por revisado.
+
 ## Parar a un especialista
 
 Mientras trabaja, la cabecera del chat muestra **⏹ Parar**. Corta el turno en marcha y
