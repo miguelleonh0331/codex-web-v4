@@ -116,6 +116,13 @@ Hay **quince** (`zeus`, `hera`, `atenea`, `hermes`, `apolo`, `ares`, `artemisa`,
 y cualquier otra semilla genera uno propio y estable, de modo que un especialista nuevo
 tiene avatar desde el primer dia.
 
+No se distinguen solo por color: cada uno cambia de **estructura facial**. Hay seis
+sistemas opticos (banda de visor, lentes con aro, ojo unico, matriz de pixeles, antifaz
+de ceja pesada, ojos saltones), seis herrajes de boca (rejilla, altavoz, mandibula,
+barra, colmillos, ninguna), cinco formas de cabeza, cinco tipos de orejas y tono de metal
+propio. Apolo es un ciclope dorado, Ares una matriz roja con colmillos, Hefesto un par de
+ojos saltones tras una rejilla.
+
 Son SVG generados al vuelo y animados por CSS: ni imagenes ni fotogramas. **La expresion
 cuenta lo que esta pasando**: en reposo parpadea y flota; mientras trabaja, la mirada
 sube y tres puntos se encienden por turnos. El generador admite ocho estados (normal,

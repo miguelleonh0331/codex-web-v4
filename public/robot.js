@@ -156,20 +156,75 @@ const CABEZAS = {
   ovalada:  (p, g) => `<ellipse cx="0" cy="-3" rx="40" ry="33" fill="url(#metal-${g})"/>`
 };
 
-const VISORES = {
-  ancho:    (p) => `<rect class="visor" x="-30" y="-20" width="60" height="38" rx="17" fill="${p.visorFondo}"/>
-                    <rect x="-30" y="-20" width="60" height="38" rx="17" fill="none" stroke="${p.oro}" stroke-width="1.6" opacity=".55"/>`,
-  estrecho: (p) => `<rect class="visor" x="-33" y="-14" width="66" height="26" rx="13" fill="${p.visorFondo}"/>
-                    <rect x="-33" y="-14" width="66" height="26" rx="13" fill="none" stroke="${p.oro}" stroke-width="1.6" opacity=".55"/>`,
-  gafas:    (p) => `<rect class="visor" x="-30" y="-16" width="60" height="30" rx="15" fill="${p.visorFondo}" opacity=".55"/>
-                    <circle class="visor" cx="-14" cy="-1" r="15" fill="${p.visorFondo}"/>
-                    <circle class="visor" cx="14" cy="-1" r="15" fill="${p.visorFondo}"/>
-                    <circle cx="-14" cy="-1" r="15" fill="none" stroke="${p.oro}" stroke-width="2"/>
-                    <circle cx="14" cy="-1" r="15" fill="none" stroke="${p.oro}" stroke-width="2"/>`,
-  angular:  (p) => `<path class="visor" d="M-32 -16 L32 -16 L26 16 L-26 16 Z" fill="${p.visorFondo}"/>
-                    <path d="M-32 -16 L32 -16 L26 16 L-26 16 Z" fill="none" stroke="${p.oro}" stroke-width="1.6" opacity=".6"/>`,
-  mascara:  (p) => `<path class="visor" d="M-32 -18 Q0 -24 32 -18 L30 10 Q0 22 -30 10 Z" fill="${p.visorFondo}"/>
-                    <path d="M-32 -18 Q0 -24 32 -18 L30 10 Q0 22 -30 10 Z" fill="none" stroke="${p.oro}" stroke-width="1.6" opacity=".55"/>`
+/**
+ * Sistemas de cara. Cada uno coloca sus propios ojos y su propia boca, de modo
+ * que dos dioses no comparten estructura facial: cambia la optica, no el color.
+ * Devuelve { marco, ojos:{sep,rx,ry}, boca } para que la expresion se adapte.
+ */
+const CARAS = {
+  // banda oscura de lado a lado, con ceja metalica
+  visor: (p) => ({
+    marco: `<rect class="visor" x="-31" y="-19" width="62" height="36" rx="16" fill="${p.visorFondo}"/>
+            <rect x="-31" y="-19" width="62" height="36" rx="16" fill="none" stroke="${p.oro}" stroke-width="1.6" opacity=".55"/>
+            <rect x="-33" y="-24" width="66" height="7" rx="3.5" fill="${p.oroSombra}"/>`,
+    ojos: { sep: 13, rx: 6.5, ry: 7.5, cy: -2 }
+  }),
+
+  // dos lentes circulares con aro metalico, estilo gafas de buzo
+  lentes: (p) => ({
+    marco: `<circle class="visor" cx="-15" cy="-2" r="15" fill="${p.visorFondo}"/>
+            <circle class="visor" cx="15" cy="-2" r="15" fill="${p.visorFondo}"/>
+            <circle cx="-15" cy="-2" r="15" fill="none" stroke="${p.oro}" stroke-width="3.2"/>
+            <circle cx="15" cy="-2" r="15" fill="none" stroke="${p.oro}" stroke-width="3.2"/>
+            <rect x="-5" y="-4" width="10" height="4" rx="2" fill="${p.oroSombra}"/>`,
+    ojos: { sep: 15, rx: 7, ry: 7, cy: -2 }
+  }),
+
+  // un solo ojo grande, centrado
+  ciclope: (p) => ({
+    marco: `<circle class="visor" cx="0" cy="-4" r="19" fill="${p.visorFondo}"/>
+            <circle cx="0" cy="-4" r="19" fill="none" stroke="${p.oro}" stroke-width="3.4"/>
+            <circle cx="0" cy="-4" r="24" fill="none" stroke="${p.oroSombra}" stroke-width="2" opacity=".6"/>`,
+    ojos: { sep: 0, rx: 10, ry: 10, cy: -4, unico: true }
+  }),
+
+  // panel rectangular con ojos de pixeles
+  matriz: (p) => ({
+    marco: `<rect class="visor" x="-30" y="-18" width="60" height="30" rx="5" fill="${p.visorFondo}"/>
+            <rect x="-30" y="-18" width="60" height="30" rx="5" fill="none" stroke="${p.oro}" stroke-width="1.8" opacity=".7"/>
+            ${[-24, -12, 0, 12, 24].map((x) => `<line x1="${x}" y1="-18" x2="${x}" y2="12" stroke="${p.oroSombra}" stroke-width=".6" opacity=".35"/>`).join('')}`,
+    ojos: { sep: 13, rx: 6, ry: 6, cy: -3, cuadrado: true }
+  }),
+
+  // ceja pesada y ojos hundidos
+  antifaz: (p) => ({
+    marco: `<path class="visor" d="M-34 -16 Q0 -22 34 -16 L30 6 Q0 14 -30 6 Z" fill="${p.visorFondo}"/>
+            <path d="M-36 -22 Q0 -30 36 -22 L34 -14 Q0 -21 -34 -14 Z" fill="${p.oroSombra}"/>`,
+    ojos: { sep: 14, rx: 6.5, ry: 5, cy: -3 }
+  }),
+
+  // cara de metal con ojos saltones montados encima
+  saltones: (p) => ({
+    marco: `<circle cx="-16" cy="-4" r="13" fill="${p.metalSombra}"/>
+            <circle cx="16" cy="-4" r="13" fill="${p.metalSombra}"/>
+            <circle class="visor" cx="-16" cy="-4" r="10" fill="${p.visorFondo}"/>
+            <circle class="visor" cx="16" cy="-4" r="10" fill="${p.visorFondo}"/>`,
+    ojos: { sep: 16, rx: 6, ry: 6, cy: -4 }
+  })
+};
+
+/** Herrajes de la boca: dan tanta personalidad como los ojos. */
+const BOCAS_FIJAS = {
+  rejilla: (p) => `<g class="herraje"><rect x="-15" y="14" width="30" height="13" rx="4" fill="${p.metalSombra}"/>
+    ${[-9, -3, 3, 9].map((x) => `<rect x="${x}" y="16" width="3" height="9" rx="1.5" fill="${p.visorFondo}" opacity=".75"/>`).join('')}</g>`,
+  altavoz: (p) => `<g class="herraje"><ellipse cx="0" cy="20" rx="14" ry="8" fill="${p.metalSombra}"/>
+    ${[-7, 0, 7].map((x) => [-3, 1, 5].map((y) => `<circle cx="${x}" cy="${y + 18}" r="1.3" fill="${p.visorFondo}" opacity=".8"/>`).join('')).join('')}</g>`,
+  mandibula: (p) => `<g class="herraje"><path d="M-20 14 Q0 32 20 14 L20 22 Q0 38 -20 22 Z" fill="${p.metalSombra}"/>
+    <line x1="-12" y1="21" x2="12" y2="21" stroke="${p.visorFondo}" stroke-width="2" opacity=".6"/></g>`,
+  barra: (p) => `<rect class="herraje" x="-11" y="18" width="22" height="4.5" rx="2.2" fill="${p.metalSombra}"/>`,
+  colmillos: (p) => `<g class="herraje"><path d="M-16 14 L16 14 L12 24 L-12 24 Z" fill="${p.metalSombra}"/>
+    ${[-8, 0, 8].map((x) => `<path d="M${x - 3} 14 L${x + 3} 14 L${x} 22 Z" fill="${p.visorFondo}" opacity=".8"/>`).join('')}</g>`,
+  ninguna: () => ''
 };
 
 const OREJAS = {
@@ -262,21 +317,21 @@ const EMBLEMAS = {
  * temperamento. El temperamento decide como se comporta cuando no hace nada.
  */
 const DIOSES_ROBOT = {
-  zeus:      { nombre: 'Zeus',      tocado: 'laurel',    emblema: 'rayo',      cabeza: 'ancha',    visor: 'ancho',    orejas: 'pastillas', metal: '#f2f5fa', temperamento: 'serio',     h: 214, s: 48, l: 40 },
-  hera:      { nombre: 'Hera',      tocado: 'diadema',   emblema: 'pavo',      cabeza: 'ovalada',  visor: 'mascara',  orejas: 'discos',    metal: '#f7eef3', temperamento: 'tranquilo', h: 330, s: 42, l: 40 },
-  atenea:    { nombre: 'Atenea',    tocado: 'corintio',  emblema: 'buho',      cabeza: 'alta',     visor: 'estrecho', orejas: 'ninguna',   metal: '#eaf0f2', temperamento: 'serio',     h: 190, s: 45, l: 36 },
-  hermes:    { nombre: 'Hermes',    tocado: 'alado',     emblema: 'lira',      cabeza: 'redonda',  visor: 'ancho',    orejas: 'antenitas', metal: '#eef4fb', temperamento: 'nervioso',  h: 200, s: 60, l: 44 },
-  apolo:     { nombre: 'Apolo',     tocado: 'sol',       emblema: 'lira',      cabeza: 'redonda',  visor: 'mascara',  orejas: 'discos',    metal: '#fdf3e2', temperamento: 'alegre',    h: 38,  s: 72, l: 46 },
-  ares:      { nombre: 'Ares',      tocado: 'cresta',    emblema: 'lanza',     cabeza: 'cuadrada', visor: 'angular',  orejas: 'pastillas', metal: '#d8d2d2', temperamento: 'nervioso',  h: 2,   s: 62, l: 40 },
-  artemisa:  { nombre: 'Artemisa',  tocado: 'luna',      emblema: 'arco',      cabeza: 'alta',     visor: 'estrecho', orejas: 'antenitas', metal: '#e9f3ec', temperamento: 'tranquilo', h: 142, s: 46, l: 34 },
-  afrodita:  { nombre: 'Afrodita',  tocado: 'flores',    emblema: 'corazon',   cabeza: 'ovalada',  visor: 'ancho',    orejas: 'discos',    metal: '#fdeef5', temperamento: 'alegre',    h: 332, s: 70, l: 52 },
-  poseidon:  { nombre: 'Poseidon',  tocado: 'ondas',     emblema: 'tridente',  cabeza: 'ancha',    visor: 'angular',  orejas: 'cuernos',   metal: '#e4f1f6', temperamento: 'tranquilo', h: 196, s: 72, l: 40 },
-  hades:     { nombre: 'Hades',     tocado: 'capucha',   emblema: 'calavera',  cabeza: 'alta',     visor: 'mascara',  orejas: 'ninguna',   metal: '#6a6475', temperamento: 'dormilon',  h: 272, s: 48, l: 32 },
-  hefesto:   { nombre: 'Hefesto',   tocado: 'gafas',     emblema: 'martillo',  cabeza: 'cuadrada', visor: 'gafas',    orejas: 'pastillas', metal: '#cbb59a', temperamento: 'serio',     h: 22,  s: 62, l: 38 },
-  demeter:   { nombre: 'Demeter',   tocado: 'trigo',     emblema: 'espiga',    cabeza: 'ovalada',  visor: 'estrecho', orejas: 'discos',    metal: '#f1f4e6', temperamento: 'dormilon',  h: 88,  s: 48, l: 36 },
-  hecate:    { nombre: 'Hecate',    tocado: 'antorchas', emblema: 'llave',     cabeza: 'alta',     visor: 'gafas',    orejas: 'cuernos',   metal: '#e7e1f2', temperamento: 'nervioso',  h: 278, s: 46, l: 36 },
-  hestia:    { nombre: 'Hestia',    tocado: 'llama',     emblema: 'hogar',     cabeza: 'redonda',  visor: 'ancho',    orejas: 'ninguna',   metal: '#fdf0e6', temperamento: 'tranquilo', h: 18,  s: 66, l: 42 },
-  mnemosine: { nombre: 'Mnemosine', tocado: 'diadema',   emblema: 'pergamino', cabeza: 'cuadrada', visor: 'estrecho', orejas: 'antenitas', metal: '#e6f2f0', temperamento: 'dormilon',  h: 172, s: 52, l: 36 }
+  zeus:      { nombre: 'Zeus',      tocado: 'laurel',    emblema: 'rayo',      cabeza: 'ancha',    cara: 'visor', boca: 'barra',    orejas: 'pastillas', metal: '#f2f5fa', temperamento: 'serio',     h: 214, s: 48, l: 40 },
+  hera:      { nombre: 'Hera',      tocado: 'diadema',   emblema: 'pavo',      cabeza: 'ovalada',  cara: 'lentes', boca: 'altavoz',  orejas: 'discos',    metal: '#f7eef3', temperamento: 'tranquilo', h: 330, s: 42, l: 40 },
+  atenea:    { nombre: 'Atenea',    tocado: 'corintio',  emblema: 'buho',      cabeza: 'alta',     cara: 'antifaz', boca: 'barra', orejas: 'ninguna',   metal: '#eaf0f2', temperamento: 'serio',     h: 190, s: 45, l: 36 },
+  hermes:    { nombre: 'Hermes',    tocado: 'alado',     emblema: 'lira',      cabeza: 'redonda',  cara: 'visor', boca: 'rejilla',    orejas: 'antenitas', metal: '#eef4fb', temperamento: 'nervioso',  h: 200, s: 60, l: 44 },
+  apolo:     { nombre: 'Apolo',     tocado: 'sol',       emblema: 'lira',      cabeza: 'redonda',  cara: 'ciclope', boca: 'altavoz',  orejas: 'discos',    metal: '#fdf3e2', temperamento: 'alegre',    h: 38,  s: 72, l: 46 },
+  ares:      { nombre: 'Ares',      tocado: 'cresta',    emblema: 'lanza',     cabeza: 'cuadrada', cara: 'matriz', boca: 'colmillos',  orejas: 'pastillas', metal: '#d8d2d2', temperamento: 'nervioso',  h: 2,   s: 62, l: 40 },
+  artemisa:  { nombre: 'Artemisa',  tocado: 'luna',      emblema: 'arco',      cabeza: 'alta',     cara: 'lentes', boca: 'barra', orejas: 'antenitas', metal: '#e9f3ec', temperamento: 'tranquilo', h: 142, s: 46, l: 34 },
+  afrodita:  { nombre: 'Afrodita',  tocado: 'flores',    emblema: 'corazon',   cabeza: 'ovalada',  cara: 'saltones', boca: 'ninguna',    orejas: 'discos',    metal: '#fdeef5', temperamento: 'alegre',    h: 332, s: 70, l: 52 },
+  poseidon:  { nombre: 'Poseidon',  tocado: 'ondas',     emblema: 'tridente',  cabeza: 'ancha',    cara: 'lentes', boca: 'rejilla',  orejas: 'cuernos',   metal: '#e4f1f6', temperamento: 'tranquilo', h: 196, s: 72, l: 40 },
+  hades:     { nombre: 'Hades',     tocado: 'capucha',   emblema: 'calavera',  cabeza: 'alta',     cara: 'antifaz', boca: 'mandibula',  orejas: 'ninguna',   metal: '#6a6475', temperamento: 'dormilon',  h: 272, s: 48, l: 32 },
+  hefesto:   { nombre: 'Hefesto',   tocado: 'gafas',     emblema: 'martillo',  cabeza: 'cuadrada', cara: 'saltones', boca: 'rejilla',    orejas: 'pastillas', metal: '#cbb59a', temperamento: 'serio',     h: 22,  s: 62, l: 38 },
+  demeter:   { nombre: 'Demeter',   tocado: 'trigo',     emblema: 'espiga',    cabeza: 'ovalada',  cara: 'visor', boca: 'altavoz', orejas: 'discos',    metal: '#f1f4e6', temperamento: 'dormilon',  h: 88,  s: 48, l: 36 },
+  hecate:    { nombre: 'Hecate',    tocado: 'antorchas', emblema: 'llave',     cabeza: 'alta',     cara: 'matriz', boca: 'mandibula',    orejas: 'cuernos',   metal: '#e7e1f2', temperamento: 'nervioso',  h: 278, s: 46, l: 36 },
+  hestia:    { nombre: 'Hestia',    tocado: 'llama',     emblema: 'hogar',     cabeza: 'redonda',  cara: 'ciclope', boca: 'barra',    orejas: 'ninguna',   metal: '#fdf0e6', temperamento: 'tranquilo', h: 18,  s: 66, l: 42 },
+  mnemosine: { nombre: 'Mnemosine', tocado: 'diadema',   emblema: 'pergamino', cabeza: 'cuadrada', cara: 'antifaz', boca: 'altavoz', orejas: 'antenitas', metal: '#e6f2f0', temperamento: 'dormilon',  h: 172, s: 52, l: 36 }
 };
 
 const TEMPERAMENTOS = ['tranquilo', 'nervioso', 'dormilon', 'alegre', 'serio'];
@@ -293,13 +348,15 @@ function diosGenerado(semilla) {
   let h = hashSemilla(semilla);
   const sig = (n) => { h = (Math.imul(h, 1664525) + 1013904223) >>> 0; return h % n; };
   const tocados = Object.keys(TOCADOS), emblemas = Object.keys(EMBLEMAS);
-  const cabezas = Object.keys(CABEZAS), visores = Object.keys(VISORES), orejas = Object.keys(OREJAS);
+  const cabezas = Object.keys(CABEZAS), caras = Object.keys(CARAS);
+  const bocas = Object.keys(BOCAS_FIJAS), orejas = Object.keys(OREJAS);
   return {
     nombre: 'Especialista',
     tocado: tocados[sig(tocados.length)],
     emblema: emblemas[sig(emblemas.length)],
     cabeza: cabezas[sig(cabezas.length)],
-    visor: visores[sig(visores.length)],
+    cara: caras[sig(caras.length)],
+    boca: bocas[sig(bocas.length)],
     orejas: orejas[sig(orejas.length)],
     temperamento: TEMPERAMENTOS[sig(TEMPERAMENTOS.length)],
     h: sig(360), s: 45 + sig(25), l: 34 + sig(10)
@@ -326,36 +383,46 @@ function paletaDios(d) {
 
 // --------------------------------------------------------------- expresiones
 
-function ojosPar(fn) { return fn(-13) + fn(13); }
-
-function ojosDe(estado, p) {
+function ojosDe(estado, p, g) {
   const led = estado === 'error' ? '#ff5f56' : estado === 'alerta' ? '#ffb020' : p.led;
   const suave = estado === 'error' ? '#ffc9c6' : estado === 'alerta' ? '#ffe3b0' : p.ledSuave;
-  const ojo = (x, cuerpo) => `<g transform="translate(${x},0)" filter="url(#brillo)">${cuerpo}</g>`;
+  const { sep, rx, ry, cy, cuadrado, unico } = g;
+  const envolver = (x, cuerpo) => `<g transform="translate(${x},${cy})" filter="url(#brillo)">${cuerpo}</g>`;
+  const par = (fn) => unico ? envolver(0, fn(1.0)) : envolver(-sep, fn(1)) + envolver(sep, fn(1));
+  const radio = (k = 1) => ({ rx: rx * k, ry: ry * k });
 
   switch (estado) {
     case 'feliz':
-      return ojosPar((x) => ojo(x, `<path d="M-7 3 Q0 -7 7 3" stroke="${led}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`));
+      return par(() => `<path d="M${-rx} ${ry * .35} Q0 ${-ry} ${rx} ${ry * .35}" stroke="${led}" stroke-width="${rx * .62}" fill="none" stroke-linecap="round"/>`);
     case 'escucha':
-      return ojosPar((x) => ojo(x, `<rect class="led-barra" x="-8" y="-2.5" width="16" height="5" rx="2.5" fill="${led}"/>`));
+      return par(() => `<rect class="led-barra" x="${-rx * 1.15}" y="${-ry * .32}" width="${rx * 2.3}" height="${ry * .64}" rx="${ry * .32}" fill="${led}"/>`);
     case 'piensa':
-      return ojosPar((x) => ojo(x, `<circle class="led-arriba" cx="0" cy="-3" r="4.2" fill="${led}"/>`));
-    case 'responde':
-      return ojosPar((x) => ojo(x, `<rect x="-6.5" y="-7" width="13" height="14" rx="6.5" fill="${led}"/>
-        <rect x="-3" y="-4" width="6" height="5" rx="2.5" fill="${suave}" opacity=".9"/>`));
+      return par(() => `<${cuadrado ? 'rect' : 'circle'} class="led-arriba" ${cuadrado
+        ? `x="${-rx * .6}" y="${-ry * .9}" width="${rx * 1.2}" height="${ry * 1.2}" rx="1.5"`
+        : `cx="0" cy="${-ry * .3}" r="${rx * .62}"`} fill="${led}"/>`);
     case 'curioso':
-      return ojo(-13, `<circle r="7.6" fill="${led}"/><circle cx="-2" cy="-2.4" r="2.4" fill="${suave}"/>`) +
-             ojo(13, `<circle r="4.6" fill="${led}"/>`);
+      return unico ? envolver(0, `<circle r="${rx}" fill="${led}"/><circle cx="${-rx * .3}" cy="${-ry * .3}" r="${rx * .3}" fill="${suave}"/>`)
+        : envolver(-sep, `<circle r="${rx * 1.15}" fill="${led}"/><circle cx="${-rx * .3}" cy="${-ry * .3}" r="${rx * .32}" fill="${suave}"/>`) +
+          envolver(sep, `<circle r="${rx * .66}" fill="${led}"/>`);
     case 'alerta':
-      return ojosPar((x) => ojo(x, `<path d="M0 -8 L7.5 6 L-7.5 6 Z" fill="${led}"/><rect x="-1" y="-3" width="2" height="5" rx="1" fill="#241a05"/><circle cy="4" r="1.1" fill="#241a05"/>`));
+      return par(() => `<path d="M0 ${-ry * 1.1} L${rx} ${ry * .8} L${-rx} ${ry * .8} Z" fill="${led}"/>
+        <rect x="-1" y="${-ry * .4}" width="2" height="${ry * .7}" rx="1" fill="#241a05"/>`);
     case 'error':
-      return ojosPar((x) => ojo(x, `<path d="M-6 -6 L6 6 M6 -6 L-6 6" stroke="${led}" stroke-width="4" stroke-linecap="round"/>`));
+      return par(() => `<path d="M${-rx * .85} ${-ry * .85} L${rx * .85} ${ry * .85} M${rx * .85} ${-ry * .85} L${-rx * .85} ${ry * .85}" stroke="${led}" stroke-width="${rx * .55}" stroke-linecap="round"/>`);
+    case 'responde':
+      return par(() => cuadrado
+        ? `<rect x="${-rx}" y="${-ry}" width="${rx * 2}" height="${ry * 2}" rx="1.5" fill="${led}"/>`
+        : `<ellipse rx="${rx}" ry="${ry}" fill="${led}"/><ellipse cx="${-rx * .25}" cy="${-ry * .25}" rx="${rx * .35}" ry="${ry * .3}" fill="${suave}" opacity=".9"/>`);
     default:
-      return ojosPar((x) => ojo(x, `<rect x="-6.5" y="-7.5" width="13" height="15" rx="6.5" fill="${led}"/>
-        <rect x="-3.2" y="-4.6" width="6.4" height="5.4" rx="2.7" fill="${suave}" opacity=".85"/>`));
+      return par(() => cuadrado
+        ? `<rect x="${-rx}" y="${-ry}" width="${rx * 2}" height="${ry * 2}" rx="1.5" fill="${led}"/>
+           <rect x="${-rx * .45}" y="${-ry * .45}" width="${rx * .9}" height="${ry * .6}" fill="${suave}" opacity=".85"/>`
+        : `<ellipse rx="${rx}" ry="${ry}" fill="${led}"/>
+           <ellipse cx="${-rx * .28}" cy="${-ry * .3}" rx="${rx * .38}" ry="${ry * .32}" fill="${suave}" opacity=".85"/>`);
   }
 }
 
+/** Lo que se mueve bajo los ojos segun el estado (sobre el herraje fijo). */
 function bocaDe(estado, p) {
   if (estado === 'responde') {
     return `<g class="onda">${[-10, -5, 0, 5, 10].map((x, i) =>
@@ -365,9 +432,7 @@ function bocaDe(estado, p) {
     return `<g class="puntos">${[-7, 0, 7].map((x, i) =>
       `<circle class="punto p${i}" cx="${x}" cy="0" r="1.9" fill="${p.ledSuave}"/>`).join('')}</g>`;
   }
-  if (estado === 'feliz') return `<path d="M-7 -1 Q0 4 7 -1" stroke="${p.ledSuave}" stroke-width="2" fill="none" stroke-linecap="round" opacity=".8"/>`;
-  if (estado === 'error') return `<path d="M-7 2 Q0 -3 7 2" stroke="#ff8b85" stroke-width="2" fill="none" stroke-linecap="round" opacity=".8"/>`;
-  return `<rect x="-6" y="-1.2" width="12" height="2.4" rx="1.2" fill="${p.ledSuave}" opacity=".45"/>`;
+  return '';
 }
 
 // --------------------------------------------------------------------- avatar
@@ -385,6 +450,7 @@ function robotSvg(clave, estado = 'normal', tam = 40, color = null) {
   const p = (color && paletaDe(color)) || paletaDios(d);
   const uid = hashSemilla(`${k}|${e}|${color || ''}`).toString(36);
 
+  const cara = (CARAS[d.cara] || CARAS.visor)(p);
   const tocado = (TOCADOS[d.tocado] || TOCADOS.laurel)(p);
   const emblema = (EMBLEMAS[d.emblema] || EMBLEMAS.rayo)(p);
   const temperamento = d.temperamento || 'tranquilo';
@@ -425,11 +491,12 @@ function robotSvg(clave, estado = 'normal', tam = 40, color = null) {
     ${(CABEZAS[d.cabeza] || CABEZAS.redonda)(p, uid)}
     <rect x="-30" y="-30" width="60" height="14" rx="7" fill="#ffffff" opacity=".4"/>
 
-    ${(VISORES[d.visor] || VISORES.ancho)(p)}
+    ${cara.marco}
     <rect class="barrido" x="-30" y="-20" width="60" height="6" rx="3" fill="${p.ledSuave}" opacity=".12"/>
 
-    <g class="ojos" transform="translate(0,-4)">${ojosDe(e, p)}</g>
-    <g class="boca" transform="translate(0,12)">${bocaDe(e, p)}</g>
+    <g class="ojos">${ojosDe(e, p, cara.ojos)}</g>
+    ${(BOCAS_FIJAS[d.boca] || BOCAS_FIJAS.barra)(p)}
+    <g class="boca" transform="translate(0,19)">${bocaDe(e, p)}</g>
 
     ${tocado}
 

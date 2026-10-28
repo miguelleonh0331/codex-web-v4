@@ -220,12 +220,18 @@ function check(nombre, condicion, detalle) {
     'const f=require("' + __dirname + '/../public/robot.js");' +
     'const l=f.listaDioses();const s=l.map(d=>f.robotSvg(d.clave));' +
     'const est=f.ESTADOS.map(e=>f.robotSvg("zeus",e));' +
+    'const D=f.DIOSES_ROBOT;' +
+    'const u=(k)=>new Set(l.map(d=>D[d.clave][k])).size;' +
     'process.stdout.write(JSON.stringify({n:l.length,unicos:new Set(s).size,' +
     'estados:f.ESTADOS.length,estadosUnicos:new Set(est).size,' +
+    'caras:u("cara"),bocas:u("boca"),cabezas:u("cabeza"),' +
     'recolor:f.robotSvg("zeus","normal",40)!==f.robotSvg("zeus","normal",40,"#ff00aa")}))'],
     { encoding: 'utf8' });
   const dd = JSON.parse(dioses);
   check('hay al menos diez avatares distintos', dd.n >= 10 && dd.unicos === dd.n, dioses);
+  check('no comparten estructura de cara',
+    dd.caras >= 5 && dd.bocas >= 4 && dd.cabezas >= 4,
+    `caras:${dd.caras} bocas:${dd.bocas} cabezas:${dd.cabezas}`);
   check('cada estado tiene su expresion', dd.estados === 8 && dd.estadosUnicos === 8, dioses);
   check('el color se puede personalizar', dd.recolor === true, dioses);
 
