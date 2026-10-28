@@ -158,7 +158,7 @@ function check(nombre, condicion, detalle) {
     /\.messages\.linea\{[^}]*width:100%/.test(cssChat));
   check('lo tuyo se queda recogido a la derecha',
     /\.messages\.msg\.user\.linea\{[^}]*max-width:72ch/.test(cssChat));
-  const fmt = execFileSync(process.execPath, ['-e',
+  const fmt = require('node:child_process').execFileSync(process.execPath, ['-e',
     'const fs=require("fs");const src=fs.readFileSync("' + __dirname + '/../public/app.js","utf8");' +
     'const i=src.indexOf("function formatearCuerpo"),f=src.indexOf("/** Copia respetando");' +
     'const e=src.slice(src.indexOf("function escapeHtml"));global.agents=[];' +
@@ -259,7 +259,8 @@ function check(nombre, condicion, detalle) {
   check('los mensajes se formatean antes de pintarse',
     /function formatearCuerpo/.test(appTxt) && /formatearCuerpo\(m\.body\)/.test(appTxt));
   check('el texto del modelo se escapa antes de transformarlo',
-    /enriquecer\(escapeHtml\(parte\)\)/.test(appTxt));
+    /enriquecer\(escapeHtml\(/.test(appTxt),
+    'la transformacion debe trabajar siempre sobre texto ya escapado');
   check('cada mensaje lleva su boton de copiar',
     /class="copiar-msg"/.test(appTxt) && /closest\('\.copiar-msg'\)/.test(appTxt));
   check('hay copia con respaldo para HTTP sin cifrar',
