@@ -77,6 +77,22 @@ function check(nombre, condicion, detalle) {
     (await req('/api/agents', { method: 'POST', body: { name: `ST-Gamma-${sufijo}` } })).status === 400);
   check('crea el workspace en disco', fs.existsSync(a1.data.workspace));
 
+  // --- proveedor de modelo ---
+  const prov = await req('/api/providers');
+  const pr = prov.data.proveedores && prov.data.proveedores[0];
+  check('publica el estado del proveedor', prov.status === 200 && pr && pr.proveedor === 'claude', JSON.stringify(prov.data).slice(0, 120));
+  check('el proveedor tiene sesion utilizable',
+    pr && pr.conectado === true && pr.credenciales && pr.credenciales.vigente === true,
+    `conectado=${pr && pr.conectado} vigente=${pr && pr.credenciales && pr.credenciales.vigente}`);
+  check('informa de la cuenta y el plan', !!(pr && pr.cuenta && pr.plan), JSON.stringify(pr && { cuenta: pr.cuenta, plan: pr.plan }));
+
+  const sinCodigo = await req('/api/providers/claude/code', { method: 'POST', body: { codigo: '' } });
+  check('rechaza un codigo vacio', sinCodigo.status === 400 && sinCodigo.data.ok === false);
+
+  const indexProv = await (await fetch((await base()) + '/')).text();
+  check('la interfaz tiene pantalla de proveedor',
+    /proveedor-dialog/.test(indexProv) && /prov-login/.test(indexProv) && /prov-codigo/.test(indexProv));
+
   // --- avatar y color por especialista ---
   const conColor = await req(`/api/agents/${a1.data.id}`, { method: 'PATCH', body: { avatarSeed: 'poseidon', avatarColor: '#ff00aa' } });
   check('se puede fijar avatar y color', conColor.data.avatar_seed === 'poseidon' && conColor.data.avatar_color === '#ff00aa',

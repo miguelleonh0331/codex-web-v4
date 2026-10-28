@@ -62,6 +62,8 @@ function start() {
   setView(esMovil() ? 'agents' : 'agents');
   refreshAll();
   setInterval(refreshAll, 2500);
+  vigilarProveedor();
+  setInterval(vigilarProveedor, 60000);
 }
 
 // ----------------------------------------------------------------- datos
@@ -339,6 +341,107 @@ $('#send-text').addEventListener('keydown', (e) => {
   e.preventDefault();
   $('#send-form').requestSubmit();
 });
+
+// ----------------------------------------------------------- proveedor
+
+async function pintarProveedor() {
+  const caja = $('#proveedor-estado');
+  try {
+    const { proveedores } = await api('/api/providers');
+    const p = proveedores[0];
+    const cad = p.credenciales && p.credenciales.expiraIso
+      ? new Date(p.credenciales.expiraIso).toLocaleString() : '—';
+    const vigente = p.credenciales && p.credenciales.vigente;
+
+    caja.innerHTML = `
+      <div class="fila"><span class="k">Proveedor</span><span>Claude</span></div>
+      <div class="fila"><span class="k">Estado</span>
+        <span class="${p.conectado && vigente ? 'bien' : 'mal'}">
+          ${p.conectado ? (vigente ? 'conectado' : 'sesion caducada') : 'sin sesion'}</span></div>
+      <div class="fila"><span class="k">Cuenta</span><span>${escapeHtml(p.cuenta || '—')}</span></div>
+      <div class="fila"><span class="k">Plan</span><span>${escapeHtml(p.plan || '—')}</span></div>
+      <div class="fila"><span class="k">Caduca</span><span>${escapeHtml(cad)}</span></div>
+      <div class="fila"><span class="k">Sesion en</span><span style="font-size:.72rem">${escapeHtml(p.sessionDir || '')}</span></div>
+      ${p.disponible ? '' : `<div class="fila mal">${escapeHtml(p.motivo || 'Claude Code no disponible')}</div>`}`;
+
+    const boton = $('#btn-proveedor');
+    const malo = !(p.conectado && vigente);
+    boton.classList.toggle('aviso', malo);
+    $('#proveedor-etiqueta').textContent = malo ? 'Proveedor · sin sesion' : `Proveedor · ${p.cuenta || 'conectado'}`;
+    $('#prov-logout').hidden = !p.conectado;
+  } catch (e) {
+    caja.textContent = `No se pudo consultar el proveedor: ${e.message}`;
+  }
+}
+
+$('#btn-proveedor').onclick = async () => {
+  $('#prov-paso-url').hidden = true;
+  $('#prov-acciones').hidden = false;
+  $('#prov-error').textContent = '';
+  $('#prov-codigo').value = '';
+  $('#proveedor-dialog').showModal();
+  await pintarProveedor();
+};
+$('#prov-cerrar').onclick = () => $('#proveedor-dialog').close();
+
+$('#prov-login').onclick = async () => {
+  $('#prov-login').disabled = true;
+  $('#prov-login').textContent = 'Pidiendo enlace…';
+  try {
+    const out = await api('/api/providers/claude/login', { method: 'POST', body: JSON.stringify({}) });
+    $('#prov-url').href = out.url;
+    $('#prov-url').textContent = out.url;
+    $('#prov-paso-url').hidden = false;
+    $('#prov-acciones').hidden = true;
+    $('#prov-codigo').focus();
+  } catch (e) {
+    $('#proveedor-estado').innerHTML += `<div class="fila mal">${escapeHtml(e.message)}</div>`;
+  }
+  $('#prov-login').disabled = false;
+  $('#prov-login').textContent = 'Iniciar sesion';
+};
+
+$('#prov-confirmar').onclick = async () => {
+  const codigo = $('#prov-codigo').value.trim();
+  if (!codigo) return;
+  $('#prov-error').textContent = '';
+  $('#prov-confirmar').disabled = true;
+  $('#prov-confirmar').textContent = 'Comprobando…';
+  try {
+    const out = await api('/api/providers/claude/code', { method: 'POST', body: JSON.stringify({ codigo }) });
+    $('#prov-paso-url').hidden = true;
+    $('#prov-acciones').hidden = false;
+    await pintarProveedor();
+    alert(`Sesion iniciada como ${out.cuenta || 'tu cuenta'}.`);
+  } catch (e) {
+    $('#prov-error').textContent = e.message;
+  }
+  $('#prov-confirmar').disabled = false;
+  $('#prov-confirmar').textContent = 'Confirmar codigo';
+};
+
+$('#prov-cancelar').onclick = async () => {
+  await api('/api/providers/claude/cancel', { method: 'POST' }).catch(() => {});
+  $('#prov-paso-url').hidden = true;
+  $('#prov-acciones').hidden = false;
+};
+
+$('#prov-logout').onclick = async () => {
+  if (!confirm('Se cerrara la sesion y los especialistas dejaran de poder trabajar hasta que inicies otra. Continuar?')) return;
+  await api('/api/providers/claude/logout', { method: 'POST' }).catch((e) => alert(e.message));
+  await pintarProveedor();
+};
+
+// Aviso permanente en la barra lateral si la sesion no sirve.
+async function vigilarProveedor() {
+  try {
+    const { proveedores } = await api('/api/providers');
+    const p = proveedores[0];
+    const malo = !(p.conectado && p.credenciales && p.credenciales.vigente);
+    $('#btn-proveedor').classList.toggle('aviso', malo);
+    $('#proveedor-etiqueta').textContent = malo ? 'Proveedor · sin sesion' : `Proveedor · ${p.cuenta || 'conectado'}`;
+  } catch { /* se reintenta */ }
+}
 
 $('#new-agent').onclick = () => openDialog(null);
 

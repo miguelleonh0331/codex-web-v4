@@ -19,6 +19,7 @@ PROJECT_PATH=""
 PROJECT_NAME="proyecto"
 SESSION_FROM=""
 SESSION_DIR=""
+CLAUDE_BIN=""
 NODE_BIN="$(command -v node || true)"
 # sudo suele limpiar el PATH, asi que buscamos node donde suele vivir.
 if [[ -z "$NODE_BIN" ]]; then
@@ -40,6 +41,7 @@ while [[ $# -gt 0 ]]; do
     --session-from) SESSION_FROM="$2"; shift 2 ;;
     --session-dir) SESSION_DIR="$2"; shift 2 ;;
     --node) NODE_BIN="$2"; shift 2 ;;
+    --claude-bin) CLAUDE_BIN="$2"; shift 2 ;;
     --service-name) SERVICE_NAME="$2"; shift 2 ;;
     -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) echo "Opcion desconocida: $1" >&2; exit 1 ;;
@@ -59,6 +61,39 @@ if (( NODE_MAJOR < 22 || (NODE_MAJOR == 22 && NODE_MINOR < 5) )); then
   exit 1
 fi
 id "$USER_NAME" >/dev/null 2>&1 || { echo "El usuario $USER_NAME no existe." >&2; exit 1; }
+
+# Claude Code es el motor de los especialistas: sin el, el servicio arranca pero
+# ningun agente puede trabajar. Mejor fallar aqui que entregar algo inservible.
+if [[ -z "$CLAUDE_BIN" ]]; then
+  for c in "$(command -v claude 2>/dev/null || true)" \
+           /usr/local/bin/claude \
+           /opt/codex-web/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude \
+           /opt/codex-web/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl/claude \
+           "$HOME/.local/bin/claude"; do
+    [[ -n "$c" && -x "$c" ]] && { CLAUDE_BIN="$c"; break; }
+  done
+fi
+if [[ -z "$CLAUDE_BIN" ]]; then
+  cat >&2 <<'FALTA'
+
+No se encontro Claude Code, y sin el los especialistas no pueden trabajar.
+
+Instalalo y vuelve a ejecutar el instalador:
+
+    npm install -g @anthropic-ai/claude-code
+
+Si ya lo tienes en una ruta propia, indicala:
+
+    sudo ./install.sh --claude-bin /ruta/a/claude ...
+
+FALTA
+  exit 1
+fi
+echo "    claude: $CLAUDE_BIN"
+
+if ! "$CLAUDE_BIN" --version >/dev/null 2>&1; then
+  echo "    aviso: $CLAUDE_BIN no responde a --version; comprueba que es ejecutable" >&2
+fi
 
 if ss -ltn 2>/dev/null | grep -q ":${PORT}\b"; then
   echo "El puerto ${PORT} ya esta ocupado. Elige otro con --port." >&2; exit 1
@@ -87,6 +122,7 @@ else
   "maxConcurrentTurns": 2,
   "turnTimeoutMs": 900000,
   "maxHops": 6,
+  "claudeBin": "${CLAUDE_BIN}",
   "project": {
     "name": "${PROJECT_NAME}",
     "path": "${PROJECT_PATH}",
@@ -149,7 +185,20 @@ for i in $(seq 1 20); do
   if curl -fsS -m 2 "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
     TOKEN="$("$NODE_BIN" -p "JSON.parse(require('fs').readFileSync('${CONFIG_FILE}','utf8')).authToken")"
     echo
-    echo "Instalado. Abre:  http://<host>:${PORT}/?token=${TOKEN}"
+    echo "Instalado. Abre:  http://<host>:${PORT}/"
+    SESION_OK="$("$NODE_BIN" -e "
+      const fs=require('fs');const p=require('path');
+      const c=JSON.parse(fs.readFileSync('${CONFIG_FILE}','utf8'));
+      const d=c.sessionDir||p.join(c.dataDir||'${DATA_DIR}','session');
+      try{const o=JSON.parse(fs.readFileSync(p.join(d,'.credentials.json'),'utf8'));
+        const e=(o.claudeAiOauth||o).expiresAt||0;process.stdout.write(e>Date.now()?'si':'caducada');}
+      catch{process.stdout.write('no');}")"
+    if [[ "$SESION_OK" != "si" ]]; then
+      echo
+      echo "FALTA LA SESION DE CLAUDE (${SESION_OK}). Los agentes no podran trabajar hasta que la inicies."
+      echo "Hazlo desde la propia aplicacion, en la seccion Proveedores, o a mano:"
+      echo "  sudo -u ${USER_NAME} env HOME=${DATA_DIR} CLAUDE_CONFIG_DIR=\$(${NODE_BIN} -p \"JSON.parse(require('fs').readFileSync('${CONFIG_FILE}','utf8')).sessionDir||'${DATA_DIR}/session'\") ${CLAUDE_BIN} auth login"
+    fi
     echo "Estado:           systemctl status ${SERVICE_NAME}"
     echo "Registro:         ${DATA_DIR}/logs/service.log"
     exit 0

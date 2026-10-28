@@ -8,6 +8,7 @@ const { load } = require('./config');
 const { Store, uid } = require('./db');
 const { Orchestrator } = require('./orchestrator');
 const sesion = require('./session');
+const auth = require('./auth');
 
 const cfg = load();
 const store = new Store(cfg.dbPath);
@@ -464,6 +465,38 @@ async function api(req, res, url) {
     store.updateAgent(id, { session_id: null });
     store.event('session.reset', id, { motivo: 'peticion del usuario' });
     return json(res, 200, { ok: true });
+  }
+
+  // --- proveedores de modelo ---
+  if (p === '/api/providers' && m === 'GET') {
+    return json(res, 200, { proveedores: [await auth.estado(cfg)] });
+  }
+
+  if (p === '/api/providers/claude/login' && m === 'POST') {
+    const body = await readBody(req);
+    try {
+      return json(res, 200, await auth.iniciarLogin(cfg, { consola: !!body.consola }));
+    } catch (e) {
+      return json(res, 400, { error: e.message });
+    }
+  }
+
+  if (p === '/api/providers/claude/code' && m === 'POST') {
+    const body = await readBody(req);
+    const out = await auth.enviarCodigo(cfg, body.codigo);
+    store.event(out.ok ? 'proveedor.conectado' : 'proveedor.fallo', null, { cuenta: out.cuenta || null, error: out.error || null });
+    return json(res, out.ok ? 200 : 400, out);
+  }
+
+  if (p === '/api/providers/claude/cancel' && m === 'POST') {
+    auth.cancelar('cancelado por el usuario');
+    return json(res, 200, { ok: true });
+  }
+
+  if (p === '/api/providers/claude/logout' && m === 'POST') {
+    const out = await auth.cerrarSesion(cfg);
+    store.event('proveedor.desconectado', null, out);
+    return json(res, out.ok ? 200 : 400, out);
   }
 
   if (p === '/api/broadcast' && m === 'POST') {

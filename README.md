@@ -21,8 +21,28 @@ validarlo y —si la tarea lo autoriza— desplegarlo.
 
 ## Instalacion
 
-Requisitos: Linux con systemd, Node >= 22.5 (por `node:sqlite`) y el binario de
-Claude Code accesible en el servidor.
+### Requisitos
+
+| | Por que |
+| --- | --- |
+| Linux con systemd | el servicio se instala como unidad |
+| **Node >= 22.5** | se usa `node:sqlite`, que no existe antes |
+| **Claude Code instalado** | es el motor de los especialistas |
+| Una cuenta de Claude | con suscripcion; la sesion se inicia desde la propia aplicacion |
+
+Claude Code se instala asi:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+claude --version
+```
+
+El instalador **no sigue adelante si no lo encuentra**: antes dejaba un servicio
+que arrancaba pero cuyos agentes no podian trabajar. Si lo tienes en una ruta
+propia, pasala con `--claude-bin /ruta/a/claude`.
+
+No hace falta iniciar sesion antes: el instalador avisa si falta y se hace desde
+la aplicacion, en **Proveedor**.
 
 ### En otro servidor, con un solo comando
 
@@ -57,6 +77,20 @@ reserva el puerto frente al rango efimero y espera a que el servicio responda. A
 terminar imprime la URL con el token.
 
 Opciones: `--data-dir`, `--config-dir`, `--service-name`, `--group`, `--node`.
+
+## Proveedor y sesion
+
+La barra lateral tiene un boton **Proveedor** que muestra el estado real: cuenta,
+plan, cuando caduca el token y donde vive la sesion. Si no hay sesion utilizable,
+el boton se pone en rojo y lo avisa, porque sin ella ningun especialista trabaja.
+
+Desde ahi se inicia sesion sin tocar la terminal: la aplicacion lanza el flujo
+OAuth del CLI, te muestra **la direccion que debes abrir**, y tu pegas el codigo
+que te devuelve Claude. Tambien se puede cerrar sesion o cambiar de cuenta.
+
+Un detalle que importa: el exito no se da por supuesto. Se comprueba que el
+archivo de credenciales **cambio de verdad**, porque preguntar solo "hay sesion"
+daria por bueno un codigo invalido cuando ya existia una sesion anterior.
 
 ### La sesion compartida
 

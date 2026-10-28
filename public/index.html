@@ -37,6 +37,7 @@
     </header>
     <button id="new-agent" class="primary">+ Nuevo especialista</button>
     <button id="ask-team">📣 Preguntar a todo el equipo</button>
+    <button id="btn-proveedor">🔌 <span id="proveedor-etiqueta">Proveedor</span></button>
     <nav id="agent-list" class="agents"></nav>
     <footer class="status muted">
       <span id="status-line">·</span>
@@ -103,6 +104,35 @@
     <menu>
       <button value="cancel" type="button" id="broadcast-cancel">Cancelar</button>
       <button value="ok" class="primary">Preguntar</button>
+    </menu>
+  </form>
+</dialog>
+
+<dialog id="proveedor-dialog">
+  <form method="dialog" id="proveedor-form">
+    <h3>Proveedor de modelo</h3>
+    <div id="proveedor-estado" class="prov-estado">Consultando…</div>
+
+    <div id="prov-paso-url" hidden>
+      <p class="muted" style="font-size:.84rem;line-height:1.5">
+        1. Abre esta direccion en tu navegador y autoriza la cuenta.<br>
+        2. Copia el codigo que te da y pegalo abajo.
+      </p>
+      <div class="prov-url"><a id="prov-url" href="#" target="_blank" rel="noopener"></a></div>
+      <label>Codigo de autorizacion
+        <input id="prov-codigo" placeholder="pega aqui el codigo" autocomplete="off">
+      </label>
+      <p class="error" id="prov-error"></p>
+      <menu>
+        <button type="button" id="prov-cancelar">Cancelar</button>
+        <button type="button" id="prov-confirmar" class="primary">Confirmar codigo</button>
+      </menu>
+    </div>
+
+    <menu id="prov-acciones">
+      <button type="button" id="prov-cerrar">Cerrar</button>
+      <button type="button" id="prov-logout">Cerrar sesion</button>
+      <button type="button" id="prov-login" class="primary">Iniciar sesion</button>
     </menu>
   </form>
 </dialog>

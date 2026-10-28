@@ -405,3 +405,16 @@ select:focus{outline:none;border-color:var(--accent)}
 @media (prefers-reduced-motion:reduce){
   .agent .cinta .fila,.agent .cinta .hilo,.agent .cinta span{animation:none}
 }
+
+/* ------------------------------------------------------------- proveedor */
+.prov-estado{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);
+  padding:.8rem .9rem;font-size:.85rem;line-height:1.6;margin-bottom:1rem}
+.prov-estado .fila{display:flex;justify-content:space-between;gap:1rem}
+.prov-estado .k{color:var(--muted)}
+.prov-estado .bien{color:var(--accent2)}
+.prov-estado .mal{color:var(--err)}
+.prov-url{background:var(--bg);border:1px solid var(--accent);border-radius:var(--radius);
+  padding:.6rem .7rem;margin:.6rem 0;word-break:break-all;font-size:.74rem}
+.prov-url a{color:var(--accent)}
+#btn-proveedor{text-align:left}
+#btn-proveedor.aviso{border-color:var(--err);color:var(--err)}
