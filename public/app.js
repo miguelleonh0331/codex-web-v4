@@ -1299,7 +1299,11 @@ function formatearCuerpo(texto) {
           <button type="button" class="copiar">Copiar codigo</button></div>
         <pre><code>${escapeHtml(codigo)}</code></pre></div>`;
     }
-    return enriquecer(escapeHtml(parte));
+    // Fuera de los bloques de codigo, dos o mas saltos seguidos se quedan en
+    // uno: el modelo separa parrafos con lineas en blanco y eso, en una
+    // conversacion compacta, deja huecos que parecen mensajes distintos.
+    const compacto = parte.replace(/[ \t]*\n[ \t]*(?:\n[ \t]*)+/g, '\n');
+    return enriquecer(escapeHtml(compacto));
   }).join('');
 }
 

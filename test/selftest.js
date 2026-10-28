@@ -158,6 +158,19 @@ function check(nombre, condicion, detalle) {
     /\.messages\.linea\{[^}]*width:100%/.test(cssChat));
   check('lo tuyo se queda recogido a la derecha',
     /\.messages\.msg\.user\.linea\{[^}]*max-width:72ch/.test(cssChat));
+  const fmt = execFileSync(process.execPath, ['-e',
+    'const fs=require("fs");const src=fs.readFileSync("' + __dirname + '/../public/app.js","utf8");' +
+    'const i=src.indexOf("function formatearCuerpo"),f=src.indexOf("/** Copia respetando");' +
+    'const e=src.slice(src.indexOf("function escapeHtml"));global.agents=[];' +
+    'eval(src.slice(i,f)+e.slice(0,e.indexOf("\\n}")+2));' +
+    'const a=formatearCuerpo("uno\\n\\n\\ndos");' +
+    'const b=formatearCuerpo("x\\n```bash\\nuno\\n\\ndos\\n```");' +
+    'process.stdout.write(JSON.stringify({huecos:(a.match(/\\n\\s*\\n/g)||[]).length,' +
+    'codigoIntacto:/<code>[\\s\\S]*uno\\n\\ndos/.test(b)}))'], { encoding: 'utf8' });
+  const ff = JSON.parse(fmt);
+  check('los parrafos no dejan lineas en blanco', ff.huecos === 0, fmt);
+  check('dentro del codigo los saltos se respetan', ff.codigoIntacto === true, fmt);
+
   check('no hay sangria francesa en los mensajes',
     !/\.messages\.linea\{[^}]*text-indent/.test(cssChat),
     'text-indent solo mueve la primera linea y descuadra los parrafos siguientes');
