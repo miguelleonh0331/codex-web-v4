@@ -82,6 +82,10 @@ Con varios servidores conviene darle nombre propio a cada uno (`--name "Masterch
 vicibox05"`): asi la pestana, la barra lateral y el icono de la aplicacion instalada
 dicen en cual estas, en vez de tres ventanas identicas.
 
+Despues se cambia **desde la propia web**: pulsa el nombre en la barra lateral, escribe
+el nuevo y Enter. Surte efecto al momento, sin reiniciar el servicio, y se guarda
+conservando el resto de la configuracion.
+
 ## Proveedor y sesion
 
 La barra lateral tiene un boton **Proveedor** que muestra el estado real: cuenta,
@@ -368,7 +372,7 @@ que dos agentes no pueden quedarse dandose las gracias indefinidamente.
 
 | Clave | Significado |
 | --- | --- |
-| `nombre` | como se llama esta instalacion; sale en la marca, la pestana y la aplicacion instalada |
+| `nombre` | como se llama esta instalacion; se cambia pulsando la marca en la barra lateral |
 | `port`, `bindHosts` | donde escucha; se puede atar a loopback y a una IP de tailnet |
 | `dataDir` | base de datos, sesion, workspaces y registros |
 | `model` | modelo por defecto; cada especialista puede llevar el suyo |

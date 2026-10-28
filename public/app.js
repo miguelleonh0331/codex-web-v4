@@ -86,7 +86,7 @@ async function refreshAll() {
     }
     if (state.app && state.app.nombre && state.app.nombre !== NOMBRE_APP) {
       NOMBRE_APP = state.app.nombre;
-      document.querySelector('.brand strong').textContent = NOMBRE_APP;
+      if ($('#app-nombre-edit').hidden) $('#app-nombre').textContent = NOMBRE_APP;
     }
     if (state.opciones) {
       OPCIONES = state.opciones;
@@ -762,6 +762,39 @@ async function vigilarProveedor() {
     $('#proveedor-etiqueta').textContent = malo ? `${NOMBRE_PROVEEDOR} · sin sesion` : NOMBRE_PROVEEDOR;
   } catch { /* se reintenta */ }
 }
+
+// Renombrar la instalacion desde la propia barra: con varios servidores,
+// saber en cual estas no deberia exigir editar un archivo por SSH.
+$('#app-nombre').onclick = () => {
+  const campo = $('#app-nombre-edit');
+  campo.value = NOMBRE_APP;
+  campo.hidden = false;
+  $('#app-nombre').hidden = true;
+  campo.focus();
+  campo.select();
+};
+
+async function guardarNombreApp() {
+  const campo = $('#app-nombre-edit');
+  const nombre = campo.value.trim();
+  campo.hidden = true;
+  $('#app-nombre').hidden = false;
+  if (!nombre || nombre === NOMBRE_APP) return;
+  try {
+    const out = await api('/api/app', { method: 'PATCH', body: JSON.stringify({ nombre }) });
+    NOMBRE_APP = out.nombre;
+    $('#app-nombre').textContent = NOMBRE_APP;
+    document.title = NOMBRE_APP;
+  } catch (e) {
+    alert(`No se pudo renombrar: ${e.message}`);
+  }
+}
+
+$('#app-nombre-edit').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); guardarNombreApp(); }
+  if (e.key === 'Escape') { $('#app-nombre-edit').hidden = true; $('#app-nombre').hidden = false; }
+});
+$('#app-nombre-edit').addEventListener('blur', guardarNombreApp);
 
 $('#new-agent').onclick = () => openDialog(null);
 

@@ -96,4 +96,18 @@ function load() {
   return cfg;
 }
 
-module.exports = { load, CONFIG_PATH, detectClaude, DEFAULTS };
+/**
+ * Escribe claves sueltas en el archivo de configuracion conservando el resto.
+ * Se relee del disco en vez de volcar el objeto en memoria: ahi hay valores
+ * derivados (rutas, apiUrl) que no deben acabar fijados en el archivo.
+ */
+function guardar(cambios) {
+  const actual = readConfigFile();
+  const nuevo = { ...actual, ...cambios };
+  const tmp = `${CONFIG_PATH}.nuevo`;
+  fs.writeFileSync(tmp, JSON.stringify(nuevo, null, 2) + '\n', { mode: 0o600 });
+  fs.renameSync(tmp, CONFIG_PATH);
+  return nuevo;
+}
+
+module.exports = { load, guardar, CONFIG_PATH, detectClaude, DEFAULTS };

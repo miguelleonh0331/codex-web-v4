@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { URL } = require('node:url');
 
-const { load } = require('./config');
+const { load, guardar } = require('./config');
 const { Store, uid } = require('./db');
 const { Orchestrator } = require('./orchestrator');
 const sesion = require('./session');
@@ -353,6 +353,22 @@ async function api(req, res, url) {
 
   // --- a partir de aqui, API de usuario ---
   if (!authOk(req, url)) return json(res, 401, { error: 'token invalido' });
+
+  if (p === '/api/app' && m === 'PATCH') {
+    const body = await readBody(req);
+    const nombre = String(body.nombre || '').trim();
+    if (!nombre) return json(res, 400, { error: 'el nombre no puede estar vacio' });
+    if (nombre.length > 60) return json(res, 400, { error: 'el nombre no puede pasar de 60 caracteres' });
+
+    try {
+      guardar({ nombre });
+      cfg.nombre = nombre;          // surte efecto sin reiniciar el servicio
+      store.event('app.renombrada', null, { nombre });
+      return json(res, 200, { ok: true, nombre });
+    } catch (e) {
+      return json(res, 500, { error: `no se pudo guardar: ${e.message}` });
+    }
+  }
 
   if (p === '/api/state' && m === 'GET') {
     const ultimos = new Map(store.ultimosMensajes().map((u) => [u.agent_id, u]));

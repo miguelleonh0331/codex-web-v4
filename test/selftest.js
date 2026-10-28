@@ -100,6 +100,27 @@ function check(nombre, condicion, detalle) {
   const man = await (await fetch((await base()) + '/manifest.webmanifest')).json();
   check('la aplicacion instalada tambien lleva ese nombre', man.name === nombre, JSON.stringify(man.name));
 
+  // --- renombrar desde la web ---
+  const original = est3.data.app.nombre;
+  const nuevo = await req('/api/app', { method: 'PATCH', body: { nombre: `ST-Nombre-${sufijo}` } });
+  check('se puede renombrar la instalacion desde la web',
+    nuevo.status === 200 && nuevo.data.nombre === `ST-Nombre-${sufijo}`, JSON.stringify(nuevo.data));
+  check('el cambio surte efecto sin reiniciar',
+    (await req('/api/state')).data.app.nombre === `ST-Nombre-${sufijo}`);
+  check('rechaza un nombre vacio',
+    (await req('/api/app', { method: 'PATCH', body: { nombre: '  ' } })).status === 400);
+  check('rechaza un nombre desmedido',
+    (await req('/api/app', { method: 'PATCH', body: { nombre: 'x'.repeat(70) } })).status === 400);
+
+  const cfgDisco = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  check('guardar el nombre no pierde los tokens',
+    !!cfgDisco.authToken && !!cfgDisco.bridgeToken && cfgDisco.nombre === `ST-Nombre-${sufijo}`);
+  await req('/api/app', { method: 'PATCH', body: { nombre: original } });
+
+  const idxRen = await (await fetch((await base()) + '/')).text();
+  check('la marca se puede pulsar para renombrar',
+    /id="app-nombre"/.test(idxRen) && /id="app-nombre-edit"/.test(idxRen));
+
   // --- el selector de modelo debe dejar cambiar ---
   const idxModelo = await (await fetch((await base()) + '/')).text();
   check('el modelo se elige con un selector, no con una lista que filtra',
