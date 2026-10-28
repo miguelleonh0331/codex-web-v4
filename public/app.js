@@ -338,30 +338,49 @@ async function renderMessages(force) {
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
   box.innerHTML = '';
   const actual = agents.find((x) => x.id === selected);
+
   for (const m of messages) {
     const el = document.createElement('div');
     el.className = `msg ${m.role}`;
-    const cabecera = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}
-      <button type="button" class="copiar-msg" title="Copiar este mensaje">⧉ copiar</button></div>`;
-    const cuerpo = `<div class="cuerpo-msg">${cabecera}${formatearCuerpo(m.body)}</div>`;
+
+    // Quien habla y de que color: el especialista usa el suyo, para poder
+    // seguir una conversacion de tres sin leer los nombres.
+    let quien = 'tu';
+    let color = '#2bd4a0';
+    let marca = '❯';
 
     if (m.role === 'assistant' && actual) {
-      el.innerHTML = avatar(actual, 30, 'normal') + cuerpo;
+      quien = actual.name;
+      color = colorDe(actual.avatar_seed || actual.id, actual.avatar_color);
+      marca = '◆';
     } else if (m.role === 'peer') {
-      const emisor = agents.find((x) => x.name === (m.meta && m.meta.from));
-      el.innerHTML = (emisor ? avatar(emisor, 30, 'normal')
-                             : robotSvg((m.meta && m.meta.from) || 'peer', 'normal', 30)) + cuerpo;
-    } else {
-      const adj = (m.meta && m.meta.attachments) || [];
-      el.innerHTML = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}
-        <button type="button" class="copiar-msg" title="Copiar este mensaje">⧉ copiar</button></div>${formatearCuerpo(m.body)}` +
-        (adj.length ? `<div class="adjuntos">${adj.map((f) => `
+      const de = (m.meta && m.meta.from) || 'otro agente';
+      const emisor = agents.find((x) => x.name === de);
+      quien = de;
+      color = emisor ? colorDe(emisor.avatar_seed || emisor.id, emisor.avatar_color) : '#b98cff';
+      marca = '↩';
+    } else if (m.role === 'system') {
+      quien = 'sistema';
+      color = '#ffb020';
+      marca = '!';
+    }
+
+    const adj = (m.meta && m.meta.attachments) || [];
+    el.innerHTML = `
+      <div class="linea">
+        <span class="marca" style="color:${color}">${marca}</span>
+        <span class="quien" style="color:${color}">${escapeHtml(quien)}</span>
+        <span class="hora">${new Date(m.created_at).toLocaleTimeString()}</span>
+        <button type="button" class="copiar-msg" title="Copiar este mensaje">⧉</button>
+      </div>
+      <div class="cuerpo-msg">${formatearCuerpo(m.body)}${adj.length ? `
+        <div class="adjuntos">${adj.map((f) => `
           <a class="adj" href="${f.url}" target="_blank" rel="noopener">
             ${esImagen(f.nombre) ? `<img src="${f.url}" alt="">` : '<span>📄</span>'}
             <span class="nom">${escapeHtml(f.nombre)}</span>
             <span class="peso">${pesoLegible(f.bytes || 0)}</span>
-          </a>`).join('')}</div>` : '');
-    }
+          </a>`).join('')}</div>` : ''}</div>`;
+    el.style.setProperty('--color-quien', color);
     box.appendChild(el);
   }
   if (force || atBottom) box.scrollTop = box.scrollHeight;

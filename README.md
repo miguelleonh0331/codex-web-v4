@@ -346,9 +346,26 @@ corazonada.
 
 ## Aspecto
 
-La zona de conversacion se ve como una terminal: tipografia monoespaciada, mensajes como
-lineas de consola con su marca de color en el margen en vez de burbujas, y el cuadro de
-escritura con aire de linea de comandos. La barra lateral y el panel derecho se quedan
+La zona de conversacion se ve como una terminal. Cada mensaje es una linea de cabecera
+con su marca, quien habla y la hora, y debajo el texto:
+
+```
+❯ tu                                   13:45:12
+  revisa las troncales
+
+◆ Telefonia                            13:45:40
+  El wrapper es sudo zynervox-pjsip-reload.sh
+
+↩ Consultas                            13:46:02
+  Respuesta que llega de otro especialista
+
+! sistema                              13:46:10
+  Turno detenido por el usuario
+```
+
+**Cada participante tiene su color**, y el del especialista es el de su avatar: asi se
+sigue una conversacion de tres sin leer los nombres. Los avatares no se repiten en cada
+mensaje, solo en la lista y la cabecera, que es donde aportan. La barra lateral y el panel derecho se quedan
 como estaban.
 
 Detras de la conversacion cae una lluvia de caracteres, deliberadamente tenue: si pelea

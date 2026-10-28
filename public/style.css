@@ -194,7 +194,7 @@ dialog menu{display:flex;justify-content:flex-end;gap:.6rem;padding:0;margin:1re
 .chat-head .chat-title .txt{min-width:0}
 
 .msg{position:relative}
-.msg.assistant,.msg.peer{display:flex;gap:.6rem;align-items:flex-start}
+
 .msg .cara{width:28px;height:28px;margin-top:.1rem}
 .msg .cuerpo-msg{min-width:0;flex:1}
 
@@ -257,7 +257,7 @@ select:focus{outline:none;border-color:var(--accent)}
 /* colocacion */
 .agent .robot{width:41px;height:41px}
 .chat-head .robot{width:48px;height:48px}
-.msg .robot{width:35px;height:35px;margin-top:.1rem}
+
 .item .robot{width:25px;height:25px}
 #agent-dialog .vista-previa .robot{width:85px;height:85px}
 .previa-texto strong{display:block;font-size:.95rem}
@@ -572,3 +572,23 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 .composer button[type=submit]{border-radius:4px}
 
 @media (prefers-reduced-motion:reduce){.matrix{display:none}}
+
+/* ============================== conversacion como consola, ordenada ===== */
+.messages .msg{display:block;max-width:100%;margin:0;padding:.3rem 0 .45rem .85rem;
+  border-left:2px solid var(--color-quien,transparent);background:transparent;border-radius:0}
+.messages .msg + .msg{border-top:1px solid rgba(255,255,255,.04)}
+.messages .msg::before{content:none}
+.messages .msg .robot{display:none}
+
+.messages .linea{display:flex;align-items:baseline;gap:.5rem;margin-bottom:.2rem;font-size:.74rem}
+.messages .marca{font-weight:700;flex:0 0 auto}
+.messages .quien{font-weight:700;letter-spacing:.01em}
+.messages .hora{color:#5c6672;font-size:.68rem;margin-left:auto;font-variant-numeric:tabular-nums}
+.messages .copiar-msg{margin-left:0;opacity:0}
+.messages .msg:hover .copiar-msg{opacity:.8}
+
+.messages .cuerpo-msg{white-space:pre-wrap;word-wrap:break-word;line-height:1.55;
+  font-size:.86rem;color:#c8d3dd}
+.messages .msg.user .cuerpo-msg{color:#dfeee7}
+.messages .msg.system .cuerpo-msg{color:#f0d9a8}
+.messages .msg.peer .cuerpo-msg{color:#d6ccec}

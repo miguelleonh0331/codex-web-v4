@@ -142,6 +142,14 @@ function check(nombre, condicion, detalle) {
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));
   const cssTerm = await (await fetch((await base()) + '/style.css')).text();
+  const appChat = await (await fetch((await base()) + '/app.js')).text();
+  check('cada participante tiene su color y su marca',
+    /colorDe\(actual\.avatar_seed/.test(appChat) && /class="quien"/.test(appChat) &&
+    /marca = '◆'/.test(appChat), 'sin color no se sigue una conversacion de tres');
+  check('los mensajes ya no llevan avatar',
+    !/avatar\(actual, 30/.test(appChat) && /\.messages \.msg \.robot\{display:none\}/.test(
+      (await (await fetch((await base()) + '/style.css')).text()).replace(/\s+/g, '')));
+
   check('el centro se ve como una terminal',
     /\.messages\{font-family:ui-monospace/.test(cssTerm.replace(/\s+/g, '')) ||
     /\.messages/.test(cssTerm) && /ui-monospace/.test(cssTerm));

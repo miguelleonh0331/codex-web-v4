@@ -509,13 +509,25 @@ function robotSvg(clave, estado = 'normal', tam = 40, color = null) {
 </svg>`.trim();
 }
 
+/** Color principal de un avatar: sirve para teñir su nombre en la conversacion. */
+function colorDe(clave, override) {
+  if (override) {
+    const c = hexAHsl(override);
+    return c ? hsl(c.h, Math.min(90, c.s + 20), 66) : override;
+  }
+  const k = String(clave || '').toLowerCase().trim();
+  const d = DIOSES_ROBOT[k] || diosGenerado(clave);
+  return hsl(d.h, Math.min(95, d.s + 30), 68);
+}
+
 function listaDioses() {
   return Object.entries(DIOSES_ROBOT).map(([clave, d]) => ({ clave, nombre: d.nombre }));
 }
 
 if (typeof window !== 'undefined') {
   window.robotSvg = robotSvg;
+  window.colorDe = colorDe;
   window.listaDioses = listaDioses;
   window.ESTADOS_ROBOT = ESTADOS;
 }
-if (typeof module !== 'undefined') module.exports = { robotSvg, listaDioses, ESTADOS, DIOSES_ROBOT };
+if (typeof module !== 'undefined') module.exports = { robotSvg, colorDe, listaDioses, ESTADOS, DIOSES_ROBOT };
