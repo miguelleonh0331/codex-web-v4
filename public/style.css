@@ -578,9 +578,14 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 
 /* La respuesta del especialista aprovecha todo el ancho del chat; lo tuyo se
    queda recogido a la derecha para distinguirse de un vistazo. */
-.messages .linea{display:inline-block;text-align:left;width:100%;
-  padding-left:.85rem;text-indent:-.85rem}
+/* Sin sangria francesa: text-indent solo afecta a la PRIMERA linea del
+   bloque, asi que en un mensaje de varios parrafos desplazaba todo menos esa
+   y dejaba un escalon. Todas las lineas al mismo margen. */
+.messages .linea{display:inline-block;text-align:left;width:100%}
 .messages .msg.user .linea{width:auto;max-width:72ch}
+
+/* Los parrafos se separan con aire, no con sangria. */
+.messages .dicho{display:inline}
 
 .messages .quien{font-weight:700;white-space:nowrap}
 .messages .sep{color:#5a6673;margin:0 .35rem 0 .25rem}
@@ -594,8 +599,8 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 .messages .msg:hover .hora{opacity:.75}
 .messages .copiar-msg{margin-left:.3rem;opacity:0;vertical-align:baseline}
 .messages .msg:hover .copiar-msg{opacity:.7}
-.messages .adjuntos{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem;text-indent:0}
-.messages .bloque{text-indent:0;margin:.45rem 0}
+.messages .adjuntos{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem}
+.messages .bloque{margin:.45rem 0}
 
 .matrix{opacity:.07}
 

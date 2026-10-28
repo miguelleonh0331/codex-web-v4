@@ -158,6 +158,9 @@ function check(nombre, condicion, detalle) {
     /\.messages\.linea\{[^}]*width:100%/.test(cssChat));
   check('lo tuyo se queda recogido a la derecha',
     /\.messages\.msg\.user\.linea\{[^}]*max-width:72ch/.test(cssChat));
+  check('no hay sangria francesa en los mensajes',
+    !/\.messages\.linea\{[^}]*text-indent/.test(cssChat),
+    'text-indent solo mueve la primera linea y descuadra los parrafos siguientes');
 
   check('cada mensaje cabe en una linea: nombre > texto',
     /class="sep"/.test(appChat) && /class="dicho"/.test(appChat) && !/marca = /.test(appChat),
