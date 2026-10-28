@@ -628,7 +628,9 @@ function renderIndex() {
   // marca ya salen bien en la primera pintada, sin esperar a la API.
   const nombre = cfg.nombre || 'codex-web-v4';
   html = html.replace('<title>codex-web-v4 · especialistas</title>', `<title>${escaparHtml(nombre)}</title>`);
-  html = html.replace('>codex-web-v4<', `>${escaparHtml(nombre)}<`);
+  // replaceAll: el nombre aparece en la marca y en la pantalla de acceso, y
+  // sustituir solo el primero dejaba la barra lateral con el nombre viejo.
+  html = html.replaceAll('>codex-web-v4<', `>${escaparHtml(nombre)}<`);
   for (const recurso of ['/app.js', '/style.css', '/faces.js']) {
     html = html.replace(`"${recurso}"`, `"${recurso}?v=${v}"`);
   }
