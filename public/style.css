@@ -554,8 +554,6 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 .messages .msg .who{text-transform:none;letter-spacing:0;font-size:.7rem;opacity:.75}
 
 .messages .msg.user{align-self:stretch;background:transparent;border-left-color:#2bd4a0}
-.messages .msg.user .cuerpo-msg::before,.messages .msg.user::before{
-  content:"❯ ";color:#2bd4a0;font-weight:700}
 .messages .msg.assistant{border-left-color:#3d6ea8}
 .messages .msg.peer{border-left-color:var(--peer);background:transparent}
 .messages .msg.system{align-self:stretch;border-left-color:var(--warn);background:rgba(255,176,32,.05)}
@@ -580,8 +578,6 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 .messages .msg::before{content:none}
 .messages .msg .robot{display:none}
 
-.messages .linea{display:flex;align-items:baseline;gap:.5rem;margin-bottom:.2rem;font-size:.74rem}
-.messages .marca{font-weight:700;flex:0 0 auto}
 .messages .quien{font-weight:700;letter-spacing:.01em}
 .messages .hora{color:#5c6672;font-size:.68rem;margin-left:auto;font-variant-numeric:tabular-nums}
 .messages .copiar-msg{margin-left:0;opacity:0}
@@ -592,3 +588,34 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 .messages .msg.user .cuerpo-msg{color:#dfeee7}
 .messages .msg.system .cuerpo-msg{color:#f0d9a8}
 .messages .msg.peer .cuerpo-msg{color:#d6ccec}
+
+/* ================== una linea por mensaje: nombre > texto ============== */
+.messages{gap:.1rem}
+.messages .msg{display:block;max-width:100%;margin:0;padding:.22rem 0 .22rem .6rem;
+  border:none;border-left:2px solid var(--color-quien,transparent);background:transparent;
+  border-radius:0;font-size:.86rem;line-height:1.55;
+  /* lo que da la vuelta se alinea bajo el texto, no bajo el nombre */
+  padding-left:1.4rem;text-indent:-0.8rem}
+.messages .msg + .msg{border-top:none}
+.messages .msg::before,.messages .msg::after{content:none}
+.messages .msg .robot{display:none}
+.messages .msg:hover{background:rgba(255,255,255,.025)}
+
+.messages .quien{font-weight:700;white-space:nowrap}
+.messages .sep{color:#55606c;margin:0 .4rem 0 .3rem}
+.messages .dicho{white-space:pre-wrap;word-wrap:break-word;color:#c8d3dd}
+.messages .msg.user .dicho{color:#e3f2ea}
+.messages .msg.system .dicho{color:#f0d9a8}
+.messages .msg.peer .dicho{color:#d6ccec}
+
+/* la hora estorba mientras lees: solo al pasar por encima */
+.messages .hora{color:#4d5763;font-size:.68rem;margin-left:.6rem;opacity:0;
+  transition:opacity .15s ease;font-variant-numeric:tabular-nums}
+.messages .msg:hover .hora{opacity:.75}
+.messages .copiar-msg{margin-left:.35rem;opacity:0;vertical-align:baseline}
+.messages .msg:hover .copiar-msg{opacity:.7}
+.messages .adjuntos{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem;text-indent:0}
+.messages .bloque{text-indent:0;margin:.4rem 0}
+
+/* con el texto mas junto, el fondo debe pesar menos */
+.matrix{opacity:.09}

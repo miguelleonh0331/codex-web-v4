@@ -143,9 +143,12 @@ function check(nombre, condicion, detalle) {
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));
   const cssTerm = await (await fetch((await base()) + '/style.css')).text();
   const appChat = await (await fetch((await base()) + '/app.js')).text();
-  check('cada participante tiene su color y su marca',
-    /colorDe\(actual\.avatar_seed/.test(appChat) && /class="quien"/.test(appChat) &&
-    /marca = '◆'/.test(appChat), 'sin color no se sigue una conversacion de tres');
+  check('cada participante tiene su color',
+    /colorDe\(actual\.avatar_seed/.test(appChat) && /class="quien"/.test(appChat),
+    'sin color no se sigue una conversacion de tres');
+  check('cada mensaje cabe en una linea: nombre > texto',
+    /class="sep"/.test(appChat) && /class="dicho"/.test(appChat) && !/marca = /.test(appChat),
+    'partirlo en cabecera y cuerpo lo hacia ilegible');
   const cssSinEspacios = (await (await fetch((await base()) + '/style.css')).text()).replace(/\s+/g, '');
   check('los mensajes ya no llevan avatar',
     !/avatar\(actual,/.test(appChat) && !/avatar\(emisor,/.test(appChat) &&

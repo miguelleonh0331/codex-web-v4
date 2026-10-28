@@ -347,39 +347,35 @@ async function renderMessages(force) {
     // seguir una conversacion de tres sin leer los nombres.
     let quien = 'tu';
     let color = '#2bd4a0';
-    let marca = '❯';
 
     if (m.role === 'assistant' && actual) {
       quien = actual.name;
       color = colorDe(actual.avatar_seed || actual.id, actual.avatar_color);
-      marca = '◆';
     } else if (m.role === 'peer') {
       const de = (m.meta && m.meta.from) || 'otro agente';
       const emisor = agents.find((x) => x.name === de);
       quien = de;
       color = emisor ? colorDe(emisor.avatar_seed || emisor.id, emisor.avatar_color) : '#b98cff';
-      marca = '↩';
     } else if (m.role === 'system') {
       quien = 'sistema';
       color = '#ffb020';
-      marca = '!';
     }
 
     const adj = (m.meta && m.meta.attachments) || [];
-    el.innerHTML = `
-      <div class="linea">
-        <span class="marca" style="color:${color}">${marca}</span>
-        <span class="quien" style="color:${color}">${escapeHtml(quien)}</span>
-        <span class="hora">${new Date(m.created_at).toLocaleTimeString()}</span>
-        <button type="button" class="copiar-msg" title="Copiar este mensaje">⧉</button>
-      </div>
-      <div class="cuerpo-msg">${formatearCuerpo(m.body)}${adj.length ? `
-        <div class="adjuntos">${adj.map((f) => `
-          <a class="adj" href="${f.url}" target="_blank" rel="noopener">
-            ${esImagen(f.nombre) ? `<img src="${f.url}" alt="">` : '<span>📄</span>'}
-            <span class="nom">${escapeHtml(f.nombre)}</span>
-            <span class="peso">${pesoLegible(f.bytes || 0)}</span>
-          </a>`).join('')}</div>` : ''}</div>`;
+
+    // Una sola linea: "nombre > texto". El color ya dice quien habla, asi que
+    // no hace falta ningun simbolo delante, y el texto no se parte en dos.
+    el.innerHTML = `<span class="quien" style="color:${color}">${escapeHtml(quien)}</span>` +
+      `<span class="sep">&gt;</span>` +
+      `<span class="dicho">${formatearCuerpo(m.body)}</span>` +
+      `<span class="hora">${new Date(m.created_at).toLocaleTimeString()}</span>` +
+      `<button type="button" class="copiar-msg" title="Copiar este mensaje">⧉</button>` +
+      (adj.length ? `<span class="adjuntos">${adj.map((f) => `
+        <a class="adj" href="${f.url}" target="_blank" rel="noopener">
+          ${esImagen(f.nombre) ? `<img src="${f.url}" alt="">` : '<span>📄</span>'}
+          <span class="nom">${escapeHtml(f.nombre)}</span>
+          <span class="peso">${pesoLegible(f.bytes || 0)}</span>
+        </a>`).join('')}</span>` : '');
     el.style.setProperty('--color-quien', color);
     box.appendChild(el);
   }
