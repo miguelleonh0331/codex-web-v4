@@ -24,6 +24,21 @@ validarlo y —si la tarea lo autoriza— desplegarlo.
 Requisitos: Linux con systemd, Node >= 22.5 (por `node:sqlite`) y el binario de
 Claude Code accesible en el servidor.
 
+### En otro servidor, con un solo comando
+
+Si ya tienes acceso SSH al destino, no hace falta pasar por GitHub:
+
+```bash
+./instalar-remoto.sh <destino-ssh> --user <usuario> --port 3212 \
+   --project-name <proyecto> --project-path <ruta> --session-dir <perfil-con-sesion>
+```
+
+Empaqueta el repositorio con toda su historia, lo copia, comprueba que el destino
+tiene Node suficiente y ejecuta el instalador alli. Si ya estaba instalado, lo
+actualiza en vez de duplicarlo.
+
+### Desde el repositorio
+
 ```bash
 git clone <repo> /opt/codex-web-v4
 cd /opt/codex-web-v4
