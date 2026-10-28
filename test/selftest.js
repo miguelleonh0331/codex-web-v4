@@ -147,13 +147,15 @@ function check(nombre, condicion, detalle) {
     /colorDe\(actual\.avatar_seed/.test(appChat) && /class="quien"/.test(appChat),
     'sin color no se sigue una conversacion de tres');
   const cssChat = (await (await fetch((await base()) + '/style.css')).text()).replace(/\s+/g, '');
-  check('tus mensajes van a la derecha y los del equipo a la izquierda',
-    /\.messages\.msg\.user\{[^}]*align-self:flex-end/.test(cssChat) &&
-    /\.messages\.msg\.assistant,\.messages\.msg\.peer[^{]*\{[^}]*align-self:flex-start/.test(cssChat));
+  check('tus mensajes van a la derecha',
+    /\.messages\.msg\.user\{[^}]*text-align:right/.test(cssChat));
+  check('la franja de color ocupa el turno entero',
+    /\.messages\.msg\{[^}]*display:block;width:100%/.test(cssChat),
+    'resaltar solo el texto dejaba las filas sueltas');
   check('cada mensaje se tine del color de quien habla',
     /background-color:color-mix\(insrgb,var\(--color-quien/.test(cssChat));
-  check('el texto tiene un ancho legible',
-    /max-width:82ch/.test(cssChat) && /max-width:72ch/.test(cssChat),
+  check('el texto tiene un ancho legible dentro de la franja',
+    /\.messages\.linea\{[^}]*max-width:92ch/.test(cssChat),
     'una linea que cruza la pantalla entera no se lee');
 
   check('cada mensaje cabe en una linea: nombre > texto',

@@ -559,47 +559,26 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 
 @media (prefers-reduced-motion:reduce){.matrix{display:none}}
 
-/* ============================== conversacion como consola, ordenada ===== */
-.messages .msg{display:block;max-width:100%;margin:0;padding:.3rem 0 .45rem .85rem;
-  border-left:2px solid var(--color-quien,transparent);background:transparent;border-radius:0}
-.messages .msg + .msg{border-top:1px solid rgba(255,255,255,.04)}
-.messages .msg::before{content:none}
-.messages .msg .robot{display:none}
-
-.messages .quien{font-weight:700;letter-spacing:.01em}
-.messages .hora{color:#5c6672;font-size:.68rem;margin-left:auto;font-variant-numeric:tabular-nums}
-.messages .copiar-msg{margin-left:0;opacity:0}
-.messages .msg:hover .copiar-msg{opacity:.8}
-
-.messages .cuerpo-msg{white-space:pre-wrap;word-wrap:break-word;line-height:1.55;
-  font-size:.86rem;color:#c8d3dd}
-.messages .msg.user .cuerpo-msg{color:#dfeee7}
-.messages .msg.system .cuerpo-msg{color:#f0d9a8}
-.messages .msg.peer .cuerpo-msg{color:#d6ccec}
-
-
-/* ========== una linea por mensaje, con el color de quien habla ========= */
-.messages{display:flex;flex-direction:column;gap:.45rem;padding:1rem 1.1rem}
+/* ====== la franja de color ocupa el turno entero, no solo el texto ===== */
+.messages{display:block;padding:.6rem 0}
 
 .messages .msg{
-  display:block;position:relative;border-radius:6px;background:transparent;
-  font-size:.86rem;line-height:1.6;
-  /* lo que da la vuelta se alinea bajo el texto, no bajo el nombre */
-  padding:.4rem .7rem .4rem 1.5rem;text-indent:-0.8rem;
-  max-width:82ch;                       /* una linea larguisima es ilegible */
-  border-left:2px solid var(--color-quien,transparent);
-  background-color:color-mix(in srgb, var(--color-quien, #5b9dff) 7%, transparent);
+  display:block;width:100%;margin:0;border-radius:0;font-size:.86rem;line-height:1.6;
+  padding:.38rem 1.1rem;
+  border-left:3px solid var(--color-quien,transparent);
+  background-color:color-mix(in srgb, var(--color-quien, #5b9dff) 9%, transparent);
 }
+.messages .msg + .msg{margin-top:2px}
 .messages .msg::before,.messages .msg::after{content:none}
 .messages .msg .robot{display:none}
-.messages .msg:hover{background-color:color-mix(in srgb, var(--color-quien, #5b9dff) 12%, transparent)}
+.messages .msg:hover{background-color:color-mix(in srgb, var(--color-quien, #5b9dff) 16%, transparent)}
 
-/* lo tuyo va a la derecha: se distingue sin leer */
-.messages .msg.user{
-  align-self:flex-end;border-left:none;border-right:2px solid var(--color-quien,#2bd4a0);
-  padding-left:1.5rem;padding-right:.8rem;max-width:72ch}
-.messages .msg.assistant,.messages .msg.peer,.messages .msg.system{align-self:flex-start}
-.messages .msg.system{max-width:100%}
+/* lo tuyo, a la derecha dentro de su franja */
+.messages .msg.user{border-left:none;border-right:3px solid var(--color-quien,#2bd4a0);text-align:right}
+
+/* el texto mantiene ancho legible aunque la franja llegue de lado a lado */
+.messages .linea{display:inline-block;text-align:left;max-width:92ch;
+  padding-left:.85rem;text-indent:-.85rem}
 
 .messages .quien{font-weight:700;white-space:nowrap}
 .messages .sep{color:#5a6673;margin:0 .35rem 0 .25rem}
@@ -616,10 +595,6 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 .messages .adjuntos{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem;text-indent:0}
 .messages .bloque{text-indent:0;margin:.45rem 0}
 
-/* el fondo solo acompana: nunca detras del texto que estas leyendo */
 .matrix{opacity:.07}
 
-@media (max-width:900px){
-  .messages .msg{max-width:100%}
-  .messages .msg.user{max-width:100%}
-}
+@media (max-width:900px){ .messages .linea{max-width:100%} }

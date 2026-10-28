@@ -365,7 +365,10 @@ async function renderMessages(force) {
 
     // Una sola linea: "nombre > texto". El color ya dice quien habla, asi que
     // no hace falta ningun simbolo delante, y el texto no se parte en dos.
-    el.innerHTML = `<span class="quien" style="color:${color}">${escapeHtml(quien)}</span>` +
+    // El texto va dentro de un bloque propio: la franja de color ocupa toda la
+    // fila, pero lo escrito mantiene un ancho legible.
+    el.innerHTML = `<span class="linea">` +
+      `<span class="quien" style="color:${color}">${escapeHtml(quien)}</span>` +
       `<span class="sep">&gt;</span>` +
       `<span class="dicho">${formatearCuerpo(m.body)}</span>` +
       `<span class="hora">${new Date(m.created_at).toLocaleTimeString()}</span>` +
@@ -375,7 +378,7 @@ async function renderMessages(force) {
           ${esImagen(f.nombre) ? `<img src="${f.url}" alt="">` : '<span>📄</span>'}
           <span class="nom">${escapeHtml(f.nombre)}</span>
           <span class="peso">${pesoLegible(f.bytes || 0)}</span>
-        </a>`).join('')}</span>` : '');
+        </a>`).join('')}</span>` : '') + `</span>`;
     el.style.setProperty('--color-quien', color);
     box.appendChild(el);
   }
