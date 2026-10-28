@@ -356,9 +356,14 @@ Consultas > el indice ya existe en vicidial_list
 sistema > turno detenido por el usuario
 ```
 
-Un mensaje, una linea. **Cada participante tiene su color**, y el del especialista es el
-de su avatar: con eso se sigue una conversacion de tres sin leer los nombres, y sobran
-los simbolos delante. Lo que da la vuelta se alinea bajo el texto, no bajo el nombre.
+Un mensaje, una linea. **Tus mensajes van a la derecha** y los del equipo a la izquierda,
+asi que distingues pregunta de respuesta sin leer nada.
+
+**Cada mensaje se tine del color de quien habla**, y el del especialista es el de su
+avatar: con eso se sigue una conversacion de tres de un vistazo, y sobran los simbolos
+delante. El texto tiene ancho maximo, porque una linea que cruza la pantalla entera no
+se lee aunque este bien formateada. Lo que da la vuelta se alinea bajo el texto, no bajo
+el nombre.
 
 La hora y el boton de copiar solo aparecen al pasar por encima: mientras lees, estorban.
 Los avatares no se repiten en cada linea, solo en la lista y la cabecera. La barra lateral y el panel derecho se quedan
