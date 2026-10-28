@@ -14,6 +14,7 @@ const DEFAULTS = {
   sessionSource: null,        // credenciales de origen: si la sesion caduca, se recupera de aqui
   claudeBin: null,            // autodeteccion si viene null
   model: 'sonnet',
+  effort: null,               // low | medium | high | xhigh | max; null deja el del CLI
   maxConcurrentTurns: 2,
   turnTimeoutMs: 900000,
   maxHops: 6,

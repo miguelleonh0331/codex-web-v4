@@ -14,6 +14,9 @@ const store = new Store(cfg.dbPath);
 const orq = new Orchestrator(cfg, store);
 
 const PUBLIC_DIR = path.join(cfg.appDir, 'public');
+// Valores que admite el CLI de Claude Code: un valor invalido tumbaria el turno entero.
+const ESFUERZOS = ['low', 'medium', 'high', 'xhigh', 'max'];
+const MODELOS_SUGERIDOS = ['haiku', 'sonnet', 'opus', 'opusplan', 'fable'];
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -52,6 +55,7 @@ function agentPublic(a) {
   return {
     id: a.id, name: a.name, area: a.area, instructions: a.instructions, model: a.model,
     status: a.status, archived: !!a.archived, workspace: a.workspace,
+    effort: a.effort || null,
     avatar_seed: a.avatar_seed || a.id,
     created_at: a.created_at, updated_at: a.updated_at,
     has_session: !!a.session_id
@@ -92,9 +96,13 @@ function createAgent(body) {
   fs.mkdirSync(home, { recursive: true });
   fs.mkdirSync(workspace, { recursive: true });
 
+  if (body.effort && !ESFUERZOS.includes(body.effort)) {
+    throw new Error(`Esfuerzo invalido "${body.effort}". Admitidos: ${ESFUERZOS.join(', ')}.`);
+  }
+
   const agent = store.createAgent({
     id, name, area: body.area || null, instructions,
-    model: body.model || null, home, workspace,
+    model: body.model || null, effort: body.effort || null, home, workspace,
     avatarSeed: body.avatarSeed || id
   });
 
@@ -287,7 +295,8 @@ async function api(req, res, url) {
       claims: store.listClaims().map((c) => ({ ...c, agent_name: nameOf(c.agent_id) })),
       running: orq.busy,
       pending: store.nextPendingTurns(100).length,
-      project: cfg.project
+      project: cfg.project,
+      opciones: { modelos: MODELOS_SUGERIDOS, esfuerzos: ESFUERZOS, modeloPorDefecto: cfg.model, esfuerzoPorDefecto: cfg.effort }
     });
   }
 
@@ -315,6 +324,11 @@ async function api(req, res, url) {
         return json(res, 400, { error: 'ya existe otro especialista con ese nombre' });
       }
       if (body.avatarSeed) body.avatar_seed = body.avatarSeed;
+      if (body.effort !== undefined && body.effort !== null && body.effort !== '' && !ESFUERZOS.includes(body.effort)) {
+        return json(res, 400, { error: `Esfuerzo invalido "${body.effort}". Admitidos: ${ESFUERZOS.join(', ')}.` });
+      }
+      if (body.effort === '') body.effort = null;
+      if (body.model === '') body.model = null;
       return json(res, 200, agentPublic(store.updateAgent(id, body)));
     }
 

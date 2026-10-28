@@ -122,6 +122,18 @@ La cara aparece en la lista, en la cabecera de la conversacion, junto a cada res
 en el buzon, donde se ve quien escribe a quien. Al crear o editar un especialista hay una
 vista previa con un boton para cambiarla; la semilla se guarda en `avatar_seed`.
 
+## Modelo y esfuerzo por especialista
+
+Cada especialista puede llevar su propio modelo (`haiku`, `sonnet`, `opus`, `opusplan`,
+`fable` o un nombre completo) y su propio nivel de esfuerzo (`low`, `medium`, `high`,
+`xhigh`, `max`). Se eligen al crearlo o editarlo, y se ven en la lista bajo su nombre.
+Vacio significa el valor por defecto de la configuracion.
+
+La idea es gastar donde importa: un Arquitecto que decide contratos merece `opus` con
+esfuerzo alto; un especialista que solo consulta rutas va sobrado con `haiku` y `low`.
+El servidor rechaza un esfuerzo que el CLI no admita, para que un error de escritura no
+tumbe el turno.
+
 ## Como colaboran
 
 Cada agente recibe estas herramientas en su sesion:
@@ -174,7 +186,8 @@ que dos agentes no pueden quedarse dandose las gracias indefinidamente.
 | --- | --- |
 | `port`, `bindHosts` | donde escucha; se puede atar a loopback y a una IP de tailnet |
 | `dataDir` | base de datos, sesion, workspaces y registros |
-| `model` | modelo por defecto; cada agente puede llevar el suyo |
+| `model` | modelo por defecto; cada especialista puede llevar el suyo |
+| `effort` | esfuerzo de razonamiento por defecto: low, medium, high, xhigh, max |
 | `maxConcurrentTurns` | cuantos agentes trabajan a la vez |
 | `turnTimeoutMs` | corte de un turno que se cuelga |
 | `maxHops` | tope de mensajes encadenados entre agentes |

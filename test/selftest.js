@@ -77,6 +77,28 @@ function check(nombre, condicion, detalle) {
     (await req('/api/agents', { method: 'POST', body: { name: `ST-Gamma-${sufijo}` } })).status === 400);
   check('crea el workspace en disco', fs.existsSync(a1.data.workspace));
 
+  // --- modelo y esfuerzo por especialista ---
+  const conModelo = await req('/api/agents', { method: 'POST', body: {
+    name: `ST-Modelo-${sufijo}`, area: 'prueba', instructions: 'Agente de autodiagnostico.',
+    model: 'haiku', effort: 'low' } });
+  check('se puede fijar modelo y esfuerzo al crear',
+    conModelo.data.model === 'haiku' && conModelo.data.effort === 'low', JSON.stringify(conModelo.data).slice(0, 120));
+
+  const cambiado = await req(`/api/agents/${conModelo.data.id}`, { method: 'PATCH', body: { model: 'sonnet', effort: 'max' } });
+  check('se pueden cambiar despues', cambiado.data.model === 'sonnet' && cambiado.data.effort === 'max');
+
+  const malEsfuerzo = await req(`/api/agents/${conModelo.data.id}`, { method: 'PATCH', body: { effort: 'turbo' } });
+  check('rechaza un esfuerzo que el CLI no admite', malEsfuerzo.status === 400);
+
+  const vuelta = await req(`/api/agents/${conModelo.data.id}`, { method: 'PATCH', body: { model: '', effort: '' } });
+  check('se puede volver al valor por defecto', vuelta.data.model === null && vuelta.data.effort === null);
+
+  const est = await req('/api/state');
+  check('la interfaz recibe modelos y esfuerzos validos',
+    est.data.opciones && est.data.opciones.esfuerzos.join(',') === 'low,medium,high,xhigh,max' &&
+    est.data.opciones.modelos.includes('opus'));
+  await req(`/api/agents/${conModelo.data.id}`, { method: 'DELETE' });
+
   // --- buzon entre agentes ---
   const bridge = cfg.bridgeToken;
   const m1 = await req('/api/internal/mailbox', { method: 'POST', bridge, token: null, body: { from: A, to: `ST-Beta-${sufijo}`, text: 'hola, resuelve por nombre' } });

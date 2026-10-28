@@ -147,6 +147,20 @@ class Orchestrator {
       out = { ok: false, error: `Sesion de Claude caducada y no se pudo recuperar: ${r.motivo}. Actualiza ${sesion.archivoSesion(this.cfg)}` };
     }
 
+    // Un hilo de conversacion que ya no existe (se movio el directorio de sesion, se
+    // limpio el historial) no debe costarle al usuario el mensaje: se empieza hilo
+    // nuevo y se reintenta el mismo turno una vez.
+    if (!out.ok && agent.session_id && !this.reintentados.has(turn.id) &&
+        /no conversation found|session id|--resume|resume/i.test(out.error || '')) {
+      this.reintentados.add(turn.id);
+      this.store.updateAgent(agent.id, { session_id: null });
+      this.store.event('session.reset', agent.id, { turn_id: turn.id, motivo: out.error, reintentado: true });
+      console.warn(`[orq] hilo inexistente para ${agent.name}: se empieza uno nuevo y se reintenta el turno ${turn.id}`);
+      this.store.db.prepare("UPDATE turns SET status='pending', started_at=NULL WHERE id = ?").run(turn.id);
+      this.store.updateAgent(agent.id, { status: 'idle' });
+      return;
+    }
+
     if (out.ok) {
       if (out.sessionId) this.store.updateAgent(agent.id, { session_id: out.sessionId });
       this.store.addMessage(agent.id, 'assistant', out.text || '(sin texto)', {

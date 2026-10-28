@@ -88,7 +88,8 @@ function uid(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 // Migraciones aditivas: cada columna nueva se anade si falta, para que una base
 // ya existente siga funcionando sin tocarla a mano.
 const COLUMNAS_NUEVAS = [
-  ['agents', 'avatar_seed', 'TEXT']
+  ['agents', 'avatar_seed', 'TEXT'],
+  ['agents', 'effort', 'TEXT']
 ];
 
 function migrar(db) {
@@ -121,11 +122,11 @@ class Store {
   }
 
   // ---------- agentes ----------
-  createAgent({ id, name, area, instructions, model, home, workspace, avatarSeed }) {
+  createAgent({ id, name, area, instructions, model, effort, home, workspace, avatarSeed }) {
     const ts = now();
-    this.db.prepare(`INSERT INTO agents (id,name,area,instructions,model,status,home,workspace,avatar_seed,created_at,updated_at)
-                     VALUES (?,?,?,?,?,'idle',?,?,?,?,?)`)
-      .run(id, name, area || null, instructions, model || null, home, workspace, avatarSeed || id, ts, ts);
+    this.db.prepare(`INSERT INTO agents (id,name,area,instructions,model,effort,status,home,workspace,avatar_seed,created_at,updated_at)
+                     VALUES (?,?,?,?,?,?,'idle',?,?,?,?,?)`)
+      .run(id, name, area || null, instructions, model || null, effort || null, home, workspace, avatarSeed || id, ts, ts);
     this.event('agent.created', id, { name, area });
     return this.getAgent(id);
   }
@@ -151,7 +152,7 @@ class Store {
   }
 
   updateAgent(id, fields) {
-    const allowed = ['name', 'area', 'instructions', 'model', 'status', 'session_id', 'archived', 'avatar_seed'];
+    const allowed = ['name', 'area', 'instructions', 'model', 'effort', 'status', 'session_id', 'archived', 'avatar_seed'];
     const keys = Object.keys(fields).filter((k) => allowed.includes(k));
     if (!keys.length) return this.getAgent(id);
     const sets = keys.map((k) => `${k} = ?`).join(', ');

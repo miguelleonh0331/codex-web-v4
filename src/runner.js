@@ -116,6 +116,8 @@ function runTurn(cfg, agent, turn, log) {
       '--append-system-prompt', buildSystemPrompt(agent, cfg)
     ];
     if (agent.model || cfg.model) args.push('--model', agent.model || cfg.model);
+    const esfuerzo = agent.effort || cfg.effort;
+    if (esfuerzo) args.push('--effort', esfuerzo);
     if (agent.session_id) args.push('--resume', agent.session_id);
 
     const env = {

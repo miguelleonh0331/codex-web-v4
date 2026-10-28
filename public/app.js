@@ -6,6 +6,7 @@ let selected = null;
 let agents = [];
 let lastEventId = 0;
 let editing = null;
+let OPCIONES = null;
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -74,6 +75,13 @@ async function refreshAll() {
     if (state.project && state.project.name) {
       $('#project-label').textContent = state.project.name;
     }
+    if (state.opciones) {
+      OPCIONES = state.opciones;
+      const dl = $('#modelos');
+      if (dl && dl.children.length !== OPCIONES.modelos.length) {
+        dl.innerHTML = OPCIONES.modelos.map((m) => `<option value="${escapeHtml(m)}">`).join('');
+      }
+    }
     if (selected) {
       const act = agents.find((x) => x.id === selected);
       if (act) $('#chat-face').innerHTML = caraSvg(act.avatar_seed || act.id, act.status, 40);
@@ -93,6 +101,9 @@ function renderAgents() {
       <span class="txt">
         <span class="n"><i class="pill ${a.status}"></i>${escapeHtml(a.name)}</span>
         <span class="a">${escapeHtml(a.area || 'sin area')}</span>
+        ${(a.model || a.effort) ? `<span class="meta">
+           ${a.model ? `<span class="tag">${escapeHtml(a.model)}</span>` : ''}
+           ${a.effort ? `<span class="tag">${escapeHtml(a.effort)}</span>` : ''}</span>` : ''}
       </span>`;
     el.onclick = () => selectAgent(a.id);
     box.appendChild(el);
@@ -103,7 +114,9 @@ async function selectAgent(id) {
   selected = id;
   const a = agents.find((x) => x.id === id);
   $('#chat-name').textContent = a ? a.name : '';
-  $('#chat-area').textContent = a ? (a.area || '') : '';
+  $('#chat-area').textContent = a
+    ? [a.area, a.model, a.effort].filter(Boolean).join(' · ')
+    : '';
   $('#chat-face').innerHTML = a ? caraSvg(a.avatar_seed || a.id, a.status, 40) : '';
   $('#send-form').hidden = false;
   $('#edit-agent').hidden = false;
@@ -263,6 +276,7 @@ function openDialog(agent) {
   f.area.value = agent ? (agent.area || '') : '';
   f.instructions.value = agent ? agent.instructions : PLANTILLA;
   f.model.value = agent ? (agent.model || '') : '';
+  f.effort.value = agent ? (agent.effort || '') : '';
   $('#dialog-error').textContent = '';
   $('#agent-dialog').showModal();
 }
@@ -274,6 +288,7 @@ $('#agent-form').addEventListener('submit', async (e) => {
     area: f.area.value.trim(),
     instructions: f.instructions.value.trim(),
     model: f.model.value.trim() || null,
+    effort: f.effort.value || null,
     avatarSeed: semillaActual
   };
   e.preventDefault();

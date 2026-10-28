@@ -115,7 +115,22 @@
     <label>Instrucciones
       <textarea name="instructions" rows="10" required placeholder="Responsabilidad, rutas reales, limites, con quien coordina y como valida."></textarea>
     </label>
-    <label>Modelo <input name="model" placeholder="sonnet"></label>
+    <div class="dos-columnas">
+      <label>Modelo
+        <input name="model" list="modelos" placeholder="por defecto" autocomplete="off">
+        <datalist id="modelos"></datalist>
+      </label>
+      <label>Esfuerzo
+        <select name="effort">
+          <option value="">por defecto</option>
+          <option value="low">low · rapido y barato</option>
+          <option value="medium">medium</option>
+          <option value="high">high · recomendado</option>
+          <option value="xhigh">xhigh</option>
+          <option value="max">max · lento y caro</option>
+        </select>
+      </label>
+    </div>
     <p class="error" id="dialog-error"></p>
     <menu>
       <button value="cancel" type="button" id="dialog-cancel">Cancelar</button>
