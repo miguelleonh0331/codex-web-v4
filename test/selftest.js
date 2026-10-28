@@ -77,6 +77,19 @@ function check(nombre, condicion, detalle) {
     (await req('/api/agents', { method: 'POST', body: { name: `ST-Gamma-${sufijo}` } })).status === 400);
   check('crea el workspace en disco', fs.existsSync(a1.data.workspace));
 
+  // --- formato de los mensajes ---
+  const appTxt = await (await fetch((await base()) + '/app.js')).text();
+  check('los mensajes se formatean antes de pintarse',
+    /function formatearCuerpo/.test(appTxt) && /formatearCuerpo\(m\.body\)/.test(appTxt));
+  check('el texto del modelo se escapa antes de transformarlo',
+    /enriquecer\(escapeHtml\(parte\)\)/.test(appTxt));
+  check('hay copia con respaldo para HTTP sin cifrar',
+    /execCommand\('copy'\)/.test(appTxt) && /isSecureContext/.test(appTxt));
+
+  const cssFmt = await (await fetch((await base()) + '/style.css')).text();
+  check('hay estilo de bloque de codigo, enlace y ruta copiable',
+    /\.bloque pre/.test(cssFmt) && /code\.copiable/.test(cssFmt) && /\.msg a\b/.test(cssFmt));
+
   // --- parada de un especialista ---
   const parada = await req(`/api/agents/${A}/stop`, { method: 'POST' });
   check('se puede detener a un especialista',

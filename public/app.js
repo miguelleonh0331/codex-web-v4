@@ -245,7 +245,7 @@ async function renderMessages(force) {
   for (const m of messages) {
     const el = document.createElement('div');
     el.className = `msg ${m.role}`;
-    const cuerpo = `<div class="cuerpo-msg"><div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${escapeHtml(m.body)}</div>`;
+    const cuerpo = `<div class="cuerpo-msg"><div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${formatearCuerpo(m.body)}</div>`;
 
     if (m.role === 'assistant' && actual) {
       el.innerHTML = avatar(actual, 30, 'normal') + cuerpo;
@@ -255,7 +255,7 @@ async function renderMessages(force) {
                              : robotSvg((m.meta && m.meta.from) || 'peer', 'normal', 30)) + cuerpo;
     } else {
       const adj = (m.meta && m.meta.attachments) || [];
-      el.innerHTML = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${escapeHtml(m.body)}` +
+      el.innerHTML = `<div class="who">${escapeHtml(roleLabel(m))} · ${new Date(m.created_at).toLocaleTimeString()}</div>${formatearCuerpo(m.body)}` +
         (adj.length ? `<div class="adjuntos">${adj.map((f) => `
           <a class="adj" href="${f.url}" target="_blank" rel="noopener">
             ${esImagen(f.nombre) ? `<img src="${f.url}" alt="">` : '<span>📄</span>'}
@@ -767,6 +767,96 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => { /* sin PWA, la app sigue igual */ });
   });
 }
+
+// --------------------------------------------------- texto de los mensajes
+
+/**
+ * Da formato al texto del especialista: bloques de codigo con boton de copiar,
+ * enlaces pulsables y rutas que se copian al hacer clic.
+ *
+ * Se escapa SIEMPRE antes de transformar: el texto viene de un modelo y no se
+ * puede confiar en el. Las sustituciones se hacen sobre el texto ya escapado,
+ * donde ya no quedan < ni > capaces de abrir una etiqueta.
+ */
+function formatearCuerpo(texto) {
+  const partes = String(texto == null ? '' : texto).split(/```/);
+  return partes.map((parte, i) => {
+    if (i % 2 === 1) {
+      // bloque de codigo: la primera linea puede ser el lenguaje
+      const lineas = parte.replace(/^\n/, '').split('\n');
+      // Solo es lenguaje si despues queda codigo: un bloque de una sola linea
+      // como ```hola``` es contenido, no una etiqueta.
+      const posible = (lineas[0] || '').trim();
+      const idioma = (/^[a-z0-9_+-]{1,15}$/i.test(posible) && lineas.slice(1).join('\n').trim() !== '')
+        ? lineas.shift().trim() : '';
+      const codigo = lineas.join('\n').replace(/\n+$/, '');
+      return `<div class="bloque">
+        <div class="bloque-cab">${escapeHtml(idioma || 'texto')}
+          <button type="button" class="copiar">Copiar codigo</button></div>
+        <pre><code>${escapeHtml(codigo)}</code></pre></div>`;
+    }
+    return enriquecer(escapeHtml(parte));
+  }).join('');
+}
+
+/** Sobre texto YA escapado: enlaces, codigo en linea y rutas copiables. */
+function enriquecer(seguro) {
+  return seguro
+    // `codigo en linea` -> copiable de un clic
+    .replace(/`([^`\n]{1,200})`/g, (_, c) => `<code class="copiable" title="pulsa para copiar">${c}</code>`)
+    // enlaces
+    .replace(/\bhttps?:\/\/[^\s<>"')]+/g, (u) =>
+      `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`)
+    // rutas absolutas del servidor
+    .replace(/(^|[\s(])(\/(?:opt|srv|etc|var|usr|home|tmp)\/[^\s<>"'`),;]{2,})/g,
+      (_, pre, ruta) => `${pre}<span class="ruta copiable" title="pulsa para copiar">${ruta}</span>`);
+}
+
+/** Copia respetando los navegadores sin portapapeles moderno (HTTP plano). */
+async function copiarTexto(texto, elemento) {
+  let ok = false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(texto);
+      ok = true;
+    }
+  } catch { /* se intenta el modo antiguo */ }
+
+  if (!ok) {
+    // Sin HTTPS no hay API de portapapeles: hace falta el metodo de siempre.
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    ta.remove();
+  }
+
+  if (elemento) {
+    const previo = elemento.textContent;
+    elemento.textContent = ok ? '¡copiado!' : 'no se pudo copiar';
+    elemento.classList.toggle('copiado', ok);
+    setTimeout(() => { elemento.textContent = previo; elemento.classList.remove('copiado'); }, 1400);
+  }
+  return ok;
+}
+
+// Un solo manejador para todo lo copiable, presente y futuro.
+document.addEventListener('click', (e) => {
+  const boton = e.target.closest('.copiar');
+  if (boton) {
+    const pre = boton.closest('.bloque').querySelector('code');
+    return copiarTexto(pre.textContent, boton);
+  }
+  const trozo = e.target.closest('.copiable');
+  if (trozo) {
+    copiarTexto(trozo.textContent);
+    trozo.classList.add('copiado');
+    setTimeout(() => trozo.classList.remove('copiado'), 900);
+  }
+});
 
 function escapeHtml(s) {
   return String(s == null ? '' : s)
