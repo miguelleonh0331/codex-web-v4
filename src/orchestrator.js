@@ -175,14 +175,28 @@ class Orchestrator {
 
     if (ev.type === 'result') {
       const mu = ev.modelUsage || {};
-      const modelo = Object.keys(mu)[0];
-      const u = modelo ? mu[modelo] : null;
-      if (u && u.contextWindow) {
-        this.store.guardarContexto(agent.id, {
-          usado: (u.inputTokens || 0) + (u.cacheReadInputTokens || 0) + (u.cacheCreationInputTokens || 0),
-          ventana: u.contextWindow,
-          modelo
-        });
+      const tokens = (v) => (v.inputTokens || 0) + (v.cacheReadInputTokens || 0) + (v.cacheCreationInputTokens || 0);
+
+      // El modelo principal es el que mas trabajo hizo, no el primero de la
+      // lista: un turno usa tambien modelos auxiliares (haiku para tareas
+      // menores) y con opusplan conviven dos.
+      const principal = Object.entries(mu).sort((a, b) => tokens(b[1]) - tokens(a[1]))[0];
+      if (!principal || !principal[1].contextWindow) return;
+
+      // El contexto es el tamano de la ULTIMA llamada, no la suma del turno:
+      // cada llamada vuelve a leer la cache, asi que sumarlas contaba el mismo
+      // contexto una vez por herramienta usada y daba cifras imposibles.
+      const u = ev.usage || {};
+      const it = Array.isArray(u.iterations) ? u.iterations : [];
+      const ultima = it.length ? it[it.length - 1] : null;
+      const usado = ultima
+        ? (ultima.input_tokens || 0) + (ultima.cache_read_input_tokens || 0) + (ultima.cache_creation_input_tokens || 0)
+        : (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+
+      // Un turno que no consume contexto (como /compact) no mide nada: guardar
+      // un cero borraria la ultima medida buena y mostraria 0% falso.
+      if (usado > 0) {
+        this.store.guardarContexto(agent.id, { usado, ventana: principal[1].contextWindow, modelo: principal[0] });
       }
     }
   }
@@ -284,7 +298,9 @@ class Orchestrator {
       const miles = (n) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
       const texto = antes && ahora && ahora < antes
         ? `Contexto compactado: ${miles(antes)} → ${miles(ahora)} tokens. El especialista conserva el resumen de lo hablado.`
-        : 'Contexto compactado. El especialista conserva el resumen de lo hablado.';
+        : antes
+          ? `Contexto compactado (venia de ${miles(antes)} tokens). El tamano nuevo se medira en su proxima respuesta.`
+          : 'Contexto compactado. El especialista conserva el resumen de lo hablado.';
       this.store.addMessage(agent.id, 'system', texto, { turn_id: turn.id, compactado: true });
       this.store.finishTurn(turn.id, { status: 'done', result: texto, cost: out.cost, numTurns: out.numTurns, sessionId: out.sessionId });
       this.store.event('contexto.compactado', agent.id, { antes, despues: ahora });

@@ -156,6 +156,16 @@ function check(nombre, condicion, detalle) {
   check('hay estilo de bloque de codigo, enlace y ruta copiable',
     /\.bloque pre/.test(cssFmt) && /code\.copiable/.test(cssFmt) && /\.msg a\b/.test(cssFmt));
 
+  // --- rastro de las ediciones ---
+  const antesEv = (await req('/api/events')).data.events.length;
+  await req(`/api/agents/${A}`, { method: 'PATCH', body: { model: 'haiku' } });
+  const evs = (await req('/api/events')).data.events;
+  const ed = evs.find((e) => e.kind === 'agente.actualizado');
+  check('cada edicion deja rastro de que cambio',
+    !!ed && Array.isArray(ed.data.cambios) && ed.data.cambios.includes('model'),
+    'sin esto no se puede saber si un guardado llego al servidor');
+  await req(`/api/agents/${A}`, { method: 'PATCH', body: { model: '' } });
+
   // --- compactar ---
   const sinSesion = await req(`/api/agents/${A}/compact`, { method: 'POST' });
   check('no deja compactar a quien no ha hablado aun',
@@ -262,7 +272,7 @@ function check(nombre, condicion, detalle) {
   check('la interfaz recibe modelos y esfuerzos validos',
     est.data.opciones && est.data.opciones.esfuerzos.join(',') === 'low,medium,high,xhigh,max' &&
     est.data.opciones.modelos.includes('opus'));
-  await req(`/api/agents/${conModelo.data.id}`, { method: 'DELETE' });
+  await req(`/api/agents/${conModelo.data.id}?purgar=1`, { method: 'DELETE' });
 
   // --- adjuntos ---
   const subir = async (nombre, cuerpo) => {
@@ -354,7 +364,7 @@ function check(nombre, condicion, detalle) {
   const alta = await req('/api/internal/agents', { method: 'POST', bridge, token: null,
     body: { name: `ST-Nuevo-${sufijo}`, area: 'prueba', instructions: 'Agente creado por el autodiagnostico.', createdBy: A, hop: 0 } });
   check('un agente puede crear el especialista que falta', alta.data.status === 'created', JSON.stringify(alta.data));
-  if (alta.data.id) await req(`/api/agents/${alta.data.id}`, { method: 'DELETE' });
+  if (alta.data.id) await req(`/api/agents/${alta.data.id}?purgar=1`, { method: 'DELETE' });
 
   const altaMal = await req('/api/internal/agents', { method: 'POST', bridge, token: null,
     body: { name: `ST-Cascada-${sufijo}`, area: 'x', instructions: 'x', createdBy: A, hop: 2 } });
@@ -439,8 +449,8 @@ function check(nombre, condicion, detalle) {
     /@keyframes pensar/.test(css) && /prefers-reduced-motion/.test(css));
 
   // --- limpieza ---
-  await req(`/api/agents/${A}`, { method: 'DELETE' });
-  await req(`/api/agents/${B}`, { method: 'DELETE' });
+  await req(`/api/agents/${A}?purgar=1`, { method: 'DELETE' });
+  await req(`/api/agents/${B}?purgar=1`, { method: 'DELETE' });
   const quedan = (await req('/api/agents')).data.agents.filter((x) => x.name.includes(`-${sufijo}`));
   check('archiva los agentes de prueba', quedan.length === 0);
 

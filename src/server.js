@@ -383,12 +383,26 @@ async function api(req, res, url) {
       }
       if (body.effort === '') body.effort = null;
       if (body.model === '') body.model = null;
-      return json(res, 200, agentPublic(store.updateAgent(id, body)));
+
+      const antes = { model: a.model, effort: a.effort, area: a.area, name: a.name };
+      const actualizado = store.updateAgent(id, body);
+      const cambios = Object.keys(antes).filter((k) => antes[k] !== actualizado[k]);
+      if (cambios.length) {
+        store.event('agente.actualizado', id, {
+          cambios, antes: Object.fromEntries(cambios.map((k) => [k, antes[k]])),
+          ahora: Object.fromEntries(cambios.map((k) => [k, actualizado[k]]))
+        });
+      }
+      return json(res, 200, agentPublic(actualizado));
     }
 
     if (m === 'DELETE') {
-      store.updateAgent(id, { archived: 1 });
       store.releaseAllFor(id);
+      if (url.searchParams.get('purgar') === '1') {
+        store.borrarAgente(id);
+        return json(res, 200, { ok: true, borrado: true });
+      }
+      store.updateAgent(id, { archived: 1 });
       store.event('agent.archived', id, {});
       return json(res, 200, { ok: true });
     }

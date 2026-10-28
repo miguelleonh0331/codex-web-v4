@@ -239,6 +239,15 @@ class Store {
     return this.getAgent(id);
   }
 
+  /** Borrado definitivo: lo usa el autodiagnostico con sus propios agentes. */
+  borrarAgente(id) {
+    for (const t of ['messages', 'actividad', 'turns']) {
+      this.db.prepare(`DELETE FROM ${t} WHERE agent_id = ?`).run(id);
+    }
+    this.db.prepare('DELETE FROM mailbox WHERE from_agent = ? OR to_agent = ?').run(id, id);
+    this.db.prepare('DELETE FROM agents WHERE id = ?').run(id);
+  }
+
   // ---------- mensajes de la conversacion ----------
   addMessage(agentId, role, body, meta) {
     const ts = now();
