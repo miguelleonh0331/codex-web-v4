@@ -660,14 +660,14 @@ $('#new-agent').onclick = () => openDialog(null);
 
 if ($('#ask-team')) $('#ask-team').onclick = () => {
   $('#broadcast-error').textContent = '';
-  $('#broadcast-form').text.value = '';
+  $('#broadcast-form').elements.text.value = '';
   $('#broadcast-dialog').showModal();
 };
 if ($('#broadcast-cancel')) $('#broadcast-cancel').onclick = () => $('#broadcast-dialog').close();
 
 if ($('#broadcast-form')) $('#broadcast-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const text = e.target.text.value.trim();
+  const text = e.target.elements.text.value.trim();
   if (!text) return;
   try {
     const out = await api('/api/broadcast', { method: 'POST', body: JSON.stringify({ text }) });
@@ -768,29 +768,34 @@ function openDialog(agent) {
                         : dioses[Math.floor(Math.random() * dioses.length)].clave;
   colorActual = agent ? (agent.avatar_color || null) : null;
   pintarPreview();
-  const f = $('#agent-form');
+  const c = $('#agent-form').elements;
   $('#dialog-title').textContent = agent ? `Editar ${agent.name}` : 'Nuevo especialista';
-  f.name.value = agent ? agent.name : '';
-  f.area.value = agent ? (agent.area || '') : '';
-  f.instructions.value = agent ? agent.instructions : PLANTILLA;
-  f.model.value = agent ? (agent.model || '') : '';
-  f.effort.value = agent ? (agent.effort || '') : '';
+  c.name.value = agent ? agent.name : '';
+  c.area.value = agent ? (agent.area || '') : '';
+  c.instructions.value = agent ? agent.instructions : PLANTILLA;
+  c.model.value = agent ? (agent.model || '') : '';
+  c.effort.value = agent ? (agent.effort || '') : '';
   $('#dialog-error').textContent = '';
   $('#agent-dialog').showModal();
 }
 
 $('#agent-form').addEventListener('submit', async (e) => {
-  const f = e.target;
+  // Primero cortar el envio: el dialogo es method="dialog" y, si algo falla
+  // mas abajo, se cerraria solo y el cambio se perderia en silencio.
+  e.preventDefault();
+
+  // Siempre por f.elements: f.name no es el campo "name", es el nombre del
+  // formulario, y leer .value sobre el rompe el guardado entero.
+  const c = e.target.elements;
   const payload = {
-    name: f.name.value.trim(),
-    area: f.area.value.trim(),
-    instructions: f.instructions.value.trim(),
-    model: f.model.value.trim() || null,
-    effort: f.effort.value || null,
+    name: c.name.value.trim(),
+    area: c.area.value.trim(),
+    instructions: c.instructions.value.trim(),
+    model: c.model.value.trim() || null,
+    effort: c.effort.value || null,
     avatarSeed: semillaActual,
     avatarColor: colorActual
   };
-  e.preventDefault();
   try {
     if (editing) {
       await api(`/api/agents/${editing.id}`, { method: 'PATCH', body: JSON.stringify(payload) });

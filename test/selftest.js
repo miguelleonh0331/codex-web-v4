@@ -77,6 +77,18 @@ function check(nombre, condicion, detalle) {
     (await req('/api/agents', { method: 'POST', body: { name: `ST-Gamma-${sufijo}` } })).status === 400);
   check('crea el workspace en disco', fs.existsSync(a1.data.workspace));
 
+  // --- formularios: el campo "name" es una trampa clasica ---
+  const appForm = await (await fetch((await base()) + '/app.js')).text();
+  check('los formularios leen sus campos por elements',
+    /e\.target\.elements/.test(appForm) && /\$\('#agent-form'\)\.elements/.test(appForm));
+  check('no se accede a form.name como si fuera un campo',
+    !/\bf\.(name|model|effort|area|instructions)\.value/.test(appForm),
+    'form.name es el nombre del formulario, no el campo: romperia el guardado entero');
+  check('el envio se corta antes de construir los datos',
+    /addEventListener\('submit', async \(e\) => \{\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*e\.preventDefault\(\)/.test(appForm) ||
+    /submit[^]{0,400}e\.preventDefault\(\)[^]{0,200}const c = e\.target\.elements/.test(appForm),
+    'si falla despues, el dialogo se cierra solo y el cambio se pierde');
+
   // --- avisos de trabajo terminado ---
   const est2 = await req('/api/state');
   const conMsg = est2.data.agents.find((x) => x.ultimo_mensaje);
