@@ -96,6 +96,30 @@ async function refreshAll() {
   } catch (err) { /* reintenta en el siguiente ciclo */ }
 }
 
+/**
+ * Mientras un especialista trabaja, su linea de area se convierte en una cinta
+ * con sus propias palabras clave pasando. Son las suyas, no relleno: salen del
+ * campo "area" del agente.
+ */
+function cintaTrabajando(a) {
+  const palabras = String(a.area || '')
+    .split(/[,;·]+/).map((x) => x.trim()).filter(Boolean);
+  if (!palabras.length) palabras.push('trabajando');
+
+  // Se repite la lista hasta que la cinta sea mas larga que la fila, para que
+  // el bucle no muestre un hueco al volver al principio.
+  const suficientes = [];
+  while (suficientes.length < 14) suficientes.push(...palabras);
+
+  const tramo = suficientes.map((w, i) =>
+    `<span class="w${i % 3}">${escapeHtml(w)}</span>`).join('');
+
+  return `<span class="cinta" aria-label="trabajando">
+      <span class="fila">${tramo}${tramo}</span>
+      <span class="hilo"></span>
+    </span>`;
+}
+
 function renderAgents() {
   const box = $('#agent-list');
   box.innerHTML = '';
@@ -105,7 +129,9 @@ function renderAgents() {
     el.innerHTML = `${avatar(a, 36)}
       <span class="txt">
         <span class="n"><i class="pill ${a.status}"></i>${escapeHtml(a.name)}</span>
-        <span class="a">${escapeHtml(a.area || 'sin area')}</span>
+        ${a.status === 'working'
+          ? cintaTrabajando(a)
+          : `<span class="a">${escapeHtml(a.area || 'sin area')}</span>`}
         ${(a.model || a.effort) ? `<span class="meta">
            ${a.model ? `<span class="tag">${escapeHtml(a.model)}</span>` : ''}
            ${a.effort ? `<span class="tag">${escapeHtml(a.effort)}</span>` : ''}</span>` : ''}

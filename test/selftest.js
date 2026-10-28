@@ -264,6 +264,13 @@ function check(nombre, condicion, detalle) {
 
   const css = await (await fetch((await base()) + '/style.css')).text();
   check('el diseno tiene reglas para movil', /max-width:900px/.test(css) && /safe-area-inset/.test(css));
+  check('la fila anima el area mientras el agente trabaja',
+    /cinta-correr/.test(css) && /cinta-hilo/.test(css) && /\.agent \.cinta/.test(css));
+
+  const appjs = await (await fetch((await base()) + '/app.js')).text();
+  check('la cinta usa las palabras del area del especialista',
+    /cintaTrabajando/.test(appjs) && /a\.status === 'working'/.test(appjs));
+
   check('los avatares estan animados', /@keyframes parpadeo/.test(css) && /@keyframes hablar/.test(css) &&
     /@keyframes pensar/.test(css) && /prefers-reduced-motion/.test(css));
 
