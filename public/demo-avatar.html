@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Avatar animado · prototipo</title>
+<link rel="stylesheet" href="/style.css">
 <style>
 :root{--bg:#0f1115;--bg2:#151821;--line:#262b36;--fg:#e6e9ef;--muted:#8b93a7;--accent:#5b9dff}
 *{box-sizing:border-box}
@@ -93,6 +94,7 @@ h1{font-size:1.25rem;margin:0 0 .2rem;text-align:center}
   <div class="botones" id="botones"></div>
   <div class="botones" id="dioses"></div>
   <div class="botones" id="paleta"></div>
+  <div class="estado-actual" id="caracter"></div>
 </div>
 
 <div class="tamanos" id="tamanos"></div>
@@ -116,6 +118,9 @@ h1{font-size:1.25rem;margin:0 0 .2rem;text-align:center}
   function pintar() {
     document.getElementById('grande').innerHTML = robotSvg(dios, actual, 240, color);
     document.getElementById('etiqueta').textContent = actual;
+    const def = window.DIOSES_ROBOT[dios];
+    document.getElementById('caracter').textContent =
+      def ? `caracter: ${def.temperamento} · cabeza ${def.cabeza} · visor ${def.visor}` : '';
     document.querySelectorAll('#botones button').forEach((b) => b.classList.toggle('sel', b.dataset.e === actual));
     document.querySelectorAll('#dioses button').forEach((b) => b.classList.toggle('sel', b.dataset.d === dios));
     document.querySelectorAll('#paleta button').forEach((b) => b.classList.toggle('sel', (b.dataset.c || null) === color));

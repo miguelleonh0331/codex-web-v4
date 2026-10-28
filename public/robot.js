@@ -46,7 +46,7 @@ function paletaDe(color) {
     halo2: hsl((c.h + 12) % 360, s * 0.8, 11),
     led: hsl(c.h, Math.min(95, s + 25), 66),
     ledSuave: hsl(c.h, Math.min(95, s + 15), 85),
-    metal: '#eef2f7', metalSombra: '#c3ccd8',
+    metal: '#eef2f7', metalSombra: '#c3ccd8', visorFondo: '#0b1018',
     oro: hsl(c.h, Math.min(90, s + 10), 62),
     oroSombra: hsl(c.h, Math.min(90, s + 10), 42)
   };
@@ -146,6 +146,69 @@ const TOCADOS = {
     <circle cx="19" cy="-37" r="3.2" fill="${p.ledSuave}" opacity=".8"/></g>`
 };
 
+// ------------------------------------------------------- silueta por dios
+
+const CABEZAS = {
+  redonda:  (p, g) => `<rect x="-38" y="-34" width="76" height="62" rx="30" fill="url(#metal-${g})"/>`,
+  cuadrada: (p, g) => `<rect x="-39" y="-34" width="78" height="62" rx="13" fill="url(#metal-${g})"/>`,
+  alta:     (p, g) => `<rect x="-34" y="-40" width="68" height="70" rx="24" fill="url(#metal-${g})"/>`,
+  ancha:    (p, g) => `<rect x="-43" y="-30" width="86" height="56" rx="24" fill="url(#metal-${g})"/>`,
+  ovalada:  (p, g) => `<ellipse cx="0" cy="-3" rx="40" ry="33" fill="url(#metal-${g})"/>`
+};
+
+const VISORES = {
+  ancho:    (p) => `<rect class="visor" x="-30" y="-20" width="60" height="38" rx="17" fill="${p.visorFondo}"/>
+                    <rect x="-30" y="-20" width="60" height="38" rx="17" fill="none" stroke="${p.oro}" stroke-width="1.6" opacity=".55"/>`,
+  estrecho: (p) => `<rect class="visor" x="-33" y="-14" width="66" height="26" rx="13" fill="${p.visorFondo}"/>
+                    <rect x="-33" y="-14" width="66" height="26" rx="13" fill="none" stroke="${p.oro}" stroke-width="1.6" opacity=".55"/>`,
+  gafas:    (p) => `<rect class="visor" x="-30" y="-16" width="60" height="30" rx="15" fill="${p.visorFondo}" opacity=".55"/>
+                    <circle class="visor" cx="-14" cy="-1" r="15" fill="${p.visorFondo}"/>
+                    <circle class="visor" cx="14" cy="-1" r="15" fill="${p.visorFondo}"/>
+                    <circle cx="-14" cy="-1" r="15" fill="none" stroke="${p.oro}" stroke-width="2"/>
+                    <circle cx="14" cy="-1" r="15" fill="none" stroke="${p.oro}" stroke-width="2"/>`,
+  angular:  (p) => `<path class="visor" d="M-32 -16 L32 -16 L26 16 L-26 16 Z" fill="${p.visorFondo}"/>
+                    <path d="M-32 -16 L32 -16 L26 16 L-26 16 Z" fill="none" stroke="${p.oro}" stroke-width="1.6" opacity=".6"/>`,
+  mascara:  (p) => `<path class="visor" d="M-32 -18 Q0 -24 32 -18 L30 10 Q0 22 -30 10 Z" fill="${p.visorFondo}"/>
+                    <path d="M-32 -18 Q0 -24 32 -18 L30 10 Q0 22 -30 10 Z" fill="none" stroke="${p.oro}" stroke-width="1.6" opacity=".55"/>`
+};
+
+const OREJAS = {
+  pastillas: (p) => `<rect x="-47" y="-10" width="11" height="22" rx="5.5" fill="${p.oro}"/>
+                     <rect x="36" y="-10" width="11" height="22" rx="5.5" fill="${p.oro}"/>`,
+  discos:    (p) => `<circle cx="-42" cy="0" r="9" fill="${p.oro}"/><circle cx="-42" cy="0" r="4" fill="${p.visorFondo}"/>
+                     <circle cx="42" cy="0" r="9" fill="${p.oro}"/><circle cx="42" cy="0" r="4" fill="${p.visorFondo}"/>`,
+  cuernos:   (p) => `<path d="M-36 -22 Q-56 -34 -52 -54 Q-42 -42 -32 -34 Z" fill="${p.oro}"/>
+                     <path d="M36 -22 Q56 -34 52 -54 Q42 -42 32 -34 Z" fill="${p.oro}"/>`,
+  antenitas: (p) => `<line x1="-30" y1="-34" x2="-40" y2="-52" stroke="${p.metalSombra}" stroke-width="2.6" stroke-linecap="round"/>
+                     <circle cx="-41" cy="-55" r="3.6" fill="${p.led}"/>
+                     <line x1="30" y1="-34" x2="40" y2="-52" stroke="${p.metalSombra}" stroke-width="2.6" stroke-linecap="round"/>
+                     <circle cx="41" cy="-55" r="3.6" fill="${p.led}"/>`,
+  ninguna:   () => ''
+};
+
+/** Gestos del modo de espera: aparecen de vez en cuando, nunca a la vez. */
+function gestos(p) {
+  return `<g class="gestos">
+    <g class="g-zzz" opacity="0">
+      <text x="34" y="-38" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="${p.ledSuave}">z</text>
+      <text x="44" y="-48" font-family="system-ui,sans-serif" font-size="16" font-weight="700" fill="${p.ledSuave}">z</text>
+      <text x="55" y="-60" font-family="system-ui,sans-serif" font-size="20" font-weight="700" fill="${p.ledSuave}">z</text>
+    </g>
+    <g class="g-nota" opacity="0">
+      <ellipse cx="-44" cy="-36" rx="4.6" ry="3.6" fill="${p.ledSuave}"/>
+      <rect x="-41" y="-50" width="2.4" height="14" fill="${p.ledSuave}"/>
+      <path d="M-38.6 -50 Q-31 -48 -33 -42" stroke="${p.ledSuave}" stroke-width="2.4" fill="none"/>
+    </g>
+    <g class="g-destello" opacity="0">
+      ${[[-46, -30, 5], [46, -34, 6.5], [-38, 16, 4]].map(([x, y, r]) =>
+    `<path d="M${x} ${y - r} L${x + r * 0.3} ${y - r * 0.3} L${x + r} ${y} L${x + r * 0.3} ${y + r * 0.3} L${x} ${y + r} L${x - r * 0.3} ${y + r * 0.3} L${x - r} ${y} L${x - r * 0.3} ${y - r * 0.3} Z" fill="${p.ledSuave}"/>`).join('')}
+    </g>
+    <g class="g-gota" opacity="0">
+      <path d="M44 -34 Q50 -22 44 -18 Q38 -22 44 -34 Z" fill="${p.ledSuave}" opacity=".85"/>
+    </g>
+  </g>`;
+}
+
 // ----------------------------------------------------------------- emblemas
 
 const EMBLEMAS = {
@@ -194,23 +257,29 @@ const EMBLEMAS = {
 
 // -------------------------------------------------------------------- dioses
 
+/**
+ * Cada dios cambia de silueta, no solo de color: cabeza, visor, orejas, metal y
+ * temperamento. El temperamento decide como se comporta cuando no hace nada.
+ */
 const DIOSES_ROBOT = {
-  zeus:      { nombre: 'Zeus',      tocado: 'laurel',    emblema: 'rayo',       h: 214, s: 48, l: 40 },
-  hera:      { nombre: 'Hera',      tocado: 'diadema',   emblema: 'pavo',       h: 330, s: 42, l: 40 },
-  atenea:    { nombre: 'Atenea',    tocado: 'corintio',  emblema: 'buho',       h: 190, s: 45, l: 36 },
-  hermes:    { nombre: 'Hermes',    tocado: 'alado',     emblema: 'lira',       h: 200, s: 60, l: 44 },
-  apolo:     { nombre: 'Apolo',     tocado: 'sol',       emblema: 'lira',       h: 38,  s: 72, l: 46 },
-  ares:      { nombre: 'Ares',      tocado: 'cresta',    emblema: 'lanza',      h: 2,   s: 62, l: 40 },
-  artemisa:  { nombre: 'Artemisa',  tocado: 'luna',      emblema: 'arco',       h: 142, s: 46, l: 34 },
-  afrodita:  { nombre: 'Afrodita',  tocado: 'flores',    emblema: 'corazon',    h: 332, s: 70, l: 52 },
-  poseidon:  { nombre: 'Poseidon',  tocado: 'ondas',     emblema: 'tridente',   h: 196, s: 72, l: 40 },
-  hades:     { nombre: 'Hades',     tocado: 'capucha',   emblema: 'calavera',   h: 272, s: 48, l: 32 },
-  hefesto:   { nombre: 'Hefesto',   tocado: 'gafas',     emblema: 'martillo',   h: 22,  s: 62, l: 38 },
-  demeter:   { nombre: 'Demeter',   tocado: 'trigo',     emblema: 'espiga',     h: 88,  s: 48, l: 36 },
-  hecate:    { nombre: 'Hecate',    tocado: 'antorchas', emblema: 'llave',      h: 278, s: 46, l: 36 },
-  hestia:    { nombre: 'Hestia',    tocado: 'llama',     emblema: 'hogar',      h: 18,  s: 66, l: 42 },
-  mnemosine: { nombre: 'Mnemosine', tocado: 'diadema',   emblema: 'pergamino',  h: 172, s: 52, l: 36 }
+  zeus:      { nombre: 'Zeus',      tocado: 'laurel',    emblema: 'rayo',      cabeza: 'ancha',    visor: 'ancho',    orejas: 'pastillas', metal: '#f2f5fa', temperamento: 'serio',     h: 214, s: 48, l: 40 },
+  hera:      { nombre: 'Hera',      tocado: 'diadema',   emblema: 'pavo',      cabeza: 'ovalada',  visor: 'mascara',  orejas: 'discos',    metal: '#f7eef3', temperamento: 'tranquilo', h: 330, s: 42, l: 40 },
+  atenea:    { nombre: 'Atenea',    tocado: 'corintio',  emblema: 'buho',      cabeza: 'alta',     visor: 'estrecho', orejas: 'ninguna',   metal: '#eaf0f2', temperamento: 'serio',     h: 190, s: 45, l: 36 },
+  hermes:    { nombre: 'Hermes',    tocado: 'alado',     emblema: 'lira',      cabeza: 'redonda',  visor: 'ancho',    orejas: 'antenitas', metal: '#eef4fb', temperamento: 'nervioso',  h: 200, s: 60, l: 44 },
+  apolo:     { nombre: 'Apolo',     tocado: 'sol',       emblema: 'lira',      cabeza: 'redonda',  visor: 'mascara',  orejas: 'discos',    metal: '#fdf3e2', temperamento: 'alegre',    h: 38,  s: 72, l: 46 },
+  ares:      { nombre: 'Ares',      tocado: 'cresta',    emblema: 'lanza',     cabeza: 'cuadrada', visor: 'angular',  orejas: 'pastillas', metal: '#d8d2d2', temperamento: 'nervioso',  h: 2,   s: 62, l: 40 },
+  artemisa:  { nombre: 'Artemisa',  tocado: 'luna',      emblema: 'arco',      cabeza: 'alta',     visor: 'estrecho', orejas: 'antenitas', metal: '#e9f3ec', temperamento: 'tranquilo', h: 142, s: 46, l: 34 },
+  afrodita:  { nombre: 'Afrodita',  tocado: 'flores',    emblema: 'corazon',   cabeza: 'ovalada',  visor: 'ancho',    orejas: 'discos',    metal: '#fdeef5', temperamento: 'alegre',    h: 332, s: 70, l: 52 },
+  poseidon:  { nombre: 'Poseidon',  tocado: 'ondas',     emblema: 'tridente',  cabeza: 'ancha',    visor: 'angular',  orejas: 'cuernos',   metal: '#e4f1f6', temperamento: 'tranquilo', h: 196, s: 72, l: 40 },
+  hades:     { nombre: 'Hades',     tocado: 'capucha',   emblema: 'calavera',  cabeza: 'alta',     visor: 'mascara',  orejas: 'ninguna',   metal: '#6a6475', temperamento: 'dormilon',  h: 272, s: 48, l: 32 },
+  hefesto:   { nombre: 'Hefesto',   tocado: 'gafas',     emblema: 'martillo',  cabeza: 'cuadrada', visor: 'gafas',    orejas: 'pastillas', metal: '#cbb59a', temperamento: 'serio',     h: 22,  s: 62, l: 38 },
+  demeter:   { nombre: 'Demeter',   tocado: 'trigo',     emblema: 'espiga',    cabeza: 'ovalada',  visor: 'estrecho', orejas: 'discos',    metal: '#f1f4e6', temperamento: 'dormilon',  h: 88,  s: 48, l: 36 },
+  hecate:    { nombre: 'Hecate',    tocado: 'antorchas', emblema: 'llave',     cabeza: 'alta',     visor: 'gafas',    orejas: 'cuernos',   metal: '#e7e1f2', temperamento: 'nervioso',  h: 278, s: 46, l: 36 },
+  hestia:    { nombre: 'Hestia',    tocado: 'llama',     emblema: 'hogar',     cabeza: 'redonda',  visor: 'ancho',    orejas: 'ninguna',   metal: '#fdf0e6', temperamento: 'tranquilo', h: 18,  s: 66, l: 42 },
+  mnemosine: { nombre: 'Mnemosine', tocado: 'diadema',   emblema: 'pergamino', cabeza: 'cuadrada', visor: 'estrecho', orejas: 'antenitas', metal: '#e6f2f0', temperamento: 'dormilon',  h: 172, s: 52, l: 36 }
 };
+
+const TEMPERAMENTOS = ['tranquilo', 'nervioso', 'dormilon', 'alegre', 'serio'];
 
 function hashSemilla(texto) {
   let h = 0x811c9dc5;
@@ -224,21 +293,32 @@ function diosGenerado(semilla) {
   let h = hashSemilla(semilla);
   const sig = (n) => { h = (Math.imul(h, 1664525) + 1013904223) >>> 0; return h % n; };
   const tocados = Object.keys(TOCADOS), emblemas = Object.keys(EMBLEMAS);
+  const cabezas = Object.keys(CABEZAS), visores = Object.keys(VISORES), orejas = Object.keys(OREJAS);
   return {
     nombre: 'Especialista',
     tocado: tocados[sig(tocados.length)],
     emblema: emblemas[sig(emblemas.length)],
+    cabeza: cabezas[sig(cabezas.length)],
+    visor: visores[sig(visores.length)],
+    orejas: orejas[sig(orejas.length)],
+    temperamento: TEMPERAMENTOS[sig(TEMPERAMENTOS.length)],
     h: sig(360), s: 45 + sig(25), l: 34 + sig(10)
   };
 }
 
+function oscurecer(hex, factor) {
+  const c = hexAHsl(hex);
+  return c ? hsl(c.h, c.s, Math.max(8, c.l * factor)) : '#c3ccd8';
+}
+
 function paletaDios(d) {
+  const metal = d.metal || '#eef2f7';
   return {
     halo1: hsl(d.h, d.s, d.l),
     halo2: hsl((d.h + 14) % 360, d.s * 0.8, 11),
     led: hsl(d.h, Math.min(95, d.s + 30), 66),
     ledSuave: hsl(d.h, Math.min(95, d.s + 20), 86),
-    metal: '#eef2f7', metalSombra: '#c3ccd8',
+    metal, metalSombra: oscurecer(metal, 0.78), visorFondo: '#0b1018',
     oro: hsl(d.h, Math.min(92, d.s + 18), 62),
     oroSombra: hsl(d.h, Math.min(92, d.s + 18), 42)
   };
@@ -307,10 +387,16 @@ function robotSvg(clave, estado = 'normal', tam = 40, color = null) {
 
   const tocado = (TOCADOS[d.tocado] || TOCADOS.laurel)(p);
   const emblema = (EMBLEMAS[d.emblema] || EMBLEMAS.rayo)(p);
+  const temperamento = d.temperamento || 'tranquilo';
+  // Cada avatar respira a su ritmo y empieza en un momento distinto: si todos
+  // bostezaran a la vez pareceria una pantalla, no un grupo de personajes.
+  const semillaRitmo = hashSemilla(`${k}-ritmo`);
+  const ritmo = (3 + (semillaRitmo % 26) / 10).toFixed(1);
+  const retraso = ((semillaRitmo >> 5) % 90) / 10;
 
   return `
-<svg class="robot ${e}" viewBox="-70 -78 140 150" width="${tam}" height="${tam}"
-     role="img" aria-label="${d.nombre}">
+<svg class="robot ${e} t-${temperamento}" viewBox="-70 -78 140 150" width="${tam}" height="${tam}"
+     style="--ritmo:${ritmo}s;--retraso:-${retraso}s" role="img" aria-label="${d.nombre}">
   <defs>
     <radialGradient id="halo-${uid}" cx="36%" cy="24%">
       <stop offset="0%" stop-color="${p.halo1}"/><stop offset="100%" stop-color="${p.halo2}"/>
@@ -334,15 +420,12 @@ function robotSvg(clave, estado = 'normal', tam = 40, color = null) {
     <rect x="-7" y="22" width="14" height="9" rx="4" fill="${p.metalSombra}"/>
     <circle cx="0" cy="43" r="5.6" fill="${p.oro}" class="nucleo"/>
 
-    <rect x="-47" y="-10" width="11" height="22" rx="5.5" fill="${p.oro}"/>
-    <rect x="36" y="-10" width="11" height="22" rx="5.5" fill="${p.oro}"/>
+    ${(OREJAS[d.orejas] || OREJAS.pastillas)(p)}
 
-    <rect x="-38" y="-34" width="76" height="62" rx="26" fill="url(#metal-${uid})"/>
-    <rect x="-38" y="-34" width="76" height="62" rx="26" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="1.6"/>
-    <rect x="-30" y="-30" width="60" height="16" rx="8" fill="#ffffff" opacity=".5"/>
+    ${(CABEZAS[d.cabeza] || CABEZAS.redonda)(p, uid)}
+    <rect x="-30" y="-30" width="60" height="14" rx="7" fill="#ffffff" opacity=".4"/>
 
-    <rect class="visor" x="-30" y="-20" width="60" height="38" rx="17" fill="#0b1018"/>
-    <rect x="-30" y="-20" width="60" height="38" rx="17" fill="none" stroke="${p.oro}" stroke-width="1.6" opacity=".55"/>
+    ${(VISORES[d.visor] || VISORES.ancho)(p)}
     <rect class="barrido" x="-30" y="-20" width="60" height="6" rx="3" fill="${p.ledSuave}" opacity=".12"/>
 
     <g class="ojos" transform="translate(0,-4)">${ojosDe(e, p)}</g>
@@ -354,6 +437,7 @@ function robotSvg(clave, estado = 'normal', tam = 40, color = null) {
       <line x1="0" y1="-34" x2="0" y2="-48" stroke="${p.metalSombra}" stroke-width="3" stroke-linecap="round"/>
       <circle class="antena-luz" cx="0" cy="-52" r="4.6" fill="${p.led}" filter="url(#brillo)"/>
     </g>
+    ${gestos(p)}
   </g>
 </svg>`.trim();
 }

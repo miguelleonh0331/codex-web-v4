@@ -255,20 +255,20 @@ select:focus{outline:none;border-color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.robot *{animation:none!important}}
 
 /* colocacion */
-.agent .robot{width:36px;height:36px}
-.chat-head .robot{width:42px;height:42px}
-.msg .robot{width:30px;height:30px;margin-top:.1rem}
-.item .robot{width:22px;height:22px}
-#agent-dialog .vista-previa .robot{width:74px;height:74px}
+.agent .robot{width:41px;height:41px}
+.chat-head .robot{width:48px;height:48px}
+.msg .robot{width:35px;height:35px;margin-top:.1rem}
+.item .robot{width:25px;height:25px}
+#agent-dialog .vista-previa .robot{width:85px;height:85px}
 .previa-texto strong{display:block;font-size:.95rem}
 .previa-texto p{margin:.2rem 0 0;font-size:.76rem}
 
-.galeria-avatares{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:.3rem;
-  max-height:132px;overflow-y:auto;margin-bottom:.9rem;padding:.3rem;
+.galeria-avatares{display:grid;grid-template-columns:repeat(auto-fill,minmax(53px,1fr));gap:.3rem;
+  max-height:152px;overflow-y:auto;margin-bottom:.9rem;padding:.3rem;
   border:1px solid var(--line);border-radius:var(--radius);background:var(--bg)}
 .galeria-avatares button{padding:.15rem;border:2px solid transparent;border-radius:10px;background:transparent;line-height:0}
 .galeria-avatares button.sel{border-color:var(--accent);background:var(--bg3)}
-.galeria-avatares .robot{width:38px;height:38px}
+.galeria-avatares .robot{width:44px;height:44px}
 
 .colores{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;margin-top:.3rem}
 .colores button{width:24px;height:24px;border-radius:50%;padding:0;border:2px solid transparent}
@@ -298,3 +298,82 @@ select:focus{outline:none;border-color:var(--accent)}
 .msg .adj img{width:46px;height:46px}
 .msg a.adj{color:inherit;text-decoration:none}
 .msg a.adj:hover{border-color:var(--accent)}
+
+/* ------------------------------------------- modo de espera con caracter */
+/* Cada avatar arranca con su propio desfase (--retraso) para que el grupo
+   nunca parezca una sola animacion repetida quince veces. */
+.robot .gestos > g{opacity:0}
+.robot .cuerpo,.robot .ojos,.robot .gestos > g{animation-delay:var(--retraso,0s)}
+
+/* tranquilo: respira y mira de vez en cuando */
+.robot.t-tranquilo .cuerpo{animation:flotar calc(var(--ritmo) * 1.3) ease-in-out infinite}
+.robot.t-tranquilo .ojos{animation:parpadeo calc(var(--ritmo) * 1.9) infinite, ojear calc(var(--ritmo) * 4) ease-in-out infinite}
+
+/* nervioso: tiembla, mira a todos lados y parpadea mucho */
+.robot.t-nervioso .cuerpo{animation:flotar calc(var(--ritmo) * .55) ease-in-out infinite, tiritar 3.5s ease-in-out infinite}
+.robot.t-nervioso .ojos{animation:parpadeo calc(var(--ritmo) * .8) infinite, ojear calc(var(--ritmo) * 1.1) ease-in-out infinite}
+.robot.t-nervioso .antena-luz{animation:latido .9s ease-in-out infinite}
+
+/* dormilon: cabecea, cierra los ojos y le salen zetas */
+.robot.t-dormilon .cuerpo{animation:flotar calc(var(--ritmo) * 2.2) ease-in-out infinite, cabecear calc(var(--ritmo) * 2.2) ease-in-out infinite}
+.robot.t-dormilon .ojos{animation:dormitar calc(var(--ritmo) * 2.2) ease-in-out infinite}
+.robot.t-dormilon .g-zzz{animation:subir-zzz calc(var(--ritmo) * 2.2) ease-in-out infinite}
+
+/* alegre: rebota, canturrea y echa destellos */
+.robot.t-alegre .cuerpo{animation:rebotar calc(var(--ritmo) * .8) ease-in-out infinite}
+.robot.t-alegre .ojos{animation:parpadeo calc(var(--ritmo) * 1.2) infinite}
+.robot.t-alegre .g-nota{animation:flotar-nota calc(var(--ritmo) * 2.6) ease-in-out infinite}
+.robot.t-alegre .g-destello{animation:destellar calc(var(--ritmo) * 1.8) ease-in-out infinite}
+
+/* serio: casi inmovil; solo el barrido del visor delata que esta encendido */
+.robot.t-serio .cuerpo{animation:flotar calc(var(--ritmo) * 2.6) ease-in-out infinite}
+.robot.t-serio .ojos{animation:parpadeo calc(var(--ritmo) * 3.2) infinite}
+.robot.t-serio .barrido{animation:barrer calc(var(--ritmo) * 1.2) linear infinite}
+
+@keyframes ojear{
+  0%,58%,100%{transform:translateX(0)}
+  64%,72%{transform:translateX(-3.5px)}
+  80%,88%{transform:translateX(3.5px)}
+}
+@keyframes tiritar{
+  0%,88%,100%{transform:translateX(0)}
+  90%,94%{transform:translateX(1.4px)}
+  92%,96%{transform:translateX(-1.4px)}
+}
+@keyframes cabecear{
+  0%,100%{transform:translateY(0) rotate(0deg)}
+  45%{transform:translateY(4%) rotate(5deg)}
+  55%{transform:translateY(3%) rotate(4deg)}
+}
+@keyframes dormitar{
+  0%,34%{transform:scaleY(1)}
+  42%,88%{transform:scaleY(.12)}
+  96%,100%{transform:scaleY(1)}
+}
+@keyframes subir-zzz{
+  0%,44%{opacity:0;transform:translate(0,6px) scale(.7)}
+  60%{opacity:.95}
+  88%{opacity:0;transform:translate(6px,-14px) scale(1.1)}
+  100%{opacity:0}
+}
+@keyframes rebotar{
+  0%,100%{transform:translateY(0) scaleY(1)}
+  40%{transform:translateY(-7%) scaleY(1.03)}
+  55%{transform:translateY(0) scaleY(.96)}
+}
+@keyframes flotar-nota{
+  0%,62%{opacity:0;transform:translate(0,4px)}
+  74%{opacity:.95}
+  96%{opacity:0;transform:translate(-8px,-16px) rotate(-12deg)}
+  100%{opacity:0}
+}
+@keyframes destellar{
+  0%,70%{opacity:0;transform:scale(.6)}
+  80%{opacity:.9;transform:scale(1.1)}
+  92%,100%{opacity:0;transform:scale(.7)}
+}
+
+/* Trabajando manda el estado: la personalidad se calla y todos piensan igual. */
+.robot.piensa .cuerpo,.robot.escucha .cuerpo,.robot.responde .cuerpo{animation:flotar 2.2s ease-in-out infinite}
+.robot.piensa .gestos > g,.robot.escucha .gestos > g,
+.robot.responde .gestos > g,.robot.error .gestos > g,.robot.alerta .gestos > g{animation:none;opacity:0}
