@@ -245,6 +245,7 @@ async function selectAgent(id) {
   $('#send-form').hidden = false;
   $('#edit-agent').hidden = false;
   $('#reset-session').hidden = false;
+  $('#compactar').hidden = false;
   $('#ver-actividad-caja').hidden = false;
   $('#parar').hidden = !a || a.status !== 'working';
   verActividad = localStorage.getItem(claveActividad(id)) === '1';
@@ -722,6 +723,23 @@ $('#parar').onclick = async () => {
     await renderMessages(true);
   } catch (e) { alert(`No se pudo parar: ${e.message}`); }
   b.disabled = false;
+};
+
+$('#compactar').onclick = async () => {
+  if (!selected) return;
+  const b = $('#compactar');
+  b.disabled = true;
+  const previo = b.textContent;
+  b.textContent = 'Compactando…';
+  try {
+    await api(`/api/agents/${selected}/compact`, { method: 'POST' });
+    await refreshAll();
+    await renderMessages(true);
+  } catch (e) {
+    alert(`No se pudo compactar: ${e.message}`);
+  }
+  b.disabled = false;
+  b.textContent = previo;
 };
 
 $('#reset-session').onclick = async () => {

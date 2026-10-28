@@ -276,6 +276,22 @@ class Orchestrator {
       return;
     }
 
+    if (out.ok && turn.origin === 'compactar') {
+      if (out.sessionId) this.store.updateAgent(agent.id, { session_id: out.sessionId });
+      const despues = this.store.getAgent(agent.id);
+      const antes = agent.ctx_usado || 0;
+      const ahora = despues.ctx_usado || 0;
+      const miles = (n) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
+      const texto = antes && ahora && ahora < antes
+        ? `Contexto compactado: ${miles(antes)} → ${miles(ahora)} tokens. El especialista conserva el resumen de lo hablado.`
+        : 'Contexto compactado. El especialista conserva el resumen de lo hablado.';
+      this.store.addMessage(agent.id, 'system', texto, { turn_id: turn.id, compactado: true });
+      this.store.finishTurn(turn.id, { status: 'done', result: texto, cost: out.cost, numTurns: out.numTurns, sessionId: out.sessionId });
+      this.store.event('contexto.compactado', agent.id, { antes, despues: ahora });
+      this.store.updateAgent(agent.id, { status: 'idle' });
+      return;
+    }
+
     if (out.ok) {
       if (out.sessionId) this.store.updateAgent(agent.id, { session_id: out.sessionId });
       this.store.addMessage(agent.id, 'assistant', out.text || '(sin texto)', {

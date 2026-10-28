@@ -261,6 +261,16 @@ un gesto del usuario antes de reproducir nada.
 Lo que ya leiste no vuelve a avisar: se guarda por especialista en el navegador, de modo
 que abrir su conversacion lo da por revisado.
 
+## Compactar
+
+**Compactar** resume la conversacion y libera contexto conservando lo importante: en que
+quedasteis, que se decidio y que falta. No es lo mismo que **Reiniciar contexto**, que
+tira la sesion entera y deja al especialista sin memoria de lo hablado.
+
+Por dentro se usa el propio `/compact` de Claude Code sobre la sesion del agente, asi que
+el resumen lo hace el modelo con su mecanismo nativo, no un apano nuestro. Queda anotado
+en la conversacion con cuanto se libero, por ejemplo `74k → 37k tokens`.
+
 ## Parar a un especialista
 
 Mientras trabaja, la cabecera del chat muestra **⏹ Parar**. Corta el turno en marcha y

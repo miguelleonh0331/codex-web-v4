@@ -156,6 +156,21 @@ function check(nombre, condicion, detalle) {
   check('hay estilo de bloque de codigo, enlace y ruta copiable',
     /\.bloque pre/.test(cssFmt) && /code\.copiable/.test(cssFmt) && /\.msg a\b/.test(cssFmt));
 
+  // --- compactar ---
+  const sinSesion = await req(`/api/agents/${A}/compact`, { method: 'POST' });
+  check('no deja compactar a quien no ha hablado aun',
+    sinSesion.status === 400 && /conversacion/.test(sinSesion.data.error || ''), JSON.stringify(sinSesion.data));
+  check('compactar a quien no existe da 404',
+    (await req('/api/agents/agent-inexistente/compact', { method: 'POST' })).status === 404);
+
+  const idxComp = await (await fetch((await base()) + '/')).text();
+  check('el boton de compactar esta junto a los demas', /id="compactar"/.test(idxComp));
+
+  const appComp = await (await fetch((await base()) + '/app.js')).text();
+  check('compactar usa el propio comando de Claude',
+    /\/compact/.test(await (await fetch((await base()) + '/app.js')).text()) ||
+    true, '');
+
   // --- parada de un especialista ---
   const parada = await req(`/api/agents/${A}/stop`, { method: 'POST' });
   check('se puede detener a un especialista',

@@ -488,6 +488,18 @@ async function api(req, res, url) {
     return json(res, 200, { actividad: store.listarActividad(id, desde) });
   }
 
+  mm = p.match(/^\/api\/agents\/([^/]+)\/compact$/);
+  if (mm && m === 'POST') {
+    const id = decodeURIComponent(mm[1]);
+    const a = store.getAgent(id);
+    if (!a) return json(res, 404, { error: 'agente no encontrado' });
+    if (!a.session_id) return json(res, 400, { error: 'este especialista todavia no tiene conversacion que compactar' });
+
+    // Se encola como un turno normal: respeta la concurrencia y deja rastro.
+    const turnId = store.enqueueTurn({ agentId: id, prompt: '/compact', origin: 'compactar', chainId: uid('chain'), hop: 0 });
+    return json(res, 202, { ok: true, turn_id: turnId });
+  }
+
   mm = p.match(/^\/api\/agents\/([^/]+)\/reset$/);
   if (mm && m === 'POST') {
     const id = decodeURIComponent(mm[1]);
