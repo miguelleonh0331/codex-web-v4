@@ -715,11 +715,23 @@ function check(nombre, condicion, detalle) {
   check('sirve todos los recursos de la PWA', codigos.every((c) => c.endsWith(':200')), codigos.join(' '));
 
   const manifiesto = await (await fetch((await base()) + '/manifest.webmanifest')).json();
+  // Instalable es cualquier modo que no sea "browser", no solo standalone.
+  const MODOS_APP = ['fullscreen', 'standalone', 'minimal-ui'];
   check('el manifiesto permite instalar',
-    manifiesto.display === 'standalone' && manifiesto.start_url === '/' &&
+    MODOS_APP.includes(manifiesto.display) && manifiesto.start_url === '/' &&
     manifiesto.icons.some((i) => i.sizes === '512x512') &&
-    manifiesto.icons.some((i) => i.purpose === 'maskable'),
-    JSON.stringify(manifiesto).slice(0, 120));
+    manifiesto.icons.some((i) => i.purpose === 'maskable') &&
+    manifiesto.icons.some((i) => i.purpose === 'any'),
+    JSON.stringify(manifiesto).slice(0, 160));
+  check('a pantalla completa, con respaldo si el sistema no lo admite',
+    manifiesto.display === 'fullscreen' &&
+    Array.isArray(manifiesto.display_override) &&
+    manifiesto.display_override[0] === 'fullscreen' &&
+    manifiesto.display_override.includes('standalone'),
+    JSON.stringify(manifiesto.display_override));
+  check('la barra del sistema se funde con el fondo en el modo de respaldo',
+    manifiesto.theme_color === '#080a0d' && /content="#080a0d"/.test(idxPanel),
+    'si no coincide con el fondo del chat se ve una franja ajena');
 
   const indice = await (await fetch((await base()) + '/')).text();
   check('la pagina declara manifiesto, tema y vista movil',
