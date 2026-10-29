@@ -1394,11 +1394,32 @@ async function desactivarPush() {
   if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
 }
 
+/**
+ * Por HTTP el navegador no registra el service worker, asi que no hay PWA ni
+ * notificaciones. Se dice en pantalla en vez de dejar que el usuario lo
+ * descubra peleandose con el menu de Chrome.
+ */
+function avisarOrigenInseguro() {
+  const aviso = $('#aviso-inseguro');
+  if (!aviso || window.isSecureContext) return;
+  const enlace = $('#ir-seguro');
+  if (enlace) {
+    // Mismo host por https; si se entro por IP, el nombre de la tailnet no
+    // se puede adivinar, asi que se ofrece lo unico que se sabe cierto.
+    const destino = new URL(location.href);
+    destino.protocol = 'https:';
+    enlace.href = destino.toString();
+    enlace.textContent = `Abrir ${destino.host} por HTTPS`;
+  }
+  aviso.hidden = false;
+}
+
 async function prepararPush() {
   const caja = $('#push-caja');
   if (!caja) return;
   if (!PUSH_SOPORTADO) {
     caja.hidden = true;
+    avisarOrigenInseguro();
     return;
   }
   const sub = await suscripcionActual().catch(() => null);

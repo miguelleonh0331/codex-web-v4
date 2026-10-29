@@ -830,3 +830,8 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
 @supports not selector(:has(*)) {
   .sw{opacity:1}
 }
+
+/* Aviso de origen inseguro: ambar, no rojo. No es un error del sistema,
+   es que se entro por la direccion equivocada. */
+.aviso-inseguro{background:#2a2113;border-color:#5a4a1e;color:#e8d9a8}
+.aviso-inseguro a{color:var(--accent);margin-left:.4rem}

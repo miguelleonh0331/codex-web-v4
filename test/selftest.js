@@ -393,6 +393,12 @@ function check(nombre, condicion, detalle) {
   check('el texto de estado solo ocupa sitio cuando dice algo',
     /\.push-estado:empty\{display:none\}/.test(cssSal));
 
+  check('avisa cuando se entra por HTTP, donde no hay PWA ni avisos',
+    /id="aviso-inseguro"/.test(idxPanel) &&
+    /window\.isSecureContext/.test(appAct) &&
+    /avisarOrigenInseguro/.test(appAct),
+    'por HTTP el navegador no registra el service worker y no hay nada que instalar');
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));
