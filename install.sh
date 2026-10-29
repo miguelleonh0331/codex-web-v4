@@ -188,7 +188,32 @@ for i in $(seq 1 20); do
   if curl -fsS -m 2 "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
     TOKEN="$("$NODE_BIN" -p "JSON.parse(require('fs').readFileSync('${CONFIG_FILE}','utf8')).authToken")"
     echo
-    echo "Instalado. Abre:  http://<host>:${PORT}/"
+    # Direccion con certificado, si Tailscale la esta sirviendo. Importa
+    # porque la PWA y las notificaciones solo funcionan en origen seguro:
+    # por IP y HTTP el navegador ni registra el service worker.
+    ACCESO_HTTPS="$("$NODE_BIN" -e "
+      try{
+        const {execFileSync}=require('node:child_process');
+        const d=JSON.parse(execFileSync('tailscale',['serve','status','--json'],
+          {timeout:3000,encoding:'utf8',stdio:['ignore','pipe','ignore']}));
+        const mio='http://127.0.0.1:${PORT}';
+        for(const [hp,c] of Object.entries(d.Web||{}))
+          for(const h of Object.values(c.Handlers||{}))
+            if(h.Proxy===mio){process.stdout.write('https://'+hp+'/');process.exit(0);}
+      }catch{}" 2>/dev/null)"
+
+    if [[ -n "$ACCESO_HTTPS" ]]; then
+      echo "Instalado. Abre:  ${ACCESO_HTTPS}"
+      echo "                  (desde el movil usa esta, no la IP)"
+    else
+      echo "Instalado. Abre:  http://<host>:${PORT}/"
+      echo
+      echo "Sin direccion HTTPS: la aplicacion funcionara, pero NO se podra"
+      echo "instalar en el movil ni enviar notificaciones. El navegador lo"
+      echo "impide fuera de un origen seguro. Para conseguirla:"
+      echo "  tailscale serve --bg --https=${PORT} http://127.0.0.1:${PORT}"
+      echo "  tailscale serve status"
+    fi
     SESION_OK="$("$NODE_BIN" -e "
       const fs=require('fs');const p=require('path');
       const c=JSON.parse(fs.readFileSync('${CONFIG_FILE}','utf8'));

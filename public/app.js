@@ -8,6 +8,7 @@ let lastEventId = 0;
 let editing = null;
 let OPCIONES = null;
 let NOMBRE_APP = 'codex-web-v4';
+let ACCESO_SEGURO = null;   // direccion https de esta instalacion, si la hay
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -96,6 +97,10 @@ async function refreshAllInterno() {
     $('#status-line').textContent = `${agents.length} especialistas · ${state.running} en ejecucion · ${state.pending} en cola`;
     if (state.project && state.project.name) {
       $('#project-label').textContent = state.project.name;
+    }
+    if (state.app && state.app.acceso !== undefined && state.app.acceso !== ACCESO_SEGURO) {
+      ACCESO_SEGURO = state.app.acceso;
+      avisarOrigenInseguro();
     }
     if (state.app && state.app.nombre && state.app.nombre !== NOMBRE_APP) {
       NOMBRE_APP = state.app.nombre;
@@ -1404,12 +1409,16 @@ function avisarOrigenInseguro() {
   if (!aviso || window.isSecureContext) return;
   const enlace = $('#ir-seguro');
   if (enlace) {
-    // Mismo host por https; si se entro por IP, el nombre de la tailnet no
-    // se puede adivinar, asi que se ofrece lo unico que se sabe cierto.
-    const destino = new URL(location.href);
-    destino.protocol = 'https:';
-    enlace.href = destino.toString();
-    enlace.textContent = `Abrir ${destino.host} por HTTPS`;
+    if (ACCESO_SEGURO) {
+      // El servidor sabe por que direccion se llega a el con certificado.
+      // Cambiar http por https sobre una IP no funcionaria: el certificado
+      // se emite para el nombre, no para la IP.
+      enlace.href = ACCESO_SEGURO;
+      enlace.textContent = `Abrir ${new URL(ACCESO_SEGURO).host}`;
+      enlace.hidden = false;
+    } else {
+      enlace.hidden = true;
+    }
   }
   aviso.hidden = false;
 }

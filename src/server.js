@@ -123,6 +123,43 @@ function dirAdjuntos(agent) {
   return dir;
 }
 
+// -------------------------------------------------------------- direccion
+
+/**
+ * Averigua por que direccion HTTPS se llega a esta instalacion.
+ *
+ * Importa porque el navegador solo instala la aplicacion y entrega
+ * notificaciones desde un origen seguro. La IP siempre esta a mano y
+ * siempre falla para eso, asi que el sistema tiene que saber decir su
+ * propia direccion buena en vez de que haya que deducirla.
+ *
+ * Se consulta a Tailscale, que es quien emite el certificado. Si no esta,
+ * se devuelve null y la interfaz lo dice en vez de inventarse una URL.
+ */
+let cacheAcceso = { valor: null, cuando: 0 };
+
+function urlSegura() {
+  // Se cachea un minuto: esto se consulta en cada /api/state.
+  if (Date.now() - cacheAcceso.cuando < 60000) return cacheAcceso.valor;
+  cacheAcceso = { valor: null, cuando: Date.now() };
+  try {
+    const { execFileSync } = require('node:child_process');
+    const crudo = execFileSync('tailscale', ['serve', 'status', '--json'],
+      { timeout: 3000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const d = JSON.parse(crudo);
+    const mio = `http://127.0.0.1:${cfg.port}`;
+    for (const [hostPuerto, conf] of Object.entries(d.Web || {})) {
+      for (const h of Object.values(conf.Handlers || {})) {
+        if (h.Proxy === mio || h.Proxy === `http://localhost:${cfg.port}`) {
+          cacheAcceso.valor = `https://${hostPuerto}/`;
+          return cacheAcceso.valor;
+        }
+      }
+    }
+  } catch { /* sin tailscale, o sin serve configurado */ }
+  return null;
+}
+
 // ------------------------------------------------------------ notificaciones
 
 const clavesPush = push.cargarClaves(cfg.dataDir);
@@ -522,7 +559,7 @@ async function api(req, res, url) {
       running: orq.busy,
       pending: store.nextPendingTurns(100).length,
       project: cfg.project,
-      app: { nombre: cfg.nombre || 'codex-web-v4' },
+      app: { nombre: cfg.nombre || 'codex-web-v4', acceso: urlSegura() },
       opciones: { modelos: MODELOS_SUGERIDOS, esfuerzos: ESFUERZOS, modeloPorDefecto: cfg.model, esfuerzoPorDefecto: cfg.effort }
     });
   }

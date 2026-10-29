@@ -393,6 +393,20 @@ function check(nombre, condicion, detalle) {
   check('el texto de estado solo ocupa sitio cuando dice algo',
     /\.push-estado:empty\{display:none\}/.test(cssSal));
 
+  // Al desplegar en otro servidor hay que poder preguntarle al sistema por
+  // que direccion se llega a el con certificado, no deducirlo.
+  const st = await req('/api/state');
+  check('la instalacion sabe decir su direccion segura',
+    st.data.app && 'acceso' in st.data.app,
+    'sin esto solo queda la IP, que no sirve para instalar ni para avisos');
+  if (st.data.app.acceso) {
+    check('esa direccion es https y responde',
+      /^https:\/\//.test(st.data.app.acceso), st.data.app.acceso);
+  }
+  check('el instalador dice la direccion buena al terminar',
+    /ACCESO_HTTPS/.test(fs.readFileSync(`${__dirname}/../install.sh`, 'utf8')),
+    'en un servidor nuevo es donde mas falta hace');
+
   check('avisa cuando se entra por HTTP, donde no hay PWA ni avisos',
     /id="aviso-inseguro"/.test(idxPanel) &&
     /window\.isSecureContext/.test(appAct) &&
