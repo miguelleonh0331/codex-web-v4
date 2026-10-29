@@ -205,6 +205,18 @@ class Orchestrator {
    * Para lo que el especialista este haciendo y vacia su cola.
    * Devuelve que se paro, para poder decirselo al usuario con precision.
    */
+  /**
+   * Aviso al exterior de que algo termino. Se envuelve a proposito: un fallo
+   * de red al notificar no puede tumbar el turno, que ya esta hecho y
+   * guardado.
+   */
+  notificar(tipo, agent, extra) {
+    if (typeof this.alAvisar !== 'function') return;
+    Promise.resolve()
+      .then(() => this.alAvisar(tipo, agent, extra))
+      .catch((e) => { try { this.store.event('push.error', agent.id, { error: e.message }); } catch {} });
+  }
+
   detener(agentId) {
     let parado = 0;
     for (const [turnId, agente] of this.active) {
@@ -317,6 +329,7 @@ class Orchestrator {
         status: 'done', result: out.text, cost: out.cost, numTurns: out.numTurns, sessionId: out.sessionId
       });
       this.store.event('turn.done', agent.id, { turn_id: turn.id, cost: out.cost });
+      this.notificar('turn.done', agent, { texto: out.text });
     } else {
       // Una sesion que ya no se puede reanudar no debe dejar al agente inservible.
       if (/resume|session/i.test(out.error || '') && agent.session_id) {
@@ -326,6 +339,7 @@ class Orchestrator {
       this.store.addMessage(agent.id, 'system', `Error en el turno: ${out.error}`, { turn_id: turn.id });
       this.store.finishTurn(turn.id, { status: out.timeout ? 'timeout' : 'error', error: out.error });
       this.store.event('turn.error', agent.id, { turn_id: turn.id, error: out.error });
+      this.notificar('turn.error', agent, { error: out.error });
     }
 
     this.store.updateAgent(agent.id, { status: 'idle' });

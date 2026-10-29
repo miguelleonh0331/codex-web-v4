@@ -279,6 +279,91 @@ function check(nombre, condicion, detalle) {
   check('enviar y adjuntar son objetivos tactiles de 42px',
     /\.composer-acciones button ?\{[^}]*width: ?42px; ?height: ?42px/.test(cssEsp));
 
+  // --- notificaciones ---
+  const clavePush = await req('/api/push/clave');
+  check('publica la clave para suscribirse',
+    clavePush.status === 200 && /^B[\w-]{86}$/.test(clavePush.data.clave || ''),
+    `clave P-256 sin comprimir en base64url: ${clavePush.data.clave}`);
+  check('rechaza una suscripcion incompleta',
+    (await req('/api/push/suscribir', { method: 'POST', body: { endpoint: 'https://a/b' } })).status === 400);
+  check('no acepta endpoints sin cifrar',
+    (await req('/api/push/suscribir', { method: 'POST', body: {
+      endpoint: 'http://malo/x', keys: { p256dh: 'x', auth: 'y' } } })).status === 400,
+    'un endpoint http no es un servicio de push real');
+
+  // La cadena de cifrado entera, haciendo de navegador: si esto se rompe, los
+  // avisos simplemente no llegarian y no habria forma de notarlo.
+  {
+    const crypto = require('node:crypto');
+    const http = require('node:http');
+    const push = require(`${__dirname}/../src/push.js`);
+    const bu = (b) => Buffer.from(b).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const hm = (k, d) => crypto.createHmac('sha256', k).update(d).digest();
+    const der = (prk, info, n) => hm(prk, Buffer.concat([info, Buffer.from([1])])).subarray(0, n);
+
+    const cli = crypto.createECDH('prime256v1'); cli.generateKeys();
+    const secreto = crypto.randomBytes(16);
+    let recibido = null, codigo = 201;
+    const srv = http.createServer((rq, rs) => {
+      const t = []; rq.on('data', (c) => t.push(c));
+      rq.on('end', () => { recibido = Buffer.concat(t); rs.writeHead(codigo); rs.end(); });
+    });
+    await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+    const sub = { endpoint: `http://127.0.0.1:${srv.address().port}/p`, p256dh: bu(cli.getPublicKey()), auth: bu(secreto) };
+    const claves = push.cargarClaves(`${__dirname}/../.tmp-vapid`);
+    const carga = { titulo: 'Prueba ñ', cuerpo: 'áéí', insignia: 2 };
+    const env = await push.enviarUno(sub, carga, claves, 'mailto:x@y.z');
+
+    let descifrado = null;
+    if (recibido) {
+      const sal = recibido.subarray(0, 16), idl = recibido.readUInt8(20);
+      const sp = recibido.subarray(21, 21 + idl), cu = recibido.subarray(21 + idl);
+      const prk = hm(sal, der(hm(secreto, cli.computeSecret(sp)),
+        Buffer.concat([Buffer.from('WebPush: info\0'), cli.getPublicKey(), sp]), 32));
+      const d = crypto.createDecipheriv('aes-128-gcm',
+        der(prk, Buffer.from('Content-Encoding: aes128gcm\0'), 16),
+        der(prk, Buffer.from('Content-Encoding: nonce\0'), 12));
+      d.setAuthTag(cu.subarray(cu.length - 16));
+      const claro = Buffer.concat([d.update(cu.subarray(0, cu.length - 16)), d.final()]);
+      descifrado = claro.subarray(0, claro.length - 1).toString('utf8');
+    }
+    check('el aviso llega cifrado y el destinatario puede leerlo',
+      env.ok && descifrado === JSON.stringify(carga),
+      `recibido: ${descifrado}`);
+
+    codigo = 410;
+    const env2 = await push.enviarUno(sub, carga, claves, 'mailto:x@y.z');
+    check('una suscripcion revocada se marca para borrar',
+      env2.caducada === true, 'si no, se reintenta en cada aviso para siempre');
+    srv.close();
+    fs.rmSync(`${__dirname}/../.tmp-vapid`, { recursive: true, force: true });
+  }
+
+  check('la clave privada no es legible por otros',
+    (fs.statSync(`${cfg.dataDir}/vapid.json`).mode & 0o077) === 0,
+    'firma los envios: solo el servicio debe poder leerla');
+
+  const swPush = await (await fetch((await base()) + '/sw.js')).text();
+  check('el service worker atiende los avisos con la aplicacion cerrada',
+    /addEventListener\('push'/.test(swPush) && /showNotification/.test(swPush));
+  check('al tocar el aviso se abre ese especialista',
+    /addEventListener\('notificationclick'/.test(swPush) && /abrir-agente/.test(swPush));
+  check('el aviso pone el contador en el icono',
+    /setAppBadge/.test(swPush));
+  check('existe el icono monocromo de la bandeja',
+    (await fetch((await base()) + '/icons/badge-96.png')).status === 200);
+  check('el permiso se pide al activar la casilla, no al abrir',
+    /requestPermission/.test(appAct) && !/requestPermission/.test(appAct.split('function activarPush')[0]),
+    'pedirlo de entrada es la forma mas rapida de que lo denieguen para siempre');
+
+  const orqSrc = fs.readFileSync(`${__dirname}/../src/orchestrator.js`, 'utf8');
+  check('un fallo al avisar no puede tumbar el turno',
+    /notificar\(tipo, agent, extra\)/.test(orqSrc) && /\.catch\(/.test(orqSrc.split('notificar(tipo')[1].slice(0, 400)),
+    'el turno ya esta hecho y guardado cuando se avisa');
+
+  check('la flecha de volver ya no duplica a la barra inferior',
+    !/id="back-agents"/.test(idxPanel) && !/back-agents/.test(appAct));
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

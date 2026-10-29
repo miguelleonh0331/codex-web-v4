@@ -65,6 +65,7 @@ function start() {
   setView(esMovil() ? 'agents' : 'agents');
   MATRIZ.iniciar();
   ajustarPistaEscribir();
+  prepararPush();
   pintarVacioChat();
   refreshAll();
   setInterval(refreshAll, 2500);
@@ -1319,7 +1320,6 @@ function setView(v) {
 document.querySelectorAll('.mobile-nav button').forEach((b) => {
   b.onclick = () => setView(b.dataset.view);
 });
-if ($('#back-agents')) $('#back-agents').onclick = () => setView('agents');
 
 window.addEventListener('resize', () => aplicarVista(vista));
 
@@ -1331,6 +1331,98 @@ function avisarCorreo(n) {
     if (b) b.classList.add('avisa');
   }
   ultimoCorreo = n;
+}
+
+// ------------------------------------------------------- notificaciones
+
+/**
+ * Suscripcion a los avisos del telefono.
+ *
+ * El permiso solo se pide al marcar la casilla: pedirlo nada mas abrir es la
+ * forma mas rapida de que lo denieguen para siempre, y una vez denegado no se
+ * puede volver a preguntar desde la pagina.
+ */
+const PUSH_SOPORTADO = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+function estadoPush(texto, clase) {
+  const el = $('#push-estado');
+  if (!el) return;
+  el.textContent = texto || '';
+  el.className = `push-estado${clase ? ` ${clase}` : ''}`;
+}
+
+const aBytes = (b64) => {
+  const s = (b64 + '='.repeat((4 - b64.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+};
+
+async function suscripcionActual() {
+  if (!PUSH_SOPORTADO) return null;
+  const reg = await navigator.serviceWorker.ready;
+  return reg.pushManager.getSubscription();
+}
+
+async function activarPush() {
+  const permiso = await Notification.requestPermission();
+  if (permiso !== 'granted') {
+    $('#push-on').checked = false;
+    estadoPush(permiso === 'denied'
+      ? 'Permiso denegado: hay que darlo desde los ajustes del navegador.'
+      : 'Permiso no concedido.', 'mal');
+    return;
+  }
+  const { clave } = await api('/api/push/clave');
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,                 // obligatorio en Chrome
+    applicationServerKey: aBytes(clave)
+  });
+  const j = sub.toJSON();
+  await api('/api/push/suscribir', { method: 'POST', body: JSON.stringify({ endpoint: j.endpoint, keys: j.keys }) });
+  localStorage.setItem('v4-push', '1');
+  estadoPush('Activas en este dispositivo.', 'bien');
+}
+
+async function desactivarPush() {
+  const sub = await suscripcionActual();
+  if (sub) {
+    await api('/api/push/baja', { method: 'POST', body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {});
+    await sub.unsubscribe().catch(() => {});
+  }
+  localStorage.setItem('v4-push', '0');
+  estadoPush('');
+  if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
+}
+
+async function prepararPush() {
+  const caja = $('#push-caja');
+  if (!caja) return;
+  if (!PUSH_SOPORTADO) {
+    caja.hidden = true;
+    return;
+  }
+  const sub = await suscripcionActual().catch(() => null);
+  $('#push-on').checked = !!sub && Notification.permission === 'granted';
+  if ($('#push-on').checked) estadoPush('Activas en este dispositivo.', 'bien');
+  else if (Notification.permission === 'denied') estadoPush('Bloqueadas en los ajustes del navegador.', 'mal');
+
+  $('#push-on').onchange = async (e) => {
+    estadoPush('…');
+    try {
+      if (e.target.checked) await activarPush();
+      else await desactivarPush();
+    } catch (err) {
+      e.target.checked = false;
+      estadoPush(`No se pudo activar: ${err.message}`, 'mal');
+    }
+  };
+}
+
+// Al tocar una notificacion, el service worker pide abrir ese especialista.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data && e.data.tipo === 'abrir-agente' && e.data.agente) selectAgent(e.data.agente);
+  });
 }
 
 if ('serviceWorker' in navigator) {

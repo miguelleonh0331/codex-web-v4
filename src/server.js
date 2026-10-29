@@ -9,6 +9,7 @@ const { Store, uid } = require('./db');
 const { Orchestrator } = require('./orchestrator');
 const sesion = require('./session');
 const auth = require('./auth');
+const push = require('./push');
 
 const cfg = load();
 const store = new Store(cfg.dbPath);
@@ -121,6 +122,48 @@ function dirAdjuntos(agent) {
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
+
+// ------------------------------------------------------------ notificaciones
+
+const clavesPush = push.cargarClaves(cfg.dataDir);
+
+/**
+ * Avisa a los dispositivos suscritos.
+ *
+ * Las suscripciones caducadas se borran en el momento: el navegador las
+ * invalida al desinstalar la aplicacion o al revocar el permiso, y
+ * reintentarlas solo gasta tiempo en cada aviso posterior.
+ */
+async function avisar(carga) {
+  const subs = store.suscripciones();
+  if (!subs.length) return { enviados: 0 };
+  let enviados = 0;
+  for (const sub of subs) {
+    const r = await push.enviarUno(sub, carga, clavesPush, `mailto:v4@${cfg.nombre || 'local'}`);
+    if (r.ok) enviados += 1;
+    else if (r.caducada) store.borrarSuscripcion(sub.endpoint);
+  }
+  return { enviados, total: subs.length };
+}
+
+// Un unico sitio donde se decide que merece molestar al usuario.
+orq.alAvisar = async (tipo, agent, extra = {}) => {
+  const sinRevisar = store.listAgents().filter((a) => a.status === 'idle').length;
+  if (tipo === 'turn.done') {
+    await avisar({
+      titulo: `${agent.name} termino`,
+      cuerpo: (extra.texto || '').slice(0, 160) || 'Tiene una respuesta lista para revisar.',
+      agente: agent.id, insignia: extra.sinRevisar ?? sinRevisar, etiqueta: `agente-${agent.id}`
+    });
+  } else if (tipo === 'turn.error') {
+    await avisar({
+      titulo: `${agent.name} fallo`,
+      cuerpo: (extra.error || 'Error en el turno').slice(0, 160),
+      agente: agent.id, insignia: extra.sinRevisar ?? sinRevisar,
+      etiqueta: `agente-${agent.id}`, urgente: true
+    });
+  }
+};
 
 // ---------------------------------------------------------------- agentes
 
@@ -268,6 +311,37 @@ async function api(req, res, url) {
   const m = req.method;
 
   // --- salud: sin autenticacion, para el instalador y el systemd ---
+  if (p === '/api/push/clave') {
+    return json(res, 200, { clave: clavesPush.publica });
+  }
+
+  if (p === '/api/push/suscribir' && req.method === 'POST') {
+    const b = await readBody(req);
+    const endpoint = String(b.endpoint || '');
+    const p256dh = b.keys && b.keys.p256dh;
+    const authK = b.keys && b.keys.auth;
+    if (!/^https:\/\//.test(endpoint) || !p256dh || !authK) {
+      return json(res, 400, { error: 'suscripcion incompleta' });
+    }
+    store.guardarSuscripcion({ endpoint, p256dh, auth: authK });
+    return json(res, 201, { ok: true, suscripciones: store.suscripciones().length });
+  }
+
+  if (p === '/api/push/baja' && req.method === 'POST') {
+    const b = await readBody(req);
+    if (b.endpoint) store.borrarSuscripcion(String(b.endpoint));
+    return json(res, 200, { ok: true, suscripciones: store.suscripciones().length });
+  }
+
+  if (p === '/api/push/probar' && req.method === 'POST') {
+    const r = await avisar({
+      titulo: cfg.nombre || 'codex-web-v4',
+      cuerpo: 'Aviso de prueba: las notificaciones funcionan.',
+      etiqueta: 'prueba'
+    });
+    return json(res, 200, r);
+  }
+
   if (p === '/api/health') {
     return json(res, 200, {
       ok: true, version: '1.0.0', agents: store.listAgents().length,

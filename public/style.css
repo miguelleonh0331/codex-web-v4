@@ -90,7 +90,6 @@ dialog menu{display:flex;justify-content:flex-end;gap:.6rem;padding:0;margin:1re
   .chat-head{padding-top:calc(.9rem + env(safe-area-inset-top));gap:.5rem}
   .tabs{padding-top:env(safe-area-inset-top)}
 
-  .icon-btn{display:block}
   .chat-actions button{font-size:.72rem;padding:.3rem .5rem}
   .messages{padding:.9rem}
   .composer{padding:.7rem .9rem}
@@ -795,3 +794,8 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
   .composer{padding:.6rem .7rem}
 }
 
+
+/* Estado de las notificaciones, bajo su casilla. */
+.push-estado{font-size:.68rem;color:var(--muted);line-height:1.3}
+.push-estado.bien{color:var(--accent2)}
+.push-estado.mal{color:#ff8080}

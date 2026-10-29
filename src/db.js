@@ -101,6 +101,14 @@ CREATE TABLE IF NOT EXISTS events (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_id ON events(id);
+
+CREATE TABLE IF NOT EXISTS push_subs (
+  endpoint   TEXT PRIMARY KEY,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  agente     TEXT,
+  created_at TEXT NOT NULL
+);
 `;
 
 function now() { return new Date().toISOString(); }
@@ -138,6 +146,28 @@ class Store {
   }
 
   // ---------- eventos ----------
+  // --- suscripciones a notificaciones ---
+
+  /**
+   * El endpoint es la clave primaria: si el navegador renueva la suscripcion
+   * con el mismo endpoint se actualiza en vez de duplicar, que es lo que
+   * provocaria recibir el mismo aviso dos veces.
+   */
+  guardarSuscripcion({ endpoint, p256dh, auth }) {
+    this.db.prepare(`INSERT INTO push_subs (endpoint, p256dh, auth, created_at)
+      VALUES (?,?,?,?)
+      ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth`)
+      .run(endpoint, p256dh, auth, now());
+  }
+
+  borrarSuscripcion(endpoint) {
+    this.db.prepare('DELETE FROM push_subs WHERE endpoint = ?').run(endpoint);
+  }
+
+  suscripciones() {
+    return this.db.prepare('SELECT * FROM push_subs').all();
+  }
+
   event(kind, agentId, data) {
     this.db.prepare('INSERT INTO events (kind, agent_id, data, created_at) VALUES (?,?,?,?)')
       .run(kind, agentId || null, data ? JSON.stringify(data) : null, now());
