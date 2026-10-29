@@ -1404,9 +1404,22 @@ async function desactivarPush() {
  * notificaciones. Se dice en pantalla en vez de dejar que el usuario lo
  * descubra peleandose con el menu de Chrome.
  */
+const CLAVE_AVISO_HTTP = `v4-aviso-http-${location.host}`;
+
 function avisarOrigenInseguro() {
   const aviso = $('#aviso-inseguro');
   if (!aviso || window.isSecureContext) return;
+  // Se puede descartar para siempre en este equipo. El dato sigue siendo
+  // cierto, pero quien entra por IP a proposito no necesita que se lo
+  // repitan en cada carga.
+  if (localStorage.getItem(CLAVE_AVISO_HTTP) === '1') return;
+  const cerrar = $('#cerrar-inseguro');
+  if (cerrar) {
+    cerrar.onclick = () => {
+      localStorage.setItem(CLAVE_AVISO_HTTP, '1');
+      aviso.hidden = true;
+    };
+  }
   const enlace = $('#ir-seguro');
   if (enlace) {
     if (ACCESO_SEGURO) {

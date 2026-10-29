@@ -835,3 +835,11 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
    es que se entro por la direccion equivocada. */
 .aviso-inseguro{background:#2a2113;border-color:#5a4a1e;color:#e8d9a8}
 .aviso-inseguro a{color:var(--accent);margin-left:.4rem}
+
+/* El aviso de origen inseguro se puede cerrar: la franja no debe vivir
+   para siempre en un servidor al que se entra por IP a proposito. */
+.aviso-inseguro{display:flex;align-items:center;gap:.5rem}
+.aviso-inseguro span{flex:1}
+#cerrar-inseguro{background:transparent;border:none;color:inherit;
+  font-size:1.1rem;line-height:1;padding:0 .3rem;cursor:pointer;opacity:.7}
+#cerrar-inseguro:hover{opacity:1}

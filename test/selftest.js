@@ -412,6 +412,9 @@ function check(nombre, condicion, detalle) {
     /window\.isSecureContext/.test(appAct) &&
     /avisarOrigenInseguro/.test(appAct),
     'por HTTP el navegador no registra el service worker y no hay nada que instalar');
+  check('ese aviso se puede descartar para siempre',
+    /id="cerrar-inseguro"/.test(idxPanel) && /CLAVE_AVISO_HTTP/.test(appAct),
+    'quien entra por IP a proposito no necesita que se lo repitan cada vez');
 
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
