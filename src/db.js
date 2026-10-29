@@ -150,6 +150,40 @@ class Store {
   }
 
   // ---------- eventos ----------
+  /**
+   * Busca en la conversacion de UN especialista.
+   *
+   * Solo la suya: un especialista no ve lo que hablaste con otro, igual que
+   * no ve sus archivos. Para eso tiene ask_team.
+   *
+   * Es busqueda literal sobre el texto guardado. Devuelve lo mas reciente
+   * primero y recorta cada resultado, porque esto se le entrega al modelo y
+   * cada linea que devuelve le ocupa contexto.
+   */
+  buscarEnHistorial(agentId, consulta, { limite = 8, recorte = 500 } = {}) {
+    const q = String(consulta || '').trim();
+    if (!q) return [];
+    const filas = this.db.prepare(
+      `SELECT id, role, body, created_at FROM messages
+        WHERE agent_id = ? AND body LIKE ? ESCAPE '\\'
+        ORDER BY id DESC LIMIT ?`
+    ).all(agentId, `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`, limite);
+
+    return filas.map((f) => {
+      // Se recorta alrededor de la coincidencia, no por el principio: lo
+      // util suele estar donde aparece la palabra, no en la primera linea.
+      const pos = f.body.toLowerCase().indexOf(q.toLowerCase());
+      const desde = Math.max(0, pos - Math.floor(recorte / 3));
+      const trozo = f.body.slice(desde, desde + recorte);
+      return {
+        id: f.id,
+        role: f.role,
+        fecha: f.created_at,
+        texto: (desde > 0 ? '…' : '') + trozo + (desde + recorte < f.body.length ? '…' : '')
+      };
+    });
+  }
+
   // --- suscripciones a notificaciones ---
 
   /**

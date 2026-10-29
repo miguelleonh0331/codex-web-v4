@@ -539,6 +539,51 @@ function check(nombre, condicion, detalle) {
     /timeZone: ZONA/.test(appAct),
     `zona ${estQ.app.zona}: con otra habria que hacer la cuenta a mano`);
 
+  // --- memoria: buscar en el propio historial ---
+  {
+    const { Store: StoreH } = require(`${__dirname}/../src/db.js`);
+    const tmp = `${__dirname}/../.tmp-hist.db`;
+    try {
+      for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true });
+      const st = new StoreH(tmp);
+      st.createAgent({ id: 'h1', name: 'h1', instructions: 'x', home: '/tmp', workspace: '/tmp' });
+      st.createAgent({ id: 'h2', name: 'h2', instructions: 'x', home: '/tmp', workspace: '/tmp' });
+      st.addMessage('h1', 'user', 'la recarga de troncales va por el wrapper sudo');
+      st.addMessage('h1', 'assistant', 'entendido, uso el wrapper');
+      st.addMessage('h2', 'user', 'esto es de otro especialista y habla de troncales');
+
+      const r = st.buscarEnHistorial('h1', 'troncales');
+      check('encuentra lo que se dijo en su conversacion',
+        r.length === 1 && /wrapper sudo/.test(r[0].texto), JSON.stringify(r));
+      check('no ve la conversacion de otro especialista',
+        !JSON.stringify(r).includes('otro especialista'),
+        'es la misma frontera que separa sus archivos');
+      check('una busqueda vacia no devuelve el historial entero',
+        st.buscarEnHistorial('h1', '').length === 0 && st.buscarEnHistorial('h1', '   ').length === 0);
+      check('los comodines de SQL no alteran la busqueda',
+        st.buscarEnHistorial('h1', '%').length === 0 && st.buscarEnHistorial('h1', '_').length === 0,
+        'sin escapar, "%" devolveria todo');
+
+      const largo = 'x'.repeat(2000) + 'AGUJA' + 'y'.repeat(2000);
+      st.addMessage('h1', 'assistant', largo);
+      const corte = st.buscarEnHistorial('h1', 'AGUJA')[0];
+      check('recorta alrededor de la coincidencia, no por el principio',
+        corte.texto.includes('AGUJA') && corte.texto.length < 700,
+        `devolvio ${corte.texto.length} caracteres: cada uno ocupa contexto del especialista`);
+    } finally {
+      for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true });
+    }
+  }
+
+  const mcpSrc = fs.readFileSync(`${__dirname}/../src/bridge/mcp-server.js`, 'utf8');
+  check('la herramienta recordar esta publicada al especialista',
+    /name: 'recordar'/.test(mcpSrc) && /case 'recordar'/.test(mcpSrc));
+  check('el prompt del sistema le dice que la tiene y cuando usarla',
+    /mcp__v4__recordar/.test(runnerSrc) && /recordar ANTES de decir que no lo tienes/.test(runnerSrc),
+    'una herramienta que no se menciona no se usa');
+  check('el historial solo se sirve con el token interno',
+    (await req(`/api/internal/agents/${A}/historial?q=x`, { token: null, bridge: 'malo' })).status === 401);
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

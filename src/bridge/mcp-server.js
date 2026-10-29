@@ -80,6 +80,23 @@ const TOOLS = [
     }
   },
   {
+    name: 'recordar',
+    description: 'Busca en TU propia conversacion con el usuario, desde el primer dia. '
+      + 'Sirve para recuperar algo que ya hablasteis y que ya no tienes en contexto, '
+      + 'por ejemplo una decision tomada hace dias. Es busqueda literal: encuentra las '
+      + 'palabras tal como se escribieron, no por significado. Solo ve tu conversacion, '
+      + 'no la de otros especialistas.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        texto: { type: 'string', description: 'Palabra o frase a buscar, tal como se habria escrito.' },
+        limite: { type: 'integer', minimum: 1, maximum: 20, description: 'Cuantos resultados, por defecto 8.' }
+      },
+      required: ['texto'],
+      additionalProperties: false
+    }
+  },
+  {
     name: 'claim_files',
     description: 'Reserva archivos o rutas antes de editarlos para que ningun otro especialista los toque. Falla si ya estan reservados por otro.',
     inputSchema: {
@@ -173,6 +190,21 @@ async function callTool(name, args = {}) {
       const { messages } = await api(`/api/internal/agents/${encodeURIComponent(AGENT_ID)}/inbox?limit=${args.limit || 20}`);
       if (!messages.length) return 'Buzon vacio.';
       return messages.map((m) => `[${m.created_at}] de ${m.from_name}: ${m.body}`).join('\n---\n');
+    }
+    case 'recordar': {
+      const q = String(args.texto || '').trim();
+      if (!q) return 'Indica que buscar.';
+      const { resultados } = await api(
+        `/api/internal/agents/${encodeURIComponent(AGENT_ID)}/historial`
+        + `?q=${encodeURIComponent(q)}&limite=${args.limite || 8}`);
+      if (!resultados.length) {
+        return `No encontre "${q}" en tu conversacion. Recuerda que la busqueda es literal: `
+          + 'prueba con otra palabra, tal como se habria escrito.';
+      }
+      const quien = { user: 'el usuario', assistant: 'tu', peer: 'otro especialista', system: 'el sistema' };
+      return resultados
+        .map((r) => `[${r.fecha.slice(0, 16).replace('T', ' ')}] ${quien[r.role] || r.role}: ${r.texto}`)
+        .join('\n---\n');
     }
     case 'claim_files': {
       const out = await api('/api/internal/claims', {

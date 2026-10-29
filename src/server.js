@@ -412,6 +412,17 @@ async function api(req, res, url) {
       return json(res, 200, { messages });
     }
 
+    // Un especialista buscando en su propia conversacion. El id va en la ruta
+    // y se usa tal cual: no puede pedir el historial de otro.
+    mm = p.match(/^\/api\/internal\/agents\/([^/]+)\/historial$/);
+    if (mm && m === 'GET') {
+      const id = decodeURIComponent(mm[1]);
+      if (!store.getAgent(id)) return json(res, 404, { error: 'agente no encontrado' });
+      const q = url.searchParams.get('q') || '';
+      const limite = Math.min(20, Math.max(1, Number(url.searchParams.get('limite') || 8)));
+      return json(res, 200, { resultados: store.buscarEnHistorial(id, q, { limite }) });
+    }
+
     if (p === '/api/internal/mailbox' && m === 'POST') {
       const body = await readBody(req);
       return json(res, 200, queueMail(body));
