@@ -133,7 +133,8 @@ else
   "dataDir": "${DATA_DIR}",
   "model": "sonnet",
   "maxConcurrentTurns": 2,
-  "turnTimeoutMs": 900000,
+  "turnTimeoutMs": 0,
+  "inactivityTimeoutMs": 1800000,
   "maxHops": 6,
   "claudeBin": "${CLAUDE_BIN}",
   "project": {

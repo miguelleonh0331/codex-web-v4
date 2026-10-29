@@ -156,27 +156,71 @@ function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
       }
     };
 
-    const timer = setTimeout(() => {
+    /**
+     * Fin del turno por tiempo.
+     *
+     * Se separa "lleva horas trabajando" de "esta muerto". Un turno largo es
+     * legitimo: una verificacion de varios modulos puede tardar lo que tarde.
+     * Lo que no es legitimo es un proceso colgado consumiendo cuota sin
+     * emitir nada. Por eso el tope principal es de INACTIVIDAD, y se reinicia
+     * con cada linea que el CLI escribe.
+     *
+     * Se pide primero la salida por las buenas (SIGTERM) y solo se mata a los
+     * cuatro segundos, igual que hace el boton de Parar. Matar en seco a
+     * mitad de una escritura puede dejar un fichero truncado.
+     */
+    // Redondear a minutos daba "durante 0 min" con valores pequeños.
+    const legible = (ms) => (ms >= 60000 ? `${Math.round(ms / 60000)} min` : `${Math.round(ms / 1000)}s`);
+
+    const terminar = (motivo) => {
       if (settled) return;
       settled = true;
-      try { child.kill('SIGKILL'); } catch { /* ya murio */ }
-      resolve({ ok: false, error: `Tiempo agotado tras ${Math.round(cfg.turnTimeoutMs / 1000)}s`, timeout: true });
-    }, cfg.turnTimeoutMs);
+      limpiarRelojes();
+      try { child.kill('SIGTERM'); } catch { /* ya murio */ }
+      const golpe = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, 4000);
+      if (golpe.unref) golpe.unref();
+      resolve({ ok: false, error: motivo, timeout: true });
+    };
 
-    child.stdout.on('data', (d) => { stdout += d; procesar(String(d)); });
-    child.stderr.on('data', (d) => { stderr += d; });
+    // 0 o ausente = sin tope total. El agente puede trabajar lo que haga falta.
+    const topeTotal = Number(cfg.turnTimeoutMs) > 0 ? Number(cfg.turnTimeoutMs) : 0;
+    const topeQuieto = Number(cfg.inactivityTimeoutMs) > 0 ? Number(cfg.inactivityTimeoutMs) : 0;
+
+    let relojTotal = null;
+    let relojQuieto = null;
+    const limpiarRelojes = () => {
+      if (relojTotal) clearTimeout(relojTotal);
+      if (relojQuieto) clearTimeout(relojQuieto);
+    };
+    const reiniciarQuieto = () => {
+      if (!topeQuieto) return;
+      if (relojQuieto) clearTimeout(relojQuieto);
+      relojQuieto = setTimeout(
+        () => terminar(`Sin señales de vida durante ${legible(topeQuieto)}: el proceso parecia colgado`),
+        topeQuieto);
+    };
+
+    if (topeTotal) {
+      relojTotal = setTimeout(
+        () => terminar(`Tiempo agotado tras ${legible(topeTotal)}`),
+        topeTotal);
+    }
+    reiniciarQuieto();
+
+    child.stdout.on('data', (d) => { stdout += d; reiniciarQuieto(); procesar(String(d)); });
+    child.stderr.on('data', (d) => { stderr += d; reiniciarQuieto(); });
 
     child.on('error', (err) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      limpiarRelojes();
       resolve({ ok: false, error: `No se pudo lanzar Claude: ${err.message}` });
     });
 
     child.on('close', (code) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      limpiarRelojes();
 
       if (log) {
         try {

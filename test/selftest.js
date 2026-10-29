@@ -464,6 +464,31 @@ function check(nombre, condicion, detalle) {
     } finally { for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true }); }
   })());
 
+  // --- relojes del turno ---
+  // Un turno largo es legitimo; uno colgado no. Se comprueba sobre el codigo
+  // porque probarlo de verdad exige esperar el tiempo real.
+  const runnerSrc = fs.readFileSync(`${__dirname}/../src/runner.js`, 'utf8');
+  check('un turno puede durar horas si el tope total esta en 0',
+    /Number\(cfg\.turnTimeoutMs\) > 0 \? Number\(cfg\.turnTimeoutMs\) : 0/.test(runnerSrc),
+    'sin esto, 0 se tomaria como "cortar de inmediato"');
+  check('el reloj de inactividad se reinicia con cada señal del proceso',
+    /child\.stdout\.on\('data'[\s\S]{0,120}?reiniciarQuieto\(\)/.test(runnerSrc) &&
+    /child\.stderr\.on\('data'[\s\S]{0,120}?reiniciarQuieto\(\)/.test(runnerSrc),
+    'si no se reinicia, cortaria a un agente que trabaja sin parar');
+  check('se pide salir por las buenas antes de matar',
+    /kill\('SIGTERM'\)[\s\S]{0,300}?setTimeout\([\s\S]{0,120}?kill\('SIGKILL'\)/.test(runnerSrc),
+    'matar en seco a mitad de una escritura deja ficheros truncados');
+  check('el golpe de gracia no mantiene vivo al servicio',
+    /golpe\.unref/.test(runnerSrc));
+  check('los dos relojes se limpian al acabar el turno',
+    (runnerSrc.match(/limpiarRelojes\(\)/g) || []).length >= 3,
+    'un reloj suelto dispararia sobre un turno ya cerrado');
+
+  const estTopes = await req('/api/state');
+  check('esta instalacion no corta por tiempo total',
+    cfg.turnTimeoutMs === 0 || cfg.turnTimeoutMs === undefined,
+    `turnTimeoutMs = ${cfg.turnTimeoutMs}`);
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

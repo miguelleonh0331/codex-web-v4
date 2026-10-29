@@ -17,7 +17,8 @@ const DEFAULTS = {
   model: 'sonnet',
   effort: null,               // low | medium | high | xhigh | max; null deja el del CLI
   maxConcurrentTurns: 2,
-  turnTimeoutMs: 900000,
+  turnTimeoutMs: 0,            // 0 = sin tope total: un turno puede durar horas
+  inactivityTimeoutMs: 1800000, // pero 30 min sin emitir nada es estar colgado
   maxHops: 6,
   maxAgents: 24,              // tope de especialistas que el propio equipo puede crear
   maxUploadMb: 50,            // tope por archivo adjunto
