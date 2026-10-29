@@ -43,6 +43,22 @@ function etiquetaHerramienta(nombre) {
  * Motor de turnos: decide quien ejecuta, entrega el correo entre agentes
  * y mantiene la conversacion de cada especialista.
  */
+/**
+ * Distingue "no hay cuota" de cualquier otro fallo.
+ *
+ * Solo estos se reintentan: un error de codigo o una ruta mal escrita
+ * fallarian igual dentro de media hora, y reintentarlos seria un bucle.
+ * Los mensajes llegan del CLI en ingles.
+ */
+function esLimiteDeCuota(error) {
+  const t = String(error || '');
+  return /hit your \d+-hour limit/i.test(t) ||
+         /usage limit reached/i.test(t) ||
+         /rate.?limit/i.test(t) ||
+         /\bquota\b/i.test(t) ||
+         /resets? \d{1,2}(:\d{2})?\s*(am|pm)/i.test(t);
+}
+
 class Orchestrator {
   constructor(cfg, store) {
     this.cfg = cfg;
@@ -329,7 +345,38 @@ class Orchestrator {
         status: 'done', result: out.text, cost: out.cost, numTurns: out.numTurns, sessionId: out.sessionId
       });
       this.store.event('turn.done', agent.id, { turn_id: turn.id, cost: out.cost });
-      this.notificar('turn.done', agent, { texto: out.text });
+      // Si venia esperando cuota, el aviso lo dice: puede haber retomado de
+      // madrugada y conviene saber que ya no esta parado.
+      this.notificar('turn.done', agent, {
+        texto: out.text,
+        retomado: (turn.reintentos || 0) > 0
+      });
+    } else if (esLimiteDeCuota(out.error)) {
+      // No es un fallo del trabajo: es que no hay cuota ahora mismo. El turno
+      // se aparca con su texto intacto y vuelve a salir solo. Perderlo
+      // obligaria a reescribir la orden cuando vuelva la cuota.
+      const esperaMs = Number(this.cfg.reintentoCuotaMs) > 0 ? Number(this.cfg.reintentoCuotaMs) : 1800000;
+      const topeMs = Number(this.cfg.topeEsperaCuotaMs) > 0 ? Number(this.cfg.topeEsperaCuotaMs) : 86400000;
+      const desde = turn.espera_desde ? new Date(turn.espera_desde).getTime() : Date.now();
+
+      if (Date.now() - desde >= topeMs) {
+        // Un dia entero esperando: algo mas pasa. Se rinde y avisa, en vez de
+        // reintentar indefinidamente.
+        const horas = Math.round(topeMs / 3600000);
+        this.store.addMessage(agent.id, 'system',
+          `Se abandona tras ${horas} h esperando cuota: ${out.error}`, { turn_id: turn.id });
+        this.store.finishTurn(turn.id, { status: 'error', error: out.error });
+        this.store.event('turn.error', agent.id, { turn_id: turn.id, error: out.error });
+        this.notificar('turn.error', agent, { error: `Sin cuota tras ${horas} h. Trabajo abandonado.` });
+      } else {
+        const proximo = new Date(Date.now() + esperaMs).toISOString();
+        this.store.esperarCuota(turn.id, proximo, out.error);
+        this.store.event('turn.espera_cuota', agent.id, {
+          turn_id: turn.id, proximo, reintentos: (turn.reintentos || 0) + 1
+        });
+        this.store.updateAgent(agent.id, { status: 'idle' });
+        return;   // sin mensaje de error: el trabajo no se ha perdido
+      }
     } else {
       // Una sesion que ya no se puede reanudar no debe dejar al agente inservible.
       if (/resume|session/i.test(out.error || '') && agent.session_id) {
@@ -346,4 +393,4 @@ class Orchestrator {
   }
 }
 
-module.exports = { Orchestrator };
+module.exports = { Orchestrator, esLimiteDeCuota };

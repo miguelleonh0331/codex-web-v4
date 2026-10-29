@@ -189,7 +189,7 @@ orq.alAvisar = async (tipo, agent, extra = {}) => {
   const sinRevisar = store.listAgents().filter((a) => a.status === 'idle').length;
   if (tipo === 'turn.done') {
     await avisar({
-      titulo: `${agent.name} termino`,
+      titulo: extra.retomado ? `${agent.name} retomo y termino` : `${agent.name} termino`,
       cuerpo: (extra.texto || '').slice(0, 160) || 'Tiene una respuesta lista para revisar.',
       agente: agent.id, insignia: extra.sinRevisar ?? sinRevisar, etiqueta: `agente-${agent.id}`
     });
@@ -560,7 +560,21 @@ async function api(req, res, url) {
       running: orq.busy,
       pending: store.nextPendingTurns(100).length,
       project: cfg.project,
-      app: { nombre: cfg.nombre || 'codex-web-v4', acceso: urlSegura() },
+      app: {
+        nombre: cfg.nombre || 'codex-web-v4',
+        acceso: urlSegura(),
+        // El reinicio de cuota llega en hora de Lima: el reloj se muestra en
+        // la misma zona o habria que hacer la cuenta mentalmente.
+        zona: cfg.zonaHoraria || 'America/Lima',
+        ahora: new Date().toISOString()
+      },
+      esperando: store.turnosEnEspera().map((t) => ({
+        agente: t.agent_id,
+        nombre: nameOf(t.agent_id),
+        proximo: t.proximo_intento,
+        reintentos: t.reintentos || 0,
+        desde: t.espera_desde
+      })),
       opciones: { modelos: MODELOS_SUGERIDOS, esfuerzos: ESFUERZOS, modeloPorDefecto: cfg.model, esfuerzoPorDefecto: cfg.effort }
     });
   }

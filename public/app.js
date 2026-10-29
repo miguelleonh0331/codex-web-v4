@@ -98,6 +98,13 @@ async function refreshAllInterno() {
     if (state.project && state.project.name) {
       $('#project-label').textContent = state.project.name;
     }
+    if (state.app && state.app.zona) ZONA = state.app.zona;
+    if (state.app && state.app.ahora) {
+      // El navegador puede ir desajustado; manda el reloj del servidor.
+      DESFASE_MS = new Date(state.app.ahora).getTime() - Date.now();
+    }
+    actualizarEspera(state.esperando);
+    pintarReloj();
     if (state.app && state.app.acceso !== undefined && state.app.acceso !== ACCESO_SEGURO) {
       ACCESO_SEGURO = state.app.acceso;
       avisarOrigenInseguro();
@@ -1339,6 +1346,50 @@ function avisarCorreo(n) {
   }
   ultimoCorreo = n;
 }
+
+// ------------------------------------------------------------- reloj
+
+/**
+ * Hora en la zona del servidor, junto al nombre de la instalacion.
+ *
+ * Importa que sea la del servidor y no la del navegador: el aviso de cuota
+ * dice "resets 6:10pm (America/Lima)", y un reloj en otra zona obligaria a
+ * hacer la cuenta justo cuando hay prisa. Debajo, cuanto falta para que
+ * vuelva la cuota, si es que se agoto.
+ */
+let ZONA = 'America/Lima';
+let DESFASE_MS = 0;     // diferencia entre el reloj del navegador y el del servidor
+
+function pintarReloj() {
+  const el = $('#reloj');
+  if (!el) return;
+  const ahora = new Date(Date.now() + DESFASE_MS);
+  let hora;
+  try {
+    hora = ahora.toLocaleTimeString('es', { timeZone: ZONA, hour: '2-digit', minute: '2-digit' });
+  } catch { hora = ahora.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }); }
+  const corta = ZONA.split('/').pop().replace(/_/g, ' ');
+  el.textContent = `${hora} ${corta}${TEXTO_CUOTA ? ` · ${TEXTO_CUOTA}` : ''}`;
+  el.classList.toggle('esperando', !!TEXTO_CUOTA);
+}
+
+let TEXTO_CUOTA = '';
+
+function faltan(iso) {
+  const ms = new Date(iso).getTime() - (Date.now() + DESFASE_MS);
+  if (ms <= 0) return 'ya';
+  const m = Math.round(ms / 60000);
+  return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+}
+
+function actualizarEspera(lista) {
+  if (!lista || !lista.length) { TEXTO_CUOTA = ''; return; }
+  const proximo = lista.reduce((a, b) => (a.proximo < b.proximo ? a : b));
+  const n = lista.length;
+  TEXTO_CUOTA = `sin cuota: ${n} ${n === 1 ? 'trabajo' : 'trabajos'} reanudan en ${faltan(proximo.proximo)}`;
+}
+
+setInterval(pintarReloj, 1000);
 
 // -------------------------------------------------------------- notas
 

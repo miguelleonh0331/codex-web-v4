@@ -19,6 +19,9 @@ const DEFAULTS = {
   maxConcurrentTurns: 2,
   turnTimeoutMs: 0,            // 0 = sin tope total: un turno puede durar horas
   inactivityTimeoutMs: 1800000, // pero 30 min sin emitir nada es estar colgado
+  reintentoCuotaMs: 1800000,    // sin cuota: reintentar cada 30 min
+  topeEsperaCuotaMs: 86400000,  // y rendirse tras 24 h
+  zonaHoraria: 'America/Lima',  // la del reloj y la de los avisos de cuota
   maxHops: 6,
   maxAgents: 24,              // tope de especialistas que el propio equipo puede crear
   maxUploadMb: 50,            // tope por archivo adjunto

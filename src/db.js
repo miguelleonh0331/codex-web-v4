@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS turns (
   mailbox_id INTEGER,
   chain_id   TEXT,
   hop        INTEGER NOT NULL DEFAULT 0,
-  status     TEXT NOT NULL DEFAULT 'pending', -- pending | running | done | error | timeout
+  status     TEXT NOT NULL DEFAULT 'pending', -- pending | running | esperando_cuota | done | error | timeout
   result     TEXT,
   error      TEXT,
   cost_usd   REAL,
@@ -124,7 +124,10 @@ const COLUMNAS_NUEVAS = [
   ['agents', 'ctx_ventana', 'INTEGER'],
   ['agents', 'ctx_modelo', 'TEXT'],
   ['agents', 'ctx_visto', 'TEXT'],
-  ['agents', 'notas', 'TEXT']        // apuntes del usuario, nunca llegan al modelo
+  ['agents', 'notas', 'TEXT'],       // apuntes del usuario, nunca llegan al modelo
+  ['turns', 'proximo_intento', 'TEXT'],  // cuando volver a intentarlo tras un limite
+  ['turns', 'reintentos', 'INTEGER'],
+  ['turns', 'espera_desde', 'TEXT']      // primer choque: sirve para el tope de 24 h
 ];
 
 function migrar(db) {
@@ -354,8 +357,34 @@ class Store {
     return id;
   }
 
+  /**
+   * Turnos listos para salir: los pendientes de siempre y los que quedaron
+   * esperando cuota y ya cumplieron su espera. Los primeros van antes por
+   * orden de id, que es el orden en que los pediste.
+   */
   nextPendingTurns(limit) {
-    return this.db.prepare(`SELECT * FROM turns WHERE status = 'pending' ORDER BY id ASC LIMIT ?`).all(limit);
+    return this.db.prepare(
+      `SELECT * FROM turns
+        WHERE status = 'pending'
+           OR (status = 'esperando_cuota' AND proximo_intento <= ?)
+        ORDER BY id ASC LIMIT ?`).all(now(), limit);
+  }
+
+  /** Aparca un turno hasta una hora concreta en vez de darlo por perdido. */
+  esperarCuota(id, proximo, motivo) {
+    const t = this.db.prepare('SELECT reintentos, espera_desde FROM turns WHERE id = ?').get(id);
+    this.db.prepare(
+      `UPDATE turns SET status = 'esperando_cuota', proximo_intento = ?,
+                        reintentos = ?, espera_desde = ?, error = ?
+       WHERE id = ?`)
+      .run(proximo, ((t && t.reintentos) || 0) + 1,
+           (t && t.espera_desde) || now(), motivo, id);
+  }
+
+  /** Turnos aparcados, para pintarlos en la interfaz. */
+  turnosEnEspera() {
+    return this.db.prepare(
+      "SELECT * FROM turns WHERE status = 'esperando_cuota' ORDER BY proximo_intento ASC").all();
   }
 
   runningCount() {

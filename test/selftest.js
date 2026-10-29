@@ -489,6 +489,56 @@ function check(nombre, condicion, detalle) {
     cfg.turnTimeoutMs === 0 || cfg.turnTimeoutMs === undefined,
     `turnTimeoutMs = ${cfg.turnTimeoutMs}`);
 
+  // --- espera de cuota ---
+  const { esLimiteDeCuota } = require(`${__dirname}/../src/orchestrator.js`);
+  check('reconoce el mensaje real de limite de cuota',
+    esLimiteDeCuota("You've hit your 5-hour limit · resets 6:10pm (America/Lima)") &&
+    esLimiteDeCuota('Usage limit reached') && esLimiteDeCuota('rate_limit_error'));
+  check('no confunde un fallo normal con falta de cuota',
+    !esLimiteDeCuota('Tiempo agotado tras 15 min') &&
+    !esLimiteDeCuota('Error: cannot find module ./limits.js') &&
+    !esLimiteDeCuota('permission denied: /etc/asterisk/sip.conf'),
+    'reintentar un error de codigo cada 30 min seria un bucle sin fin');
+
+  {
+    const { Store: StoreQ } = require(`${__dirname}/../src/db.js`);
+    const tmp = `${__dirname}/../.tmp-cuota.db`;
+    try {
+      for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true });
+      const st = new StoreQ(tmp);
+      st.createAgent({ id: 'q', name: 'q', instructions: 'x', home: '/tmp', workspace: '/tmp' });
+      const tid = st.enqueueTurn({ agentId: 'q', prompt: 'trabajo original', origin: 'user' });
+      st.esperarCuota(tid, new Date(Date.now() + 1800000).toISOString(), 'limite');
+      const nadie = st.nextPendingTurns(10).length === 0;
+      const guardado = st.turnosEnEspera()[0];
+      st.esperarCuota(tid, new Date(Date.now() - 1000).toISOString(), 'limite');
+      const sale = st.nextPendingTurns(10).length === 1;
+      check('un turno sin cuota espera y no se pierde',
+        nadie && sale && guardado.prompt === 'trabajo original',
+        'la orden debe sobrevivir intacta hasta que vuelva la cuota');
+      check('cuenta los reintentos y recuerda desde cuando espera',
+        st.turnosEnEspera()[0].reintentos === 2 && !!st.turnosEnEspera()[0].espera_desde,
+        'sin espera_desde no se puede aplicar el tope de 24 h');
+    } finally {
+      for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true });
+    }
+  }
+
+  const orqQ = fs.readFileSync(`${__dirname}/../src/orchestrator.js`, 'utf8');
+  check('se rinde tras el tope en vez de reintentar para siempre',
+    /Date\.now\(\) - desde >= topeMs/.test(orqQ) && /Se abandona tras/.test(orqQ));
+  check('al volver de la espera el aviso dice que retomo',
+    /retomado: \(turn\.reintentos \|\| 0\) > 0/.test(orqQ) &&
+    /retomo y termino/.test(fs.readFileSync(`${__dirname}/../src/server.js`, 'utf8')));
+
+  const estQ = (await req('/api/state')).data;
+  check('el estado publica lo que espera cuota',
+    Array.isArray(estQ.esperando), JSON.stringify(estQ.esperando));
+  check('el reloj va en la zona del servidor, la de los avisos de cuota',
+    !!estQ.app.zona && !!estQ.app.ahora && /id="reloj"/.test(idxPanel) &&
+    /timeZone: ZONA/.test(appAct),
+    `zona ${estQ.app.zona}: con otra habria que hacer la cuenta a mano`);
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));
