@@ -79,12 +79,8 @@ dialog menu{display:flex;justify-content:flex-end;gap:.6rem;padding:0;margin:1re
 
 @media (max-width:900px){
   body{height:100dvh}
-  #app{display:block;position:relative;height:100dvh}
-
-  .sidebar,.chat,.panel{
-    position:absolute;inset:0;bottom:calc(58px + env(safe-area-inset-bottom));
-    border:none;display:none
-  }
+  /* El montaje en rejilla esta al final del archivo: ahi se define el alto. */
+  .sidebar,.chat,.panel{border:none;display:none}
   .sidebar{border-right:none}
   body.view-agents .sidebar,
   body.view-chat   .chat,
@@ -128,7 +124,6 @@ dialog menu{display:flex;justify-content:flex-end;gap:.6rem;padding:0;margin:1re
 }
 
 @media (max-width:900px) and (orientation:landscape){
-  .sidebar,.chat,.panel{bottom:calc(50px + env(safe-area-inset-bottom))}
   .mobile-nav button{min-height:50px;flex-direction:row;gap:.4rem}
 }
 
@@ -751,3 +746,38 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
     mask-image:linear-gradient(90deg,#000 88%,transparent)}
   .tab{scroll-snap-align:start}
 }
+
+/* ================================ montaje movil, deterministico ==========
+   Antes las tres columnas iban en position:absolute con bottom:58px, un
+   numero que tenia que coincidir a mano con el alto de la barra inferior
+   (que en realidad mide 59px + area segura). Cualquier desajuste tapaba el
+   pie de la conversacion: el area de escribir y su boton de enviar.
+
+   Ahora #app es una rejilla de dos filas: el contenido ocupa la primera y la
+   barra inferior es una fila de verdad, no algo fijo flotando encima. El
+   alto restante queda definido, que es justo lo que necesita .messages para
+   poder desplazarse. */
+@media (max-width:900px){
+  #app{display:grid;grid-template-columns:1fr;grid-template-rows:1fr auto;
+    height:100dvh;position:relative;overflow:hidden}
+
+  .sidebar,.chat,.panel{
+    grid-row:1;grid-column:1;
+    position:relative;inset:auto;bottom:auto;
+    min-height:0;overflow:hidden}
+
+  .mobile-nav{grid-row:2;grid-column:1;
+    position:relative;left:auto;right:auto;bottom:auto;z-index:1}
+
+  /* Un hijo flexible no se encoge por debajo de su contenido salvo que se le
+     diga: sin esto la lista empuja al compositor fuera de la pantalla. */
+  .messages{min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .chat-head,.composer{flex:0 0 auto}
+  .tab-body{min-height:0}
+  .sidebar .agents{min-height:0}
+
+  /* El area segura inferior ya la pone la barra: aqui sobraba y subia el
+     compositor dejando una franja muerta. */
+  .composer{padding:.6rem .7rem}
+}
+

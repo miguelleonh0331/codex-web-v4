@@ -251,6 +251,22 @@ function check(nombre, condicion, detalle) {
     /\.vacio-chat\{/.test(cssSal),
     'antes era un hueco negro y parecia que la aplicacion estaba rota');
 
+  // El alto de la vista movil no puede depender de que un numero coincida a
+  // mano con el alto de la barra inferior: cualquier desajuste tapa el pie
+  // de la conversacion, que es donde esta el boton de enviar.
+  const cssEsp = cssCrudo.replace(/\s+/g, ' ');
+  check('la vista movil reparte el alto con una rejilla, sin numeros magicos',
+    /#app\s*\{[^}]*grid-template-rows: ?1fr auto/.test(cssEsp) &&
+    /\.mobile-nav\{[^}]*grid-row:2/.test(cssSal),
+    'con position:absolute y bottom:58px el compositor quedaba fuera');
+  check('la conversacion puede encogerse para poder desplazarse',
+    /\.messages\{min-height:0/.test(cssSal),
+    'sin min-height:0 la lista empuja al compositor fuera de la pantalla');
+  check('la cabecera y el compositor no se encogen',
+    /\.chat-head, ?\.composer ?\{ ?flex: ?0 0 auto ?\}/.test(cssEsp));
+  check('el teclado del movil encoge la pagina en vez de tapar el compositor',
+    /interactive-widget=resizes-content/.test(idxPanel));
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));
