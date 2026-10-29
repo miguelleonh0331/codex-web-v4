@@ -681,10 +681,17 @@ function check(nombre, condicion, detalle) {
     'sin esto habria que entrar por consola en cada servidor');
   check('el codigo de un solo uso se muestra legible para teclearlo en otro sitio',
     /\.codigo-grande\{/.test(cssSal) && /letter-spacing/.test(cssSal));
-  check('se puede cancelar una conexion a medias',
-    (await req('/api/providers/codex/cancel', { method: 'POST' })).status === 200);
-  check('la comprobacion dice si ya autorizo',
-    typeof (await req('/api/providers/codex/check')).data.listo === 'boolean');
+  // OJO: cancelar es una accion real. Si hay una conexion en marcha, esta
+  // comprobacion la mataria justo cuando el usuario va a autorizarla en su
+  // navegador. Ya paso: se perdieron dos intentos seguidos.
+  const enMarcha = (await req('/api/providers/codex/check')).data;
+  check('la comprobacion dice si ya autorizo', typeof enMarcha.listo === 'boolean');
+  if (enMarcha.esperando) {
+    console.log('  --   no se prueba cancelar: hay una conexion de Codex en curso');
+  } else {
+    check('se puede cancelar una conexion a medias',
+      (await req('/api/providers/codex/cancel', { method: 'POST' })).status === 200);
+  }
 
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
