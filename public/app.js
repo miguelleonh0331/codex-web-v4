@@ -74,7 +74,16 @@ function start() {
 
 // ----------------------------------------------------------------- datos
 
+// Si un ciclo tarda mas de los 2,5 s del intervalo, el siguiente arrancaba
+// encima y los dos pintaban lo mismo. Solo corre un ciclo a la vez.
+let refrescando = false;
 async function refreshAll() {
+  if (refrescando) return;
+  refrescando = true;
+  try { await refreshAllInterno(); } finally { refrescando = false; }
+}
+
+async function refreshAllInterno() {
   try {
     const state = await api('/api/state');
     agents = state.agents;
@@ -279,8 +288,16 @@ function pestanaActiva() {
   return t ? t.dataset.tab : 'mailbox';
 }
 
+// Dos ciclos solapados (el refresco cada 2,5 s y el clic en la pestana) pedian
+// la actividad con el mismo "desde" y cada uno pintaba el mismo bloque: la
+// salida salia duplicada. El candado impide el solape y el conjunto de ids
+// vistos impide repetir una linea aunque llegue dos veces.
+let actividadEnVuelo = false;
+const actividadVistos = new Set();
+
 async function refrescarActividad(reiniciar) {
   if (pestanaActiva() !== 'salida') return;
+  if (actividadEnVuelo && !reiniciar) return;
   const caja = $('#tab-salida');
   if (!selected) {
     caja.innerHTML = '<p class="muted" style="font-size:.78rem">Elige un especialista para ver lo que ejecuta.</p>';
@@ -290,8 +307,10 @@ async function refrescarActividad(reiniciar) {
   if (reiniciar || agenteActividad !== selected) {
     actividadDesde = 0;
     agenteActividad = selected;
+    actividadVistos.clear();
     caja.innerHTML = '';
   }
+  actividadEnVuelo = true;
   try {
     const { actividad } = await api(`/api/agents/${selected}/activity?desde=${actividadDesde}`);
     if (!actividad.length) {
@@ -305,6 +324,8 @@ async function refrescarActividad(reiniciar) {
     const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
     for (const a of actividad) {
       actividadDesde = Math.max(actividadDesde, a.id);
+      if (actividadVistos.has(a.id)) continue;
+      actividadVistos.add(a.id);
       const el = document.createElement('div');
       el.className = 'act';
       el.innerHTML = `<span class="hora">${new Date(a.created_at).toLocaleTimeString()}</span>
@@ -319,6 +340,7 @@ async function refrescarActividad(reiniciar) {
     }
     if (abajo) caja.scrollTop = caja.scrollHeight;
   } catch { /* se reintenta en el siguiente ciclo */ }
+  finally { actividadEnVuelo = false; }
 }
 
 function roleLabel(m) {

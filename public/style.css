@@ -655,7 +655,6 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 
   /* --- la salida ocupa su pestana entera --- */
   #tab-salida{font-size:.72rem}
-  #tab-salida .res{white-space:normal}
 }
 
 /* pantallas estrechas de verdad */
@@ -700,4 +699,26 @@ body.panel-ancho .item .body{max-height:none}
 @media (max-width:900px){
   /* En un movil el panel ya ocupa la pantalla: el boton sobra. */
   .expandir{display:none}
+}
+
+/* ===================================== la salida, legible de una vez ======
+   Antes cada linea era una sola fila con puntos suspensivos: en una pestana
+   dedicada eso esconde justamente lo que se quiere leer. Ahora el texto se
+   reparte en varias lineas y solo se recorta si es muy largo; al pulsar se
+   abre entero. La hora y la herramienta quedan arriba, sin empujar al texto. */
+#tab-salida .act{align-items:flex-start;padding:.3rem 0;gap:.5rem}
+#tab-salida .res{
+  white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;
+  text-overflow:clip;min-width:0;line-height:1.45;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+#tab-salida .res.abierto{display:block;-webkit-line-clamp:unset;overflow:visible;
+  background:#070910;border-left:2px solid var(--accent2);padding:.35rem .5rem;margin:.15rem 0}
+#tab-salida .hora{padding-top:.1rem}
+/* A pantalla completa sobra sitio: se enseñan muchas mas lineas de golpe. */
+body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
+
+@media (max-width:900px){
+  /* En un movil la hora y la herramienta se comen el ancho: van encima. */
+  #tab-salida .act{flex-wrap:wrap}
+  #tab-salida .res{flex:1 1 100%;-webkit-line-clamp:6}
 }

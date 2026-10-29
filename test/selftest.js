@@ -185,6 +185,26 @@ function check(nombre, condicion, detalle) {
     !/document\.body\.className\s*=/.test(appPanel),
     'asignar className entero se llevaba por delante panel-ancho');
 
+  // --- la salida del CLI ---
+  const appAct = await (await fetch((await base()) + '/app.js')).text();
+  check('solo corre un ciclo de refresco a la vez',
+    /let refrescando = false/.test(appAct) && /if \(refrescando\) return/.test(appAct),
+    'dos ciclos solapados pintaban el mismo bloque de salida dos veces');
+  check('la salida no repite una linea aunque llegue dos veces',
+    /actividadVistos\.has\(a\.id\)/.test(appAct) && /actividadVistos\.add\(a\.id\)/.test(appAct));
+  check('el candado de la actividad se suelta pase lo que pase',
+    /finally \{ actividadEnVuelo = false; \}/.test(appAct),
+    'sin finally, un error dejaba la salida congelada para siempre');
+  const cssSal = cssCrudo.replace(/\s+/g, '');
+  const resSalida = [...cssSal.matchAll(/#tab-salida\.res\{([^}]*)\}/g)].map((m) => m[1]);
+  // Manda la ultima regla que declare white-space, no la ultima a secas.
+  const conWS = resSalida.filter((r) => /white-space:/.test(r));
+  check('la salida se reparte en varias lineas, no en una sola recortada',
+    conWS.length > 0 && /white-space:pre-wrap/.test(conWS[conWS.length - 1]),
+    `gana "${conWS[conWS.length - 1] || 'ninguna'}": si acaba en nowrap, vuelve a verse cortada`);
+  check('el texto largo parte por donde sea antes que desbordar',
+    resSalida.some((r) => /overflow-wrap:anywhere/.test(r)));
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));
