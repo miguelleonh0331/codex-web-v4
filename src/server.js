@@ -10,6 +10,7 @@ const { Orchestrator } = require('./orchestrator');
 const sesion = require('./session');
 const auth = require('./auth');
 const push = require('./push');
+const proveedores = require('./proveedores');
 
 const cfg = load();
 const store = new Store(cfg.dbPath);
@@ -69,7 +70,8 @@ function agentPublic(a) {
     } : null,
     created_at: a.created_at, updated_at: a.updated_at,
     has_session: !!a.session_id,
-    tiene_notas: !!(a.notas && a.notas.trim())
+    tiene_notas: !!(a.notas && a.notas.trim()),
+    proveedor: a.proveedor || cfg.proveedor || 'claude'
   };
 }
 
@@ -229,6 +231,7 @@ function createAgent(body) {
     avatarSeed: body.avatarSeed || id
   });
   if (body.avatarColor) store.updateAgent(agent.id, { avatar_color: String(body.avatarColor) });
+  if (body.proveedor) store.updateAgent(agent.id, { proveedor: String(body.proveedor) });
 
   if (body.initialMessage) {
     store.addMessage(id, 'user', String(body.initialMessage));
@@ -571,6 +574,7 @@ async function api(req, res, url) {
       running: orq.busy,
       pending: store.nextPendingTurns(100).length,
       project: cfg.project,
+      proveedores: proveedores.disponibles(cfg),
       app: {
         nombre: cfg.nombre || 'codex-web-v4',
         acceso: urlSegura(),
@@ -627,6 +631,13 @@ async function api(req, res, url) {
       if (body.instructions !== undefined) cambios.instructions = body.instructions;
       if (body.model !== undefined) cambios.model = body.model === '' ? null : body.model;
       if (body.effort !== undefined) cambios.effort = body.effort === '' ? null : body.effort;
+      if (body.proveedor !== undefined) {
+        const nom = String(body.proveedor || '').toLowerCase();
+        if (nom && !proveedores.PROVEEDORES[nom]) {
+          return json(res, 400, { error: `proveedor desconocido "${nom}"` });
+        }
+        cambios.proveedor = nom || null;
+      }
       if (body.avatarSeed) cambios.avatar_seed = String(body.avatarSeed);
       if (body.avatarColor !== undefined) {
         const c = String(body.avatarColor || '').trim();

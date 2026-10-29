@@ -584,6 +584,79 @@ function check(nombre, condicion, detalle) {
   check('el historial solo se sirve con el token interno',
     (await req(`/api/internal/agents/${A}/historial?q=x`, { token: null, bridge: 'malo' })).status === 401);
 
+  // --- proveedores ---
+  const provs = require(`${__dirname}/../src/proveedores`);
+  const estP = (await req('/api/state')).data;
+  check('publica que proveedores hay y cuales estan instalados',
+    Array.isArray(estP.proveedores) && estP.proveedores.length >= 2 &&
+    estP.proveedores.every((p) => 'instalado' in p && 'modelos' in p && 'reanuda' in p),
+    JSON.stringify(estP.proveedores.map((p) => [p.nombre, p.instalado])));
+  check('Claude sigue siendo el de por defecto',
+    provs.obtener(undefined).nombre === 'claude' && provs.obtener('inventado').nombre === 'claude',
+    'un nombre desconocido no puede dejar al agente sin ejecutor');
+
+  // Todos tienen que cumplir el mismo contrato, o el runner fallaria al
+  // usar uno que no lo cumple.
+  for (const p of Object.values(provs.PROVEEDORES)) {
+    check(`el proveedor ${p.nombre} cumple el contrato`,
+      typeof p.binario === 'function' && typeof p.preparar === 'function' &&
+      typeof p.esFinal === 'function' && typeof p.limiteDe === 'function' &&
+      typeof p.resultado === 'function' && Array.isArray(p.modelos) && !!p.faltaBinario);
+  }
+
+  // El adaptador de Claude debe producir exactamente lo de siempre: este es
+  // el refactor que no puede cambiar comportamiento.
+  {
+    const cl = provs.obtener('claude');
+    const tmpHome = `${__dirname}/../.tmp-home`;
+    fs.mkdirSync(tmpHome, { recursive: true });
+    try {
+      const plan = cl.preparar(
+        { claudeBin: '/bin/true', appDir: `${__dirname}/..`, port: 1, bridgeToken: 'b', sessionDir: '/tmp/s', model: 'sonnet', effort: 'high' },
+        { id: 'x', name: 'X', home: tmpHome, workspace: '/tmp', session_id: 'S1' },
+        { prompt: 'p', chain_id: 'c', hop: 3 }, 'SP');
+      check('Claude conserva sus banderas de siempre',
+        plan.args.includes('bypassPermissions') && plan.args.includes('stream-json') &&
+        plan.args.includes('--resume') && plan.args.includes('S1') &&
+        plan.env.CLAUDE_CONFIG_DIR === '/tmp/s',
+        plan.args.join(' ').slice(0, 120));
+      const mcp = JSON.parse(fs.readFileSync(`${tmpHome}/mcp.json`, 'utf8'));
+      check('el puente MCP sigue recibiendo cadena y salto',
+        mcp.mcpServers.v4.env.V4_CHAIN_ID === 'c' && mcp.mcpServers.v4.env.V4_HOP === '3');
+    } finally { fs.rmSync(tmpHome, { recursive: true, force: true }); }
+  }
+
+  // Y Codex debe traducir a SU forma, no a la de Claude.
+  {
+    const cx = provs.obtener('codex');
+    const tmpHome = `${__dirname}/../.tmp-home2`;
+    fs.mkdirSync(tmpHome, { recursive: true });
+    try {
+      const plan = cx.preparar(
+        { appDir: `${__dirname}/..`, port: 1, bridgeToken: 'b' },
+        { id: 'y', name: 'Y', home: tmpHome, workspace: '/tmp', model: 'gpt-5-codex', session_id: 'T1' },
+        { prompt: 'tarea', chain_id: 'c2', hop: 1 }, 'SP');
+      check('Codex usa exec, json y su propio bypass',
+        plan.args[0] === 'exec' && plan.args.includes('--json') &&
+        plan.args.includes('--dangerously-bypass-approvals-and-sandbox'),
+        plan.args.slice(0, 6).join(' '));
+      check('Codex reanuda con su subcomando, no con --resume',
+        plan.args[1] === 'resume' && plan.args[2] === 'T1' && !plan.args.includes('--resume'));
+      const toml = fs.readFileSync(`${tmpHome}/.codex/config.toml`, 'utf8');
+      check('Codex recibe el puente MCP por su config.toml',
+        /\[mcp_servers\.v4\]/.test(toml) && /V4_CHAIN_ID = "c2"/.test(toml) && /V4_HOP = "1"/.test(toml),
+        'sin esto no tendria send_message, claim_files ni recordar');
+      check('a Codex el prompt del sistema le va dentro del mensaje',
+        plan.args[plan.args.length - 1].startsWith('SP') &&
+        plan.args[plan.args.length - 1].includes('tarea'),
+        'no tiene equivalente de --append-system-prompt');
+    } finally { fs.rmSync(tmpHome, { recursive: true, force: true }); }
+  }
+
+  check('un proveedor que no publica coste devuelve null, no un cero falso',
+    provs.obtener('codex').resultado({ msg: { last_agent_message: 'hecho' } }, {}).cost === null,
+    'un cero se leeria como "gratis"');
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));
@@ -685,6 +758,14 @@ function check(nombre, condicion, detalle) {
     /No se guardo: \$\{err/.test(appVer) && /console\.error\('\[v4\] fallo al guardar/.test(appVer));
 
   // --- avisos de trabajo terminado ---
+  // En una instalacion recien hecha no hay ningun mensaje todavia, asi que la
+  // comprobacion se fabrica el suyo en vez de depender de que alguien haya
+  // trabajado antes. Se escribe sobre el agente de pruebas, que se purga al final.
+  {
+    const { Store: StoreM } = require(`${__dirname}/../src/db.js`);
+    const stm = new StoreM(cfg.dbPath || `${cfg.dataDir}/v4.db`);
+    stm.addMessage(A, 'assistant', 'mensaje de autodiagnostico');
+  }
   const est2 = await req('/api/state');
   const conMsg = est2.data.agents.find((x) => x.ultimo_mensaje);
   check('el estado dice cual es el ultimo mensaje de cada agente',
@@ -802,6 +883,13 @@ function check(nombre, condicion, detalle) {
   const actv = await req(`/api/agents/${A}/activity`);
   check('publica la actividad del especialista', actv.status === 200 && Array.isArray(actv.data.actividad));
 
+  // Igual que arriba: se mide el contexto del agente de pruebas para no
+  // depender de que la instalacion lleve tiempo en uso.
+  {
+    const { Store: StoreC } = require(`${__dirname}/../src/db.js`);
+    const stc = new StoreC(cfg.dbPath || `${cfg.dataDir}/v4.db`);
+    stc.guardarContexto(A, { usado: 12000, ventana: 200000, modelo: 'sonnet' });
+  }
   const conAct = await req('/api/agents');
   const alguno = conAct.data.agents.find((x) => x.contexto);
   check('informa del contexto consumido con su ventana real',

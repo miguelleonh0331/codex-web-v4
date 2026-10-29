@@ -127,7 +127,8 @@ const COLUMNAS_NUEVAS = [
   ['agents', 'notas', 'TEXT'],       // apuntes del usuario, nunca llegan al modelo
   ['turns', 'proximo_intento', 'TEXT'],  // cuando volver a intentarlo tras un limite
   ['turns', 'reintentos', 'INTEGER'],
-  ['turns', 'espera_desde', 'TEXT']      // primer choque: sirve para el tope de 24 h
+  ['turns', 'espera_desde', 'TEXT'],     // primer choque: sirve para el tope de 24 h
+  ['agents', 'proveedor', 'TEXT']        // claude | codex; null = el de la instalacion
 ];
 
 function migrar(db) {
@@ -299,7 +300,7 @@ class Store {
 
   updateAgent(id, fields) {
     const allowed = ['name', 'area', 'instructions', 'model', 'effort', 'status',
-      'session_id', 'archived', 'avatar_seed', 'avatar_color', 'notas'];
+      'session_id', 'archived', 'avatar_seed', 'avatar_color', 'notas', 'proveedor'];
     const keys = Object.keys(fields);
     // Antes se filtraban en silencio los campos desconocidos: anadir una
     // columna y olvidarse de esta lista daba un guardado que decia "ok" y no

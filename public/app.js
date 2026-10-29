@@ -9,6 +9,7 @@ let editing = null;
 let OPCIONES = null;
 let NOMBRE_APP = 'codex-web-v4';
 let ACCESO_SEGURO = null;   // direccion https de esta instalacion, si la hay
+let PROVEEDORES = [];       // quien puede ejecutar turnos en este servidor
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -98,6 +99,7 @@ async function refreshAllInterno() {
     if (state.project && state.project.name) {
       $('#project-label').textContent = state.project.name;
     }
+    if (Array.isArray(state.proveedores)) PROVEEDORES = state.proveedores;
     if (state.app && state.app.zona) ZONA = state.app.zona;
     if (state.app && state.app.ahora) {
       // El navegador puede ir desajustado; manda el reloj del servidor.
@@ -1193,10 +1195,43 @@ const OTRO = '__otro__';
  * filtra por lo ya escrito: con "sonnet" dentro, el desplegable solo ofrecia
  * "sonnet" y no habia forma de cambiarlo sin vaciar el campo a mano.
  */
+/**
+ * Proveedor del especialista. Los modelos dependen de el, asi que al
+ * cambiarlo se vuelven a montar: ofrecer modelos de Claude a un especialista
+ * que corre sobre Codex solo lleva a un turno fallido.
+ */
+function montarProveedores(actual) {
+  const sel = $('#sel-proveedor');
+  if (!sel) return;
+  const lista = PROVEEDORES.length ? PROVEEDORES : [{ nombre: 'claude', etiqueta: 'Claude', instalado: true, reanuda: true }];
+  sel.innerHTML = lista.map((p) =>
+    `<option value="${escapeHtml(p.nombre)}"${p.instalado ? '' : ' disabled'}>`
+    + `${escapeHtml(p.etiqueta)}${p.instalado ? '' : ' — no instalado'}</option>`).join('');
+  sel.value = actual || (lista.find((p) => p.instalado) || lista[0]).nombre;
+  notaProveedor();
+  sel.onchange = () => { notaProveedor(); montarModelos(''); };
+}
+
+function notaProveedor() {
+  const sel = $('#sel-proveedor');
+  const nota = $('#prov-nota');
+  if (!sel || !nota) return;
+  const p = PROVEEDORES.find((x) => x.nombre === sel.value);
+  const avisos = [];
+  if (p && !p.instalado) avisos.push('no esta instalado en este servidor');
+  if (p && !p.reanuda) avisos.push('no conserva la conversacion entre turnos');
+  nota.textContent = avisos.join(' · ');
+  nota.style.color = avisos.length ? '#e8b84b' : '';
+}
+
 function montarModelos(actual) {
   const sel = $('#sel-modelo');
   if (!sel) return;
-  const sugeridos = (OPCIONES && OPCIONES.modelos) || ['haiku', 'sonnet', 'opus', 'opusplan', 'fable'];
+  // Los modelos son los del proveedor elegido, no una lista fija.
+  const nomProv = ($('#sel-proveedor') && $('#sel-proveedor').value) || 'claude';
+  const prov = PROVEEDORES.find((p) => p.nombre === nomProv);
+  const sugeridos = (prov && prov.modelos)
+    || (OPCIONES && OPCIONES.modelos) || ['haiku', 'sonnet', 'opus', 'opusplan', 'fable'];
   const porDefecto = (OPCIONES && OPCIONES.modeloPorDefecto) || 'sonnet';
 
   const opciones = [`<option value="">por defecto (${escapeHtml(porDefecto)})</option>`]
@@ -1232,6 +1267,7 @@ function openDialog(agent) {
   c.name.value = agent ? agent.name : '';
   c.area.value = agent ? (agent.area || '') : '';
   c.instructions.value = agent ? agent.instructions : PLANTILLA;
+  montarProveedores(agent ? (agent.proveedor || '') : '');
   montarModelos(agent ? (agent.model || '') : '');
   c.effort.value = agent ? (agent.effort || '') : '';
   $('#dialog-error').textContent = '';
@@ -1256,6 +1292,7 @@ $('#agent-form').addEventListener('submit', async (e) => {
     instructions: c.instructions.value.trim(),
     model: (c.model.value === OTRO ? c.modelOtro.value.trim() : c.model.value.trim()) || null,
     effort: c.effort.value || null,
+    proveedor: (c.proveedor && c.proveedor.value) || null,
     avatarSeed: semillaActual,
     avatarColor: colorActual
   };

@@ -1,6 +1,7 @@
 'use strict';
 const path = require('node:path');
 const { runTurn } = require('./runner');
+const proveedores = require('./proveedores');
 const sesion = require('./session');
 
 /** Resume la llamada a una herramienta en una linea legible. */
@@ -172,9 +173,9 @@ class Orchestrator {
 
   /** Cada evento del CLI segun llega: limites, herramientas y contexto. */
   alVuelo(agent, turn, ev) {
-    if (ev.type === 'rate_limit_event' && ev.rate_limit_info) {
-      return this.store.guardarLimite(ev.rate_limit_info);
-    }
+    // Cada proveedor avisa de los limites de uso a su manera.
+    const limite = proveedores.paraAgente(agent, this.cfg).limiteDe(ev);
+    if (limite) return this.store.guardarLimite(limite);
 
     if (ev.type === 'assistant' && ev.message && Array.isArray(ev.message.content)) {
       for (const bloque of ev.message.content) {

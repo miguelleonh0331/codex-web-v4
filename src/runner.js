@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const proveedores = require('./proveedores');
 
 const COLABORACION = `
 PROTOCOLO DE COLABORACION (obligatorio)
@@ -82,63 +83,27 @@ function buildSystemPrompt(agent, cfg) {
   return partes.join('\n\n');
 }
 
-function writeMcpConfig(cfg, agent, { chainId, hop }) {
-  const file = path.join(agent.home, 'mcp.json');
-  const conf = {
-    mcpServers: {
-      v4: {
-        command: process.execPath,
-        args: [path.join(cfg.appDir, 'src', 'bridge', 'mcp-server.js')],
-        env: {
-          V4_API: cfg.apiUrl || `http://127.0.0.1:${cfg.port}`,
-          V4_BRIDGE_TOKEN: cfg.bridgeToken,
-          V4_AGENT_ID: agent.id,
-          V4_CHAIN_ID: chainId || '',
-          V4_HOP: String(hop || 0)
-        }
-      }
-    }
-  };
-  fs.writeFileSync(file, JSON.stringify(conf, null, 2), { mode: 0o600 });
-  return file;
-}
-
 /**
  * Ejecuta un turno del agente. Devuelve { ok, text, sessionId, cost, numTurns, raw, error }.
  */
 function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
   return new Promise((resolve) => {
-    if (!cfg.claudeBin) {
-      return resolve({ ok: false, error: 'No se encontro el binario de Claude Code (config.claudeBin).' });
-    }
+    // Quien ejecuta este turno. De aqui en adelante da igual cual sea.
+    const prov = proveedores.paraAgente(agent, cfg);
+    const bin = prov.binario(cfg);
+    if (!bin) return resolve({ ok: false, error: prov.faltaBinario });
 
     fs.mkdirSync(agent.home, { recursive: true });
     fs.mkdirSync(agent.workspace, { recursive: true });
 
-    const mcpFile = writeMcpConfig(cfg, agent, { chainId: turn.chain_id, hop: turn.hop });
-    const args = [
-      '-p', turn.prompt,
-      // En streaming llegan ademas los avisos de limite de uso (rate_limit_event),
-      // que es la unica forma de saber cuando se reinicia la ventana.
-      '--output-format', 'stream-json', '--verbose',
-      '--permission-mode', 'bypassPermissions',
-      '--mcp-config', mcpFile,
-      '--append-system-prompt', buildSystemPrompt(agent, cfg)
-    ];
-    if (agent.model || cfg.model) args.push('--model', agent.model || cfg.model);
-    const esfuerzo = agent.effort || cfg.effort;
-    if (esfuerzo) args.push('--effort', esfuerzo);
-    if (agent.session_id) args.push('--resume', agent.session_id);
+    let plan;
+    try {
+      plan = prov.preparar(cfg, agent, turn, buildSystemPrompt(agent, cfg));
+    } catch (e) {
+      return resolve({ ok: false, error: `No se pudo preparar el turno (${prov.nombre}): ${e.message}` });
+    }
 
-    const env = {
-      ...process.env,
-      HOME: agent.home,
-      CLAUDE_CONFIG_DIR: cfg.sessionDir,
-      V4_AGENT_ID: agent.id,
-      V4_AGENT_NAME: agent.name
-    };
-
-    const child = spawn(cfg.claudeBin, args, { cwd: agent.workspace, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(bin, plan.args, { cwd: plan.cwd, env: plan.env, stdio: ['ignore', 'pipe', 'pipe'] });
     // El orquestador necesita el proceso para poder pararlo a peticion del usuario.
     if (onProceso) { try { onProceso(child); } catch { /* no debe impedir el turno */ } }
 
@@ -159,7 +124,7 @@ function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
         if (!linea) continue;
         let ev;
         try { ev = JSON.parse(linea); } catch { continue; }
-        if (ev.type === 'result') resultado = ev;
+        if (prov.esFinal(ev)) resultado = ev;
         if (onEvento) { try { onEvento(ev); } catch { /* nunca debe tumbar el turno */ } }
       }
     };
@@ -222,7 +187,7 @@ function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
       if (settled) return;
       settled = true;
       limpiarRelojes();
-      resolve({ ok: false, error: `No se pudo lanzar Claude: ${err.message}` });
+      resolve({ ok: false, error: `No se pudo lanzar ${prov.etiqueta}: ${err.message}` });
     });
 
     child.on('close', (code) => {
@@ -237,34 +202,8 @@ function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
       }
 
       procesar('\n');              // por si la ultima linea llego sin salto
-      let parsed = resultado;
-      // Compatibilidad: si alguna version devolviera un unico objeto JSON.
-      if (!parsed) { try { parsed = JSON.parse(stdout); } catch { /* nada */ } }
-
-      if (!parsed) {
-        const detalle = (stderr || stdout || '').trim().slice(-600);
-        return resolve({ ok: false, error: `Salida no interpretable (code ${code}): ${detalle || 'sin salida'}` });
-      }
-
-      if (parsed.is_error) {
-        return resolve({
-          ok: false,
-          error: String(parsed.result || 'error reportado por Claude'),
-          sessionId: parsed.session_id,
-          raw: parsed
-        });
-      }
-
-      resolve({
-        ok: true,
-        text: String(parsed.result ?? ''),
-        sessionId: parsed.session_id,
-        cost: parsed.total_cost_usd,
-        numTurns: parsed.num_turns,
-        uso: parsed.usage || null,
-        modelUsage: parsed.modelUsage || null,
-        raw: parsed
-      });
+      // Cada proveedor sabe leer su propia salida; aqui solo se recoge.
+      resolve(prov.resultado(resultado, { stdout, stderr, code }));
     });
   });
 }
