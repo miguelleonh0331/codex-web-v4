@@ -662,6 +662,22 @@ function check(nombre, condicion, detalle) {
     } finally { fs.rmSync(tmpHome, { recursive: true, force: true }); }
   }
 
+  // Los modelos de Codex se comprobaron uno a uno contra el CLI: uno
+  // invalido devuelve 400 model_not_found. "gpt-5" y "o3" NO valen por esta
+  // via, asi que no deben volver a colarse en la lista.
+  const modsCodex = provs.obtener('codex').modelos;
+  check('la lista de modelos de Codex es la que el CLI acepta',
+    modsCodex.every((m) => /-codex$/.test(m)) && modsCodex.includes('gpt-5.3-codex'),
+    JSON.stringify(modsCodex));
+  check('no se ofrecen modelos que el CLI rechaza',
+    !modsCodex.includes('gpt-5') && !modsCodex.includes('o3'),
+    'probados contra la cuenta real: devuelven model_not_found');
+  check('el "por defecto" del desplegable es el del proveedor elegido',
+    provs.obtener('claude').modeloPorDefecto === 'sonnet' &&
+    provs.obtener('codex').modeloPorDefecto === null &&
+    /prov\.modeloPorDefecto \|\| 'el que elija el CLI'/.test(appAct),
+    'con Codex elegido decia "por defecto (sonnet)", que es el de Claude');
+
   check('un proveedor que no publica coste devuelve null, no un cero falso',
     provs.obtener('codex').resultado({ msg: { last_agent_message: 'hecho' } }, {}).cost === null,
     'un cero se leeria como "gratis"');

@@ -46,10 +46,15 @@ function opcionesMcp(cfg, agent, { chainId, hop }) {
 module.exports = {
   nombre: 'codex',
   etiqueta: 'ChatGPT (Codex)',
-  modelos: ['gpt-5-codex', 'gpt-5', 'o3'],
+  // Comprobados uno a uno contra el propio CLI con una cuenta de ChatGPT:
+  // un modelo invalido devuelve 400 model_not_found al instante. "gpt-5" y
+  // "o3" NO valen por esta via, aunque existan en la API.
+  modelos: ['gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5-codex'],
   esfuerzos: ['low', 'medium', 'high'],
 
   reanuda: true,
+  // Sin --model, lo elige el propio CLI.
+  modeloPorDefecto: null,
 
   binario(cfg) {
     if (cfg.codexBin) return cfg.codexBin;

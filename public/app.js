@@ -1360,7 +1360,11 @@ function montarModelos(actual) {
   const prov = PROVEEDORES.find((p) => p.nombre === nomProv);
   const sugeridos = (prov && prov.modelos)
     || (OPCIONES && OPCIONES.modelos) || ['haiku', 'sonnet', 'opus', 'opusplan', 'fable'];
-  const porDefecto = (OPCIONES && OPCIONES.modeloPorDefecto) || 'sonnet';
+  // El "por defecto" es el del proveedor elegido. Antes decia siempre
+  // "sonnet", el de Claude, incluso con Codex seleccionado.
+  const porDefecto = prov
+    ? (prov.modeloPorDefecto || 'el que elija el CLI')
+    : ((OPCIONES && OPCIONES.modeloPorDefecto) || 'sonnet');
 
   const opciones = [`<option value="">por defecto (${escapeHtml(porDefecto)})</option>`]
     .concat(sugeridos.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`));

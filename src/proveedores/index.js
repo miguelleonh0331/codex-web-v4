@@ -42,6 +42,7 @@ function disponibles(cfg) {
     etiqueta: p.etiqueta,
     modelos: p.modelos,
     esfuerzos: p.esfuerzos || [],
+    modeloPorDefecto: p.modeloPorDefecto === undefined ? null : p.modeloPorDefecto,
     reanuda: !!p.reanuda,
     instalado: !!p.binario(cfg)
   }));

@@ -42,6 +42,8 @@ module.exports = {
 
   /** Admite reanudar la conversacion anterior por identificador de sesion. */
   reanuda: true,
+  /** El de la configuracion de la instalacion. */
+  modeloPorDefecto: 'sonnet',
 
   binario(cfg) {
     return cfg.claudeBin || null;
