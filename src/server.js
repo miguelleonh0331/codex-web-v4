@@ -233,6 +233,9 @@ function createAgent(body) {
   });
   if (body.avatarColor) store.updateAgent(agent.id, { avatar_color: String(body.avatarColor) });
   if (body.proveedor) store.updateAgent(agent.id, { proveedor: String(body.proveedor) });
+  // Se relee: la respuesta se construia con el objeto anterior y decia
+  // "claude" en un agente que acababa de quedar asignado a Codex.
+  Object.assign(agent, store.getAgent(agent.id));
 
   if (body.initialMessage) {
     store.addMessage(id, 'user', String(body.initialMessage));

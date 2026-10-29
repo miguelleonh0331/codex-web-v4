@@ -130,60 +130,69 @@ module.exports = {
   },
 
   /**
-   * Codex emite varios tipos de evento. El que cierra el turno trae el
-   * mensaje final del agente. Se aceptan varias formas porque el esquema ha
-   * cambiado entre versiones y no conviene atarse a una sola.
+   * Codex reparte el turno en varios eventos y el texto llega ANTES del que
+   * lo cierra, asi que no vale con quedarse con el ultimo. Esquema real,
+   * capturado de una ejecucion:
+   *
+   *   {"type":"thread.started","thread_id":"..."}
+   *   {"type":"turn.started"}
+   *   {"type":"item.completed","item":{"type":"agent_message","text":"..."}}
+   *   {"type":"turn.completed","usage":{...}}
+   *
+   * Por eso se va recogiendo por el camino en vez de guardar un solo evento.
    */
+  recolectar(ev, bolsa) {
+    if (!ev || !ev.type) return;
+    if (ev.type === 'thread.started' && ev.thread_id) bolsa.sesion = ev.thread_id;
+    if (ev.type === 'item.completed' && ev.item && ev.item.type === 'agent_message') {
+      // El ultimo mensaje del agente es su respuesta; los anteriores son
+      // pasos intermedios.
+      bolsa.texto = ev.item.text || '';
+    }
+    if (ev.type === 'turn.completed') {
+      bolsa.cerrado = true;
+      if (ev.usage) bolsa.uso = ev.usage;
+    }
+    if (ev.type === 'turn.failed' || ev.type === 'error') {
+      bolsa.error = (ev.error && (ev.error.message || ev.error)) || ev.message || 'error de Codex';
+    }
+  },
+
   esFinal(ev) {
-    if (!ev) return false;
-    const t = ev.type || (ev.msg && ev.msg.type);
-    return t === 'task_complete' || t === 'turn.completed' || t === 'item.completed' ||
-           t === 'agent_message' || t === 'thread.finished';
+    return !!ev && ev.type === 'turn.completed';
   },
 
   limiteDe(ev) {
-    if (!ev) return null;
-    const t = ev.type || (ev.msg && ev.msg.type) || '';
-    if (!/rate.?limit|usage.?limit/i.test(String(t))) return null;
-    const info = ev.rate_limit_info || (ev.msg && ev.msg.rate_limits) || ev.rate_limits;
-    return info || null;
+    if (!ev || !ev.type) return null;
+    if (!/rate.?limit|usage.?limit/i.test(ev.type)) return null;
+    return ev.rate_limit_info || ev.rate_limits || null;
   },
 
-  resultado(final, { stdout, stderr, code }) {
-    // Texto del mensaje final, buscado en los sitios donde lo han puesto las
-    // distintas versiones del CLI.
-    const leerTexto = (e) => {
-      if (!e) return null;
-      const m = e.msg || e;
-      if (typeof m.last_agent_message === 'string') return m.last_agent_message;
-      if (typeof m.message === 'string') return m.message;
-      if (typeof m.text === 'string') return m.text;
-      if (m.item && typeof m.item.text === 'string') return m.item.text;
-      if (Array.isArray(m.content)) {
-        return m.content.map((c) => (typeof c === 'string' ? c : c.text || '')).join('').trim() || null;
-      }
-      return null;
-    };
-
-    const texto = leerTexto(final);
-    if (texto === null) {
+  resultado(final, { stdout, stderr, code, bolsa = {} }) {
+    if (bolsa.error) {
+      return { ok: false, error: String(bolsa.error), sessionId: bolsa.sesion || null };
+    }
+    if (typeof bolsa.texto !== 'string') {
       const detalle = (stderr || stdout || '').trim().slice(-600);
       return { ok: false, error: `Salida no interpretable (code ${code}): ${detalle || 'sin salida'}` };
     }
 
-    const m = (final && final.msg) || final || {};
-    const uso = m.usage || m.token_usage || null;
+    const u = bolsa.uso || (final && final.usage) || null;
     return {
       ok: true,
-      text: String(texto),
-      // El identificador permite continuar la conversacion en el turno siguiente.
-      sessionId: m.session_id || m.thread_id || m.conversation_id ||
-                 (final && (final.session_id || final.thread_id)) || null,
-      // Codex no publica coste en dolares: queda a null y la interfaz lo
-      // muestra vacio en vez de inventarse una cifra.
+      text: bolsa.texto,
+      // thread_id: permite continuar la conversacion con "exec resume".
+      sessionId: bolsa.sesion || null,
+      // Codex no publica coste en dolares: null, no un cero que se leeria
+      // como gratis.
       cost: null,
-      numTurns: m.num_turns || null,
-      uso,
+      numTurns: null,
+      uso: u ? {
+        input_tokens: u.input_tokens || 0,
+        output_tokens: u.output_tokens || 0,
+        cache_read_input_tokens: u.cached_input_tokens || 0,
+        cache_creation_input_tokens: u.cache_write_input_tokens || 0
+      } : null,
       modelUsage: null,
       raw: final
     };

@@ -112,6 +112,9 @@ function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
     let settled = false;
     let resto = '';          // ultima linea a medio llegar
     let resultado = null;    // evento final, capturado al vuelo
+    // Lo que el proveedor necesite ir juntando por el camino: hay motores
+    // que reparten el resultado entre varios eventos.
+    const bolsa = {};
 
     // El CLI escribe NDJSON segun avanza. Interpretarlo al momento es lo que
     // permite ver la actividad en vivo en vez de un volcado al terminar.
@@ -124,6 +127,7 @@ function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
         if (!linea) continue;
         let ev;
         try { ev = JSON.parse(linea); } catch { continue; }
+        if (prov.recolectar) { try { prov.recolectar(ev, bolsa); } catch { /* nunca tumba el turno */ } }
         if (prov.esFinal(ev)) resultado = ev;
         if (onEvento) { try { onEvento(ev); } catch { /* nunca debe tumbar el turno */ } }
       }
@@ -203,7 +207,7 @@ function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
 
       procesar('\n');              // por si la ultima linea llego sin salto
       // Cada proveedor sabe leer su propia salida; aqui solo se recoge.
-      resolve(prov.resultado(resultado, { stdout, stderr, code }));
+      resolve(prov.resultado(resultado, { stdout, stderr, code, bolsa }));
     });
   });
 }

@@ -680,8 +680,38 @@ function check(nombre, condicion, detalle) {
     /prov\.modeloPorDefecto \|\| 'el que elija el CLI'/.test(appAct),
     'con Codex elegido decia "por defecto (sonnet)", que es el de Claude');
 
+  // Esquema real de Codex, capturado de una ejecucion: el texto llega en un
+  // evento ANTERIOR al que cierra el turno, asi que quedarse con el ultimo
+  // daba "salida no interpretable" aunque el turno hubiera ido bien.
+  {
+    const cx = provs.obtener('codex');
+    const bolsa = {};
+    for (const ev of [
+      { type: 'thread.started', thread_id: 'TH9' },
+      { type: 'turn.started' },
+      { type: 'item.completed', item: { type: 'agent_message', text: 'primera' } },
+      { type: 'item.completed', item: { type: 'agent_message', text: 'definitiva' } },
+      { type: 'turn.completed', usage: { input_tokens: 100, output_tokens: 7, cached_input_tokens: 80 } }
+    ]) cx.recolectar(ev, bolsa);
+    const r = cx.resultado({ type: 'turn.completed' }, { bolsa });
+    check('Codex junta el resultado repartido entre varios eventos',
+      r.ok && r.text === 'definitiva' && r.sessionId === 'TH9',
+      JSON.stringify(r).slice(0, 140));
+    check('se queda con el ultimo mensaje del agente, no con el primero',
+      r.text === 'definitiva', 'los anteriores son pasos intermedios');
+    check('traduce el consumo de tokens a la forma comun',
+      r.uso && r.uso.input_tokens === 100 && r.uso.cache_read_input_tokens === 80);
+    check('solo cierra el turno con turn.completed',
+      cx.esFinal({ type: 'turn.completed' }) && !cx.esFinal({ type: 'item.completed' }),
+      'item.completed salta en cada paso, no solo al final');
+    const malo = {};
+    cx.recolectar({ type: 'turn.failed', error: { message: 'se cayo' } }, malo);
+    check('un turno fallido de Codex se reporta como fallo, no como vacio',
+      cx.resultado(null, { bolsa: malo, code: 0 }).error === 'se cayo');
+  }
+
   check('un proveedor que no publica coste devuelve null, no un cero falso',
-    provs.obtener('codex').resultado({ msg: { last_agent_message: 'hecho' } }, {}).cost === null,
+    provs.obtener('codex').resultado(null, { bolsa: { texto: 'hecho' } }).cost === null,
     'un cero se leeria como "gratis"');
 
   // --- conectar Codex desde la web ---
