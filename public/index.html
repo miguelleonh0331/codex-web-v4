@@ -69,6 +69,9 @@
         <label class="sw" title="Lluvia de caracteres detras de la conversacion">
           <input type="checkbox" id="matrix-on" checked><span>▚</span>
         </label>
+        <label class="sw" id="voz-caja" title="Cada especialista anuncia en voz alta cuando termina">
+          <input type="checkbox" id="voz-on"><span>🔊</span>
+        </label>
         <label class="sw" id="push-caja" title="Avisos en el telefono aunque la aplicacion este cerrada">
           <input type="checkbox" id="push-on"><span>📲</span>
         </label>
@@ -117,12 +120,16 @@
       <button class="tab active" data-tab="mailbox">Entre agentes</button>
       <button class="tab" data-tab="salida">Salida</button>
       <button class="tab" data-tab="claims">Reservas</button>
+      <button class="tab" data-tab="vault">Vault</button>
+      <button class="tab" data-tab="guardia">Guardia</button>
       <button class="tab" data-tab="activity">Sistema</button>
       <button id="panel-ancho" class="expandir" title="Ver a pantalla completa" aria-label="Ver a pantalla completa">⛶</button>
     </div>
     <div id="tab-mailbox" class="tab-body"></div>
     <div id="tab-salida" class="tab-body" hidden></div>
     <div id="tab-claims" class="tab-body" hidden></div>
+    <div id="tab-vault" class="tab-body" hidden></div>
+    <div id="tab-guardia" class="tab-body" hidden></div>
     <div id="tab-activity" class="tab-body" hidden></div>
   </aside>
 
@@ -275,6 +282,7 @@
 </dialog>
 
 <script src="/robot.js"></script>
+<script src="/voz.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

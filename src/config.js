@@ -22,6 +22,11 @@ const DEFAULTS = {
   reintentoCuotaMs: 1800000,    // sin cuota: reintentar cada 30 min
   topeEsperaCuotaMs: 86400000,  // y rendirse tras 24 h
   zonaHoraria: 'America/Lima',  // la del reloj y la de los avisos de cuota
+  // Rutas que nadie deberia tocar sin que te enteres. Vacio = sin vigilancia.
+  rutasProtegidas: [],
+  // Tope de gasto diario en dolares. 0 = sin tope. Al alcanzarlo no se
+  // lanzan turnos nuevos, pero los que estan en marcha terminan.
+  topeGastoDiario: 0,
   maxHops: 6,
   maxAgents: 24,              // tope de especialistas que el propio equipo puede crear
   maxUploadMb: 50,            // tope por archivo adjunto

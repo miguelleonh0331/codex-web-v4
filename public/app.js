@@ -106,6 +106,9 @@ async function refreshAllInterno() {
       DESFASE_MS = new Date(state.app.ahora).getTime() - Date.now();
     }
     actualizarEspera(state.esperando);
+    // La pestana del guardia avisa si alguien toco algo protegido.
+    const tg = document.querySelector('.tab[data-tab="guardia"]');
+    if (tg) tg.classList.toggle('avisa', !!(state.guardia && state.guardia.length));
     pintarReloj();
     if (state.app && state.app.acceso !== undefined && state.app.acceso !== ACCESO_SEGURO) {
       ACCESO_SEGURO = state.app.acceso;
@@ -222,6 +225,11 @@ function detectarFinales(lista) {
     if (previo !== undefined && idUlt > previo.id && a.ultimo_mensaje) {
       if (a.ultimo_mensaje.rol === 'assistant' || a.ultimo_mensaje.rol === 'peer') huboFinal = true;
       if (a.ultimo_mensaje.rol === 'system') huboError = true;
+      // Habla solo cuando el especialista termina su propio trabajo: ni al
+      // recibir correo de otro, ni en cada paso intermedio.
+      if (a.ultimo_mensaje.rol === 'assistant' && previo.estado === 'working') {
+        VOZ.anuncia(a.name, a.ultimo_mensaje.resumen || 'ha terminado');
+      }
     }
     ultimoEstado.set(a.id, { id: idUlt, estado: a.status });
   }
@@ -458,6 +466,73 @@ async function renderPanel() {
       : '<p class="muted">Ningun archivo reservado.</p>';
   }
 
+  if (active === 'vault') {
+    const { notas, raiz } = await api('/api/vault');
+    $('#tab-vault').innerHTML = notas.length
+      ? `<p class="muted" style="font-size:.72rem">${escapeHtml(raiz)}</p>` + notas.map((n) => `
+          <div class="item nota" data-t="${escapeHtml(n.titulo)}" data-c="${escapeHtml(n.carpeta)}">
+            <div class="hdr"><span>${escapeHtml(n.titulo)}</span>
+            <span>${escapeHtml(n.carpeta || 'raiz')}</span></div>
+            <div class="body">${n.bytes} bytes · ${n.editada ? new Date(n.editada).toLocaleString() : ''}</div>
+          </div>`).join('')
+      : '<p class="muted">El vault esta vacio. Los especialistas escriben aqui lo que vale para manana.</p>';
+    // Al pulsar una nota se abre con sus enlaces y quien la enlaza.
+    $('#tab-vault').querySelectorAll('.nota').forEach((el) => {
+      el.onclick = async () => {
+        const n = await api(`/api/vault?titulo=${encodeURIComponent(el.dataset.t)}`
+          + `&carpeta=${encodeURIComponent(el.dataset.c)}`);
+        const atras = (n.retroenlaces || []).map((r) => r.titulo);
+        $('#tab-vault').innerHTML = `
+          <button type="button" id="vault-volver">‹ todas las notas</button>
+          <div class="item"><div class="hdr"><span>${escapeHtml(n.titulo)}</span>
+          <span>${escapeHtml(n.carpeta || 'raiz')}</span></div>
+          <div class="body" style="white-space:pre-wrap">${escapeHtml(n.texto)}</div></div>
+          ${n.enlaces.length ? `<div class="item"><div class="hdr"><span>enlaza a</span></div>
+            <div class="body">${n.enlaces.map(escapeHtml).join(' · ')}</div></div>` : ''}
+          ${atras.length ? `<div class="item"><div class="hdr"><span>la enlazan</span></div>
+            <div class="body">${atras.map(escapeHtml).join(' · ')}</div></div>` : ''}`;
+        $('#vault-volver').onclick = renderPanel;
+      };
+    });
+  }
+
+  if (active === 'guardia') {
+    const { vigilando, incidentes } = await api('/api/guardia');
+    const cab = vigilando.length
+      ? `<p class="muted" style="font-size:.74rem">Vigilando: ${vigilando.map(escapeHtml).join(', ')}</p>`
+      : '<p class="muted">Sin rutas protegidas. Anade rutasProtegidas en la configuracion para vigilar lo que no debe cambiar sin que te enteres.</p>';
+    $('#tab-guardia').innerHTML = cab + (incidentes.length ? incidentes.map((i) => `
+      <div class="item ${i.revertido ? '' : 'blocked'}">
+        <div class="hdr"><span>${escapeHtml(i.nombre)}</span>
+        <span>${new Date(i.created_at).toLocaleString()}</span></div>
+        <div class="body">${i.cambios.map((c) => `${c.cambio}: ${escapeHtml(c.ruta)}`).join('\n')}</div>
+        ${i.revertido
+          ? '<div class="hdr"><span>deshecho</span></div>'
+          : `<menu style="justify-content:flex-start;margin:.4rem 0 0">
+               <button type="button" class="peligro" data-rev="${i.id}">Deshacer</button>
+               <button type="button" data-visto="${i.id}">Visto</button>
+             </menu>`}
+      </div>`).join('') : '<p class="muted">Nadie ha tocado nada protegido.</p>');
+
+    $('#tab-guardia').querySelectorAll('[data-rev]').forEach((b) => {
+      b.onclick = async () => {
+        if (!confirm('Deshacer estos cambios y volver al estado anterior al turno?')) return;
+        b.disabled = true;
+        try {
+          const r = await api(`/api/guardia/${b.dataset.rev}/revertir`, { method: 'POST' });
+          alert(`Deshechos ${r.hecho.length}. Fallos: ${r.fallos.length}.`);
+        } catch (e) { alert(e.message); }
+        renderPanel();
+      };
+    });
+    $('#tab-guardia').querySelectorAll('[data-visto]').forEach((b) => {
+      b.onclick = async () => {
+        await api(`/api/guardia/${b.dataset.visto}/visto`, { method: 'POST' }).catch(() => {});
+        renderPanel();
+      };
+    });
+  }
+
   if (active === 'activity') {
     const { events } = await api('/api/events?since=0');
     $('#tab-activity').innerHTML = events.slice(0, 50).map((e) => `
@@ -485,7 +560,7 @@ document.querySelectorAll('.tab').forEach((t) => {
   t.onclick = () => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
     t.classList.add('active');
-    ['mailbox', 'salida', 'claims', 'activity'].forEach((n) => { $(`#tab-${n}`).hidden = n !== t.dataset.tab; });
+    ['mailbox', 'salida', 'claims', 'vault', 'guardia', 'activity'].forEach((n) => { $(`#tab-${n}`).hidden = n !== t.dataset.tab; });
     renderPanel();
   };
 });
@@ -830,6 +905,19 @@ function pararEsperaCodex() {
   $('#codex-cancelar').hidden = true;
   $('#codex-login').disabled = false;
   $('#codex-login').textContent = 'Conectar ChatGPT';
+}
+
+// Interruptor de voz. Se prueba al encenderlo: ademas de confirmar que se
+// oye, muchos navegadores exigen un gesto del usuario antes de dejar hablar.
+if ($('#voz-on')) {
+  const caja = $('#voz-caja');
+  if (!VOZ.soportado) { caja.hidden = true; } else {
+    $('#voz-on').checked = VOZ.activa;
+    $('#voz-on').onchange = (e) => {
+      VOZ.activa = e.target.checked;
+      if (VOZ.activa) VOZ.prueba(NOMBRE_APP.split('·')[0].trim() || 'Equipo');
+    };
+  }
 }
 
 if ($('#codex-login')) {

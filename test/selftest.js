@@ -377,10 +377,13 @@ function check(nombre, condicion, detalle) {
   check('la flecha de volver ya no duplica a la barra inferior',
     !/id="back-agents"/.test(idxPanel) && !/back-agents/.test(appAct));
 
-  check('los tres interruptores caben en una fila de iconos',
-    /class="interruptores"/.test(idxPanel) &&
-    (idxPanel.match(/class="sw"/g) || []).length === 3,
-    'antes eran tres casillas con texto, cuatro lineas del pie');
+  // El numero crece segun se anaden: lo que importa es que sigan en una fila
+  // de iconos y no vuelvan a ser casillas con texto apiladas.
+  const nSw = (idxPanel.match(/class="sw"/g) || []).length;
+  check('los interruptores caben en una fila de iconos',
+    /class="interruptores"/.test(idxPanel) && nSw >= 3 &&
+    (idxPanel.match(/class="check"/g) || []).length <= 1,
+    `${nSw} interruptores; antes eran casillas con texto, cuatro lineas del pie`);
   check('siguen siendo casillas reales, no botones falsos',
     (idxPanel.match(/class="sw"[^]*?type="checkbox"/g) || []).length >= 1 &&
     /\.sw input ?\{[^}]*opacity: ?0/.test(cssEsp),
@@ -749,6 +752,123 @@ function check(nombre, condicion, detalle) {
     check('se puede cancelar una conexion a medias',
       (await req('/api/providers/codex/cancel', { method: 'POST' })).status === 200);
   }
+
+  // --- guardia de rutas protegidas ---
+  {
+    const g = require(`${__dirname}/../src/guardia.js`);
+    const base = `${__dirname}/../.tmp-guardia`;
+    const prot = `${base}/prot`;
+    const fotos = `${base}/fotos`;
+    try {
+      fs.rmSync(base, { recursive: true, force: true });
+      fs.mkdirSync(prot, { recursive: true });
+      fs.writeFileSync(`${prot}/a.conf`, 'original');
+      fs.writeFileSync(`${prot}/b.conf`, 'otro');
+      const cfgG = { rutasProtegidas: [prot] };
+      const antes = g.fotografiar(cfgG, fotos);
+
+      fs.writeFileSync(`${prot}/a.conf`, 'manipulado');
+      fs.writeFileSync(`${prot}/c.conf`, 'nuevo');
+      fs.unlinkSync(`${prot}/b.conf`);
+
+      const cambios = g.comparar(antes, g.fotografiar(cfgG, null));
+      const tipos = cambios.map((c) => c.cambio).sort();
+      check('el guardia detecta modificado, creado y borrado',
+        tipos.join(',') === 'borrado,creado,modificado', JSON.stringify(tipos));
+
+      const r = g.revertir(antes, cambios);
+      check('deshacer devuelve el estado exacto anterior',
+        r.fallos.length === 0 &&
+        fs.readFileSync(`${prot}/a.conf`, 'utf8') === 'original' &&
+        fs.existsSync(`${prot}/b.conf`) && !fs.existsSync(`${prot}/c.conf`));
+      check('tras deshacer no queda ninguna diferencia',
+        g.comparar(antes, g.fotografiar(cfgG, null)).length === 0);
+
+      check('no sigue enlaces simbolicos fuera de la ruta vigilada',
+        (() => {
+          fs.symlinkSync('/etc', `${prot}/fuga`);
+          const f = g.fotografiar(cfgG, null);
+          return !Object.keys(f.ficheros).some((x) => x.includes('/fuga/'));
+        })(), 'un enlace apunta fuera: fotografiarlo copiaria medio sistema');
+    } finally { fs.rmSync(base, { recursive: true, force: true }); }
+  }
+
+  const estG = (await req('/api/guardia')).data;
+  check('publica que rutas vigila y los avisos',
+    Array.isArray(estG.vigilando) && Array.isArray(estG.incidentes));
+  check('hay pestana de guardia que avisa',
+    /data-tab="guardia"/.test(idxPanel) && /\.tab\.avisa\{/.test(cssSal));
+
+  // --- vault compartido ---
+  {
+    const v = require(`${__dirname}/../src/vault.js`);
+    const cfgV = { dataDir: `${__dirname}/../.tmp-vault` };
+    try {
+      fs.rmSync(cfgV.dataDir, { recursive: true, force: true });
+      v.escribir(cfgV, { titulo: 'Troncales', carpeta: 'Telefonia', autor: 'Telefonia',
+        texto: 'Van por el wrapper. Ver [[Dialplan]].' });
+      v.escribir(cfgV, { titulo: 'Dialplan', carpeta: 'Telefonia', autor: 'Telefonia',
+        texto: 'Contextos. Depende de [[Troncales]].' });
+
+      const n = v.leer(cfgV, 'Troncales');
+      check('una nota guarda su autor y sus enlaces',
+        n && n.enlaces.includes('Dialplan') && /autor: Telefonia/.test(n.texto));
+      check('se puede leer una nota sin saber en que carpeta esta',
+        !!v.leer(cfgV, 'Dialplan'), 'quien escribe un enlace no sabe donde vive la nota');
+      check('los retroenlaces convierten las notas en una red',
+        v.retroenlaces(cfgV, 'Troncales').some((r) => r.titulo === 'Dialplan'));
+      check('la busqueda encuentra por contenido',
+        v.buscar(cfgV, 'wrapper').some((r) => r.titulo === 'Troncales'));
+
+      const fuga = v.escribir(cfgV, { titulo: '../../../etc/passwd', carpeta: '../..', texto: 'x' });
+      check('un titulo con ../ no escribe fuera del vault',
+        fuga.ruta.startsWith(require('node:path').resolve(v.raiz(cfgV))),
+        `escribio en ${fuga.ruta}`);
+    } finally { fs.rmSync(cfgV.dataDir, { recursive: true, force: true }); }
+  }
+
+  const mcpV = fs.readFileSync(`${__dirname}/../src/bridge/mcp-server.js`, 'utf8');
+  check('los especialistas tienen las tres herramientas del vault',
+    ['vault_escribir', 'vault_leer', 'vault_buscar'].every((t) =>
+      mcpV.includes(`name: '${t}'`) && mcpV.includes(`case '${t}'`)));
+  check('se les dice que miren el vault antes de molestar a un companero',
+    /vault_buscar cuesta cero/.test(runnerSrc),
+    'una herramienta que no se explica no se usa');
+  check('hay pestana de vault', /data-tab="vault"/.test(idxPanel));
+
+  // --- voz ---
+  const vozSrc = await (await fetch((await base()) + '/voz.js')).text();
+  check('cada especialista tiene una voz estable',
+    /function timbre/.test(vozSrc) && /semilla\(nombre\)/.test(vozSrc),
+    'el mismo nombre debe sonar siempre igual');
+  check('la voz solo suena al terminar el propio trabajo',
+    /previo\.estado === 'working'/.test(appAct) && /VOZ\.anuncia/.test(appAct),
+    'si sonara en cada paso, con trece especialistas seria insufrible');
+  check('no intenta pronunciar bloques de codigo ni rutas',
+    vozSrc.includes('bloques de codigo, impronunciables') &&
+    vozSrc.includes('una ruta') && vozSrc.includes('un enlace'),
+    'leer en voz alta una ruta larga o un bloque de codigo es ruido');
+  check('habla por turnos en vez de pisarse',
+    /const cola = \[\]/.test(vozSrc) && /u\.onend/.test(vozSrc));
+  check('si el navegador falla, la cola no se queda bloqueada',
+    /u\.onerror/.test(vozSrc));
+  check('la voz se puede apagar y se recuerda apagada',
+    /localStorage\.setItem\('v4-voz'/.test(vozSrc) && /id="voz-on"/.test(idxPanel));
+
+  // --- tope de gasto ---
+  const estGas = (await req('/api/state')).data.gasto;
+  check('publica el gasto del dia y su tope',
+    estGas && typeof estGas.total === 'number' && 'tope' in estGas && 'frenado' in estGas,
+    JSON.stringify(estGas));
+  const orqGas = fs.readFileSync(`${__dirname}/../src/orchestrator.js`, 'utf8');
+  check('el tope se comprueba antes de lanzar, no en medio de un turno',
+    /dispatch\(\)[\s\S]{0,400}topeGastoDiario/.test(orqGas),
+    'cortar un turno a medias desperdicia lo ya gastado');
+  check('alcanzar el tope deja el trabajo pendiente, no lo descarta',
+    !/finishTurn[^)]*gasto/.test(orqGas),
+    'el turno debe quedar en cola y salir solo cuando el tope se renueve');
+  check('avisa de que freno, sin repetirlo cada ciclo',
+    /gasto\.tope/.test(orqGas) && /avisoTope/.test(orqGas));
 
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',

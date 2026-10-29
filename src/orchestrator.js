@@ -1,7 +1,9 @@
 'use strict';
 const path = require('node:path');
+const fs = require('node:fs');
 const { runTurn } = require('./runner');
 const proveedores = require('./proveedores');
+const guardia = require('./guardia');
 const sesion = require('./session');
 
 /** Resume la llamada a una herramienta en una linea legible. */
@@ -152,6 +154,20 @@ class Orchestrator {
     const libres = this.cfg.maxConcurrentTurns - this.active.size;
     if (libres <= 0) return;
 
+    // Tope de gasto: se comprueba antes de lanzar, no en medio. Un turno ya
+    // empezado termina; lo que se frena es empezar otro.
+    const tope = Number(this.cfg.topeGastoDiario) || 0;
+    if (tope > 0) {
+      const hoy = this.store.gastoDelDia();
+      if (hoy.total >= tope) {
+        if (!this.avisoTope || Date.now() - this.avisoTope > 600000) {
+          this.avisoTope = Date.now();
+          this.store.event('gasto.tope', null, { gastado: hoy.total, tope, turnos: hoy.turnos });
+        }
+        return;
+      }
+    }
+
     const candidatos = this.store.nextPendingTurns(libres * 4);
     let lanzados = 0;
 
@@ -266,6 +282,20 @@ class Orchestrator {
     this.store.event('turn.started', agent.id, { turn_id: turn.id, origin: turn.origin });
 
     const log = path.join(this.cfg.logsDir, `${agent.id}.log`);
+
+    // Foto de las rutas protegidas antes de empezar. Si el especialista toca
+    // algo ahi, se sabra al terminar y se podra deshacer.
+    let foto = null;
+    let dirFoto = null;
+    try {
+      if ((this.cfg.rutasProtegidas || []).length) {
+        dirFoto = path.join(this.cfg.dataDir, 'guardia', String(turn.id));
+        foto = guardia.fotografiar(this.cfg, dirFoto);
+      }
+    } catch (e) {
+      this.store.event('guardia.error', agent.id, { turn_id: turn.id, error: e.message });
+    }
+
     let out;
     try {
       out = await runTurn(
@@ -279,6 +309,28 @@ class Orchestrator {
 
     this.active.delete(turn.id);
     this.procesos.delete(turn.id);
+
+    // Y la comprobacion. Se hace pase lo que pase con el turno: un turno que
+    // fallo o que se corto a medias es justo cuando mas probable es que haya
+    // dejado algo a medio escribir.
+    if (foto) {
+      try {
+        const cambios = guardia.comparar(foto, guardia.fotografiar(this.cfg, null));
+        if (cambios.length) {
+          fs.writeFileSync(path.join(dirFoto, 'manifiesto.json'), JSON.stringify(foto));
+          const id = this.store.registrarIncidente({
+            turnId: turn.id, agentId: agent.id, cambios, foto: dirFoto
+          });
+          this.store.event('guardia.cambio', agent.id, { turn_id: turn.id, incidente: id, n: cambios.length });
+          this.notificar('guardia', agent, { cambios, incidente: id });
+        } else {
+          // Sin cambios no hay nada que deshacer: la copia solo ocuparia disco.
+          fs.rmSync(dirFoto, { recursive: true, force: true });
+        }
+      } catch (e) {
+        this.store.event('guardia.error', agent.id, { turn_id: turn.id, error: e.message });
+      }
+    }
 
     // Si lo paro el usuario, no es un error del especialista: se cuenta como tal.
     if (this.cancelados.has(turn.id)) {

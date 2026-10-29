@@ -12,6 +12,8 @@ const auth = require('./auth');
 const authCodex = require('./auth-codex');
 const push = require('./push');
 const proveedores = require('./proveedores');
+const guardia = require('./guardia');
+const vault = require('./vault');
 
 const cfg = load();
 const store = new Store(cfg.dbPath);
@@ -195,6 +197,13 @@ orq.alAvisar = async (tipo, agent, extra = {}) => {
       titulo: extra.retomado ? `${agent.name} retomo y termino` : `${agent.name} termino`,
       cuerpo: (extra.texto || '').slice(0, 160) || 'Tiene una respuesta lista para revisar.',
       agente: agent.id, insignia: extra.sinRevisar ?? sinRevisar, etiqueta: `agente-${agent.id}`
+    });
+  } else if (tipo === 'guardia') {
+    const n = (extra.cambios || []).length;
+    await avisar({
+      titulo: `${agent.name} toco ${n} ${n === 1 ? 'archivo protegido' : 'archivos protegidos'}`,
+      cuerpo: (extra.cambios || []).slice(0, 3).map((c) => `${c.cambio}: ${c.ruta}`).join(' · '),
+      agente: agent.id, insignia: sinRevisar, etiqueta: 'guardia', urgente: true
     });
   } else if (tipo === 'turn.error') {
     await avisar({
@@ -430,6 +439,37 @@ async function api(req, res, url) {
       return json(res, 200, { resultados: store.buscarEnHistorial(id, q, { limite }) });
     }
 
+    // Vault compartido: lo que el equipo sabe, en Markdown enlazado.
+    if (p === '/api/internal/vault/listar' && m === 'GET') {
+      return json(res, 200, { notas: vault.listar(cfg) });
+    }
+
+    if (p === '/api/internal/vault/leer' && m === 'GET') {
+      const n = vault.leer(cfg, url.searchParams.get('titulo'), url.searchParams.get('carpeta'));
+      if (!n) return json(res, 404, { error: 'no existe esa nota' });
+      return json(res, 200, { ...n, retroenlaces: vault.retroenlaces(cfg, n.titulo) });
+    }
+
+    if (p === '/api/internal/vault/buscar' && m === 'GET') {
+      return json(res, 200, {
+        resultados: vault.buscar(cfg, url.searchParams.get('q'),
+          Math.min(20, Number(url.searchParams.get('limite') || 10)))
+      });
+    }
+
+    if (p === '/api/internal/vault/escribir' && m === 'POST') {
+      const b = await readBody(req);
+      try {
+        const out = vault.escribir(cfg, {
+          titulo: b.titulo, texto: b.texto, carpeta: b.carpeta, autor: nameOf(b.agentId)
+        });
+        store.event('vault.escrito', b.agentId || null, { titulo: out.titulo, carpeta: out.carpeta });
+        return json(res, 200, out);
+      } catch (e) {
+        return json(res, 400, { error: e.message });
+      }
+    }
+
     if (p === '/api/internal/mailbox' && m === 'POST') {
       const body = await readBody(req);
       return json(res, 200, queueMail(body));
@@ -572,7 +612,14 @@ async function api(req, res, url) {
     return json(res, 200, {
       agents: store.listAgents().map((a) => {
         const u = ultimos.get(a.id);
-        return { ...agentPublic(a), ultimo_mensaje: u ? { id: u.id, rol: u.role, en: u.created_at } : null };
+        return {
+          ...agentPublic(a),
+          // El resumen va recortado: lo usa la voz para anunciar el final, y
+          // no tiene sentido enviar la respuesta entera en cada sondeo.
+          ultimo_mensaje: u
+            ? { id: u.id, rol: u.role, en: u.created_at, resumen: String(u.body || '').slice(0, 220) }
+            : null
+        };
       }),
       claims: store.listClaims().map((c) => ({ ...c, agent_name: nameOf(c.agent_id) })),
       running: orq.busy,
@@ -587,6 +634,13 @@ async function api(req, res, url) {
         zona: cfg.zonaHoraria || 'America/Lima',
         ahora: new Date().toISOString()
       },
+      gasto: (() => {
+        const g = store.gastoDelDia();
+        const tope = Number(cfg.topeGastoDiario) || 0;
+        return { ...g, tope, frenado: tope > 0 && g.total >= tope };
+      })(),
+      guardia: store.incidentes(10).filter((i) => !i.visto)
+        .map((i) => ({ id: i.id, nombre: nameOf(i.agent_id), n: i.cambios.length, cuando: i.created_at })),
       esperando: store.turnosEnEspera().map((t) => ({
         agente: t.agent_id,
         nombre: nameOf(t.agent_id),
@@ -886,6 +940,50 @@ async function api(req, res, url) {
     const out = await authCodex.cerrarSesion(cfg);
     store.event('proveedor.desconectado', null, { proveedor: 'codex', ...out });
     return json(res, out.ok ? 200 : 400, out);
+  }
+
+  // Rutas protegidas: que se toco y como deshacerlo.
+  if (p === '/api/vault' && m === 'GET') {
+    const q = url.searchParams.get('q');
+    const t = url.searchParams.get('titulo');
+    if (t) {
+      const n = vault.leer(cfg, t, url.searchParams.get('carpeta'));
+      return n
+        ? json(res, 200, { ...n, retroenlaces: vault.retroenlaces(cfg, n.titulo) })
+        : json(res, 404, { error: 'no existe esa nota' });
+    }
+    if (q) return json(res, 200, { resultados: vault.buscar(cfg, q, 20) });
+    return json(res, 200, { raiz: vault.raiz(cfg), notas: vault.listar(cfg) });
+  }
+
+  if (p === '/api/guardia' && m === 'GET') {
+    return json(res, 200, {
+      vigilando: cfg.rutasProtegidas || [],
+      incidentes: store.incidentes(30).map((i) => ({ ...i, nombre: nameOf(i.agent_id) }))
+    });
+  }
+
+  let mg = p.match(/^\/api\/guardia\/(\d+)\/revertir$/);
+  if (mg && m === 'POST') {
+    const inc = store.incidente(Number(mg[1]));
+    if (!inc) return json(res, 404, { error: 'no existe ese aviso' });
+    if (inc.revertido) return json(res, 400, { error: 'ya se revirtio' });
+    let foto;
+    try {
+      foto = JSON.parse(fs.readFileSync(path.join(inc.foto, 'manifiesto.json'), 'utf8'));
+    } catch {
+      return json(res, 400, { error: 'ya no esta la copia: no se puede deshacer' });
+    }
+    const out = guardia.revertir(foto, inc.cambios);
+    store.marcarIncidente(inc.id, { revertido: 1, visto: 1 });
+    store.event('guardia.revertido', inc.agent_id, { incidente: inc.id, hecho: out.hecho.length, fallos: out.fallos.length });
+    return json(res, 200, out);
+  }
+
+  mg = p.match(/^\/api\/guardia\/(\d+)\/visto$/);
+  if (mg && m === 'POST') {
+    store.marcarIncidente(Number(mg[1]), { visto: 1 });
+    return json(res, 200, { ok: true });
   }
 
   if (p === '/api/broadcast' && m === 'POST') {

@@ -863,3 +863,10 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
   font-size:1.5rem;letter-spacing:.18em;text-align:center;
   background:var(--bg);border:1px solid var(--accent);border-radius:8px;
   padding:.6rem;margin:.5rem 0;color:var(--accent);user-select:all}
+
+/* Pestana que reclama atencion: algo protegido cambio sin permiso. */
+.tab.avisa{color:#ff8080}
+.tab.avisa::after{content:" ●";font-size:.6em;vertical-align:super}
+.item.nota{cursor:pointer}
+.item.nota:hover{background:var(--bg3)}
+#vault-volver{margin-bottom:.5rem;font-size:.76rem}

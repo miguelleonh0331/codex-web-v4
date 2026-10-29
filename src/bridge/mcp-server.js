@@ -97,6 +97,44 @@ const TOOLS = [
     }
   },
   {
+    name: 'vault_escribir',
+    description: 'Guarda lo que has aprendido en el vault compartido del equipo, en Markdown. '
+      + 'Enlaza a otras notas con [[Titulo de la nota]]: eso es lo que convierte las notas '
+      + 'en un mapa. Escribe aqui decisiones, contratos y hallazgos duraderos, no el diario '
+      + 'de lo que hiciste hoy. Si la nota ya existe, la reemplazas: leela antes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        titulo: { type: 'string', description: 'Nombre de la nota, tal como la enlazaran otros.' },
+        texto: { type: 'string', description: 'Contenido en Markdown, con enlaces [[asi]].' },
+        carpeta: { type: 'string', description: 'Tu area, o "comun" si es de todos. Por defecto: tu nombre.' }
+      },
+      required: ['titulo', 'texto'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'vault_leer',
+    description: 'Lee una nota del vault compartido y ve quien la enlaza. Usalo ANTES de '
+      + 'preguntar a otro especialista: si alguien ya lo documento, no hace falta molestarle.',
+    inputSchema: {
+      type: 'object',
+      properties: { titulo: { type: 'string' }, carpeta: { type: 'string' } },
+      required: ['titulo'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'vault_buscar',
+    description: 'Busca en todas las notas del equipo, de cualquier especialista. '
+      + 'Sin argumento devuelve el indice completo.',
+    inputSchema: {
+      type: 'object',
+      properties: { texto: { type: 'string' } },
+      additionalProperties: false
+    }
+  },
+  {
     name: 'claim_files',
     description: 'Reserva archivos o rutas antes de editarlos para que ningun otro especialista los toque. Falla si ya estan reservados por otro.',
     inputSchema: {
@@ -205,6 +243,36 @@ async function callTool(name, args = {}) {
       return resultados
         .map((r) => `[${r.fecha.slice(0, 16).replace('T', ' ')}] ${quien[r.role] || r.role}: ${r.texto}`)
         .join('\n---\n');
+    }
+    case 'vault_escribir': {
+      const out = await api('/api/internal/vault/escribir', {
+        method: 'POST',
+        body: JSON.stringify({ titulo: args.titulo, texto: args.texto, carpeta: args.carpeta, agentId: AGENT_ID })
+      });
+      const e = out.enlaces && out.enlaces.length ? ` Enlaza a: ${out.enlaces.join(', ')}.` : '';
+      return `Guardada "${out.titulo}" en ${out.carpeta}.${e}`;
+    }
+    case 'vault_leer': {
+      const q = `titulo=${encodeURIComponent(args.titulo)}`
+        + (args.carpeta ? `&carpeta=${encodeURIComponent(args.carpeta)}` : '');
+      try {
+        const n = await api(`/api/internal/vault/leer?${q}`);
+        const atras = n.retroenlaces && n.retroenlaces.length
+          ? `\n\nLa enlazan: ${n.retroenlaces.map((r) => r.titulo).join(', ')}` : '';
+        return `# ${n.titulo} (${n.carpeta})\n\n${n.texto}${atras}`;
+      } catch {
+        return `No existe la nota "${args.titulo}". Usa vault_buscar para ver que hay.`;
+      }
+    }
+    case 'vault_buscar': {
+      if (!args.texto) {
+        const { notas } = await api('/api/internal/vault/listar');
+        if (!notas.length) return 'El vault esta vacio todavia.';
+        return notas.map((n) => `- [[${n.titulo}]] (${n.carpeta || 'raiz'})`).join('\n');
+      }
+      const { resultados } = await api(`/api/internal/vault/buscar?q=${encodeURIComponent(args.texto)}`);
+      if (!resultados.length) return `Nada sobre "${args.texto}" en el vault.`;
+      return resultados.map((r) => `## ${r.titulo} (${r.carpeta || 'raiz'})\n${r.trozo}`).join('\n\n');
     }
     case 'claim_files': {
       const out = await api('/api/internal/claims', {

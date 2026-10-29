@@ -1,6 +1,8 @@
 {
   "port": 3212,
-  "bindHosts": ["127.0.0.1"],
+  "bindHosts": [
+    "127.0.0.1"
+  ],
   "dataDir": "/var/lib/codex-web-v4",
   "model": "sonnet",
   "maxConcurrentTurns": 2,
@@ -12,5 +14,12 @@
     "path": "/ruta/al/codigo",
     "deployPath": null,
     "validate": null
-  }
+  },
+  "rutasProtegidas": [
+    "/etc/asterisk",
+    "/var/www/html/zynervoxv2"
+  ],
+  "topeGastoDiario": 0,
+  "vaultDir": "",
+  "zonaHoraria": "America/Lima"
 }

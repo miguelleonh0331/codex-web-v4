@@ -102,6 +102,17 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_id ON events(id);
 
+CREATE TABLE IF NOT EXISTS guardia (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  turn_id    INTEGER,
+  agent_id   TEXT,
+  cambios    TEXT NOT NULL,          -- lista de rutas tocadas
+  foto       TEXT NOT NULL,          -- donde esta la copia para deshacer
+  revertido  INTEGER NOT NULL DEFAULT 0,
+  visto      INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS push_subs (
   endpoint   TEXT PRIMARY KEY,
   p256dh     TEXT NOT NULL,
@@ -183,6 +194,42 @@ class Store {
         texto: (desde > 0 ? '…' : '') + trozo + (desde + recorte < f.body.length ? '…' : '')
       };
     });
+  }
+
+  /** Gasto del dia, en dolares. Solo cuenta lo que el proveedor informa. */
+  gastoDelDia(dia) {
+    const d = dia || new Date().toISOString().slice(0, 10);
+    const r = this.db.prepare(
+      "SELECT COALESCE(SUM(cost_usd),0) total, COUNT(*) turnos FROM turns WHERE substr(created_at,1,10) = ?"
+    ).get(d);
+    return { dia: d, total: r.total, turnos: r.turnos };
+  }
+
+  // --- guardia de rutas protegidas ---
+
+  registrarIncidente({ turnId, agentId, cambios, foto }) {
+    const info = this.db.prepare(
+      `INSERT INTO guardia (turn_id, agent_id, cambios, foto, created_at) VALUES (?,?,?,?,?)`)
+      .run(turnId || null, agentId || null, JSON.stringify(cambios), foto, now());
+    return Number(info.lastInsertRowid);
+  }
+
+  incidentes(limite = 30) {
+    return this.db.prepare('SELECT * FROM guardia ORDER BY id DESC LIMIT ?').all(limite)
+      .map((r) => ({ ...r, cambios: JSON.parse(r.cambios) }));
+  }
+
+  incidente(id) {
+    const r = this.db.prepare('SELECT * FROM guardia WHERE id = ?').get(id);
+    return r ? { ...r, cambios: JSON.parse(r.cambios) } : null;
+  }
+
+  marcarIncidente(id, campos) {
+    const permitidos = ['revertido', 'visto'];
+    const k = Object.keys(campos).filter((x) => permitidos.includes(x));
+    if (!k.length) return;
+    this.db.prepare(`UPDATE guardia SET ${k.map((x) => `${x} = ?`).join(', ')} WHERE id = ?`)
+      .run(...k.map((x) => campos[x]), id);
   }
 
   // --- suscripciones a notificaciones ---
