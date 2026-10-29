@@ -31,6 +31,36 @@ function entorno(cfg) {
 /** Quita los colores ANSI: el CLI los emite aunque no haya terminal. */
 const limpio = (s) => String(s).replace(/\[[0-9;]*m/g, '');
 
+/**
+ * Datos de la cuenta, leidos del id_token de la sesion.
+ *
+ * El CLI solo dice "Logged in using ChatGPT", sin decir de quien ni con que
+ * plan. Esa informacion esta en el id_token, que es un JWT: su carga va en
+ * base64 y se puede leer sin ninguna clave. Solo se extraen los campos que
+ * se muestran; el token nunca sale de aqui.
+ */
+function datosCuenta(cfg) {
+  try {
+    const f = path.join(codex.dirSesion(cfg), 'auth.json');
+    const d = JSON.parse(fs.readFileSync(f, 'utf8'));
+    const bruto = d.tokens && d.tokens.id_token;
+    if (!bruto) return {};
+    const c = JSON.parse(Buffer.from(bruto.split('.')[1], 'base64url').toString('utf8'));
+    const extra = c['https://api.openai.com/auth'] || {};
+    return {
+      cuenta: c.email || null,
+      nombre: c.name || null,
+      plan: extra.chatgpt_plan_type || null,
+      expiraIso: c.exp ? new Date(c.exp * 1000).toISOString() : null,
+      // El token se renueva solo: caducado no significa desconectado.
+      vigente: c.exp ? c.exp * 1000 > Date.now() : null,
+      renovado: d.last_refresh || null
+    };
+  } catch {
+    return {};
+  }
+}
+
 function estado(cfg) {
   const bin = codex.binario(cfg);
   if (!bin) return Promise.resolve({ proveedor: 'codex', etiqueta: codex.etiqueta, instalado: false, conectado: false });
@@ -40,13 +70,14 @@ function estado(cfg) {
       const texto = limpio(`${stdout || ''}${stderr || ''}`);
       // "Not logged in" es la respuesta normal sin sesion, no un fallo.
       const conectado = /logged in/i.test(texto) && !/not logged in/i.test(texto);
-      const cuenta = (texto.match(/(?:as|account)[:\s]+([^\s]+@[^\s]+)/i) || [])[1] || null;
+      const datos = conectado ? datosCuenta(cfg) : {};
       resolve({
         proveedor: 'codex',
         etiqueta: codex.etiqueta,
         instalado: true,
         conectado,
-        cuenta,
+        ...datos,
+        sessionDir: codex.dirSesion(cfg),
         detalle: conectado ? null : texto.trim().split('\n').slice(-1)[0] || null,
         enCurso: !!enCurso
       });

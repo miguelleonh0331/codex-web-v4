@@ -671,6 +671,15 @@ function check(nombre, condicion, detalle) {
   check('la pantalla de proveedor lista los dos',
     provsApi.length >= 2 && provsApi.some((x) => x.proveedor === 'codex'),
     JSON.stringify(provsApi.map((x) => x.proveedor)));
+  const cxp = provsApi.find((x) => x.proveedor === 'codex') || {};
+  if (cxp.conectado) {
+    check('de Codex se sabe la cuenta, el titular y el plan',
+      !!cxp.cuenta && !!cxp.plan,
+      'el CLI solo dice "Logged in using ChatGPT": sale del id_token de la sesion');
+    check('la ficha de Codex no expone el token',
+      !JSON.stringify(cxp).includes('eyJ'),
+      'solo deben salir los campos que se muestran');
+  }
   check('dice si Codex esta instalado y si tiene sesion',
     provsApi.some((x) => x.proveedor === 'codex' && 'instalado' in x && 'conectado' in x));
   check('el boton de la barra lateral nombra a los dos proveedores',

@@ -794,8 +794,27 @@ async function pintarCodex() {
       $('#codex-login').disabled = true;
       return;
     }
-    est.textContent = c.conectado ? (c.cuenta ? `conectado · ${c.cuenta}` : 'conectado') : 'sin sesion';
+    est.textContent = c.conectado ? 'conectado' : 'sin sesion';
     est.className = c.conectado ? 'bien' : 'mal';
+
+    // Misma ficha que Claude. El CLI de Codex no publica nada de esto: sale
+    // del id_token de la sesion, que es un JWT y se puede leer.
+    const ficha = $('#codex-ficha');
+    if (ficha) {
+      if (!c.conectado) { ficha.innerHTML = ''; } else {
+        const cad = c.expiraIso ? new Date(c.expiraIso).toLocaleString() : '—';
+        ficha.innerHTML = `
+          <div class="fila"><span class="k">Cuenta</span><span>${escapeHtml(c.cuenta || '—')}</span></div>
+          <div class="fila"><span class="k">Titular</span><span>${escapeHtml(c.nombre || '—')}</span></div>
+          <div class="fila"><span class="k">Plan</span><span>${escapeHtml(c.plan || '—')}</span></div>
+          <div class="fila"><span class="k">Credencial</span>
+            <span class="${c.vigente ? 'bien' : ''}">${escapeHtml(cad)}${c.vigente ? '' : ' · se renovara sola'}</span></div>
+          <div class="fila"><span class="k">Sesion en</span>
+            <span style="font-size:.72rem">${escapeHtml(c.sessionDir || '')}</span></div>
+          <div class="fila muted" style="font-size:.74rem">
+            <span>Consumo de la ventana: Codex no lo publica. Aparecera aqui si lo informa durante un turno.</span></div>`;
+      }
+    }
     $('#codex-logout').hidden = !c.conectado;
     $('#codex-login').hidden = c.conectado;
     if (c.conectado) pararEsperaCodex();
