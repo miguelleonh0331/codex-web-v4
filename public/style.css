@@ -633,8 +633,9 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
   /* El boton de enviar deja de ser una barra con texto y pasa a un icono
      redondo junto al cuadro de escribir: Enter es la via normal y el boton
      queda como respaldo, sin robar alto a la conversacion. */
-  .composer{flex-direction:row;align-items:flex-end;gap:.45rem}
-  .composer-acciones{flex-direction:row;align-items:flex-end;gap:.35rem}
+  .composer{flex-direction:row;align-items:stretch;gap:.45rem}
+  /* Adjuntar encima de enviar: en columna, en el orden del documento. */
+  .composer-acciones{flex-direction:column;align-items:center;justify-content:flex-end;gap:.35rem}
   .composer-acciones button{flex:0 0 auto;width:42px;height:42px;padding:0;
     display:flex;align-items:center;justify-content:center;border-radius:50%;line-height:1}
   /* font-size:0 esconde la palabra pero la deja como nombre accesible del
@@ -675,7 +676,10 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
      El area de escribir arranca en dos lineas y crece si hace falta. */
   .composer{padding:.6rem .7rem calc(.6rem + env(safe-area-inset-bottom))}
   .composer-cuerpo{flex:1;min-width:0}
-  .composer textarea{min-height:2.6rem;max-height:36dvh}
+  /* El cuadro de escribir iguala el alto de los dos botones apilados en vez
+     de dejar un hueco muerto al lado. */
+  .caja-escribir textarea{flex:1}
+  .composer textarea{min-height:5.6rem;max-height:36dvh}
   .composer-acciones .icon-btn{font-size:1.05rem;padding:0}
   .chat-head .chat-title .txt{min-width:0;overflow:hidden}
   .chat-head #chat-face{flex:0 0 auto}

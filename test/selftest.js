@@ -152,8 +152,11 @@ function check(nombre, condicion, detalle) {
     'cuatro botones en una fila fija desbordan en el movil');
   check('las cuatro pestanas caben desplazandose',
     /\.tabs\{overflow-x:auto/.test(cssMov));
-  check('el compositor pone sus botones en fila',
-    /\.composer-acciones\{flex-direction:row/.test(cssMov));
+  check('el compositor deja el texto a un lado y los botones al otro',
+    /\.composer\{flex-direction:row/.test(cssMov));
+  check('adjuntar queda encima de enviar',
+    /\.composer-acciones\{flex-direction:column/.test(cssMov),
+    'en columna y en el orden del documento: adjuntar va primero');
   check('en pantalla tactil la hora y el copiar se ven sin pasar el raton',
     /\.messages\.hora\{opacity:\.55\}/.test(cssMov));
   check('los dialogos se pueden desplazar',
