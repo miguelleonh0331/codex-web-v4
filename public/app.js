@@ -64,6 +64,7 @@ function start() {
   if (history.replaceState) history.replaceState({}, '', location.pathname);
   setView(esMovil() ? 'agents' : 'agents');
   MATRIZ.iniciar();
+  ajustarPistaEscribir();
   pintarVacioChat();
   refreshAll();
   setInterval(refreshAll, 2500);
@@ -630,6 +631,20 @@ $('#send-form').addEventListener('submit', async (e) => {
   });
   await renderMessages(true);
 });
+
+/**
+ * En el movil Enter hace salto de linea (es lo que ofrece el teclado virtual)
+ * y se envia con el boton, asi que el texto de ayuda no puede prometer lo
+ * contrario. Se recalcula tambien al girar el telefono.
+ */
+function ajustarPistaEscribir() {
+  const t = $('#send-text');
+  if (!t) return;
+  t.placeholder = esMovil()
+    ? 'Escribe una tarea…  @ para mencionar · pulsa ➤ para enviar'
+    : 'Escribe una tarea…  @ para mencionar · Enter envia · Mayus+Enter salta de linea';
+}
+window.addEventListener('resize', ajustarPistaEscribir);
 
 $('#send-text').addEventListener('keydown', (e) => {
   // Con la lista de menciones abierta, las flechas y el Enter son suyos.

@@ -267,6 +267,15 @@ function check(nombre, condicion, detalle) {
   check('el teclado del movil encoge la pagina en vez de tapar el compositor',
     /interactive-widget=resizes-content/.test(idxPanel));
 
+  check('en el movil enviar es un icono, no una barra con texto',
+    /\.composer-acciones button\[type=submit\] ?\{[^}]*font-size: ?0/.test(cssEsp) &&
+    /\.composer-acciones button\[type=submit\]::after ?\{ ?content: ?"➤"/.test(cssEsp));
+  check('el boton de enviar conserva su nombre accesible',
+    />Enviar</.test(idxPanel),
+    'el texto se oculta con font-size:0 pero debe seguir en el documento');
+  check('enviar y adjuntar son objetivos tactiles de 42px',
+    /\.composer-acciones button ?\{[^}]*width: ?42px; ?height: ?42px/.test(cssEsp));
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

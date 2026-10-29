@@ -630,9 +630,19 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
   .status{font-size:.7rem;gap:.3rem}
 
   /* --- compositor: los botones en fila, no apilados --- */
-  .composer{flex-direction:column;gap:.5rem}
-  .composer-acciones{flex-direction:row;justify-content:flex-end;align-items:center}
-  .composer-acciones button[type=submit]{flex:1}
+  /* El boton de enviar deja de ser una barra con texto y pasa a un icono
+     redondo junto al cuadro de escribir: Enter es la via normal y el boton
+     queda como respaldo, sin robar alto a la conversacion. */
+  .composer{flex-direction:row;align-items:flex-end;gap:.45rem}
+  .composer-acciones{flex-direction:row;align-items:flex-end;gap:.35rem}
+  .composer-acciones button{flex:0 0 auto;width:42px;height:42px;padding:0;
+    display:flex;align-items:center;justify-content:center;border-radius:50%;line-height:1}
+  /* font-size:0 esconde la palabra pero la deja como nombre accesible del
+     boton, que es lo que lee un lector de pantalla. */
+  .composer-acciones button[type=submit]{font-size:0;background:var(--accent);
+    color:#06101f;border-color:transparent}
+  .composer-acciones button[type=submit]::after{content:"➤";font-size:1.05rem}
+  .composer-acciones button[type=submit]:disabled{opacity:.45}
   .adj{max-width:100%}
 
   /* --- conversacion --- */
@@ -664,9 +674,9 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
   /* En un movil la pantalla es vertical y escasa: la conversacion manda.
      El area de escribir arranca en dos lineas y crece si hace falta. */
   .composer{padding:.6rem .7rem calc(.6rem + env(safe-area-inset-bottom))}
-  .composer-cuerpo{width:100%}
-  .composer textarea{min-height:2.9rem;max-height:36dvh}
-  .composer-acciones .icon-btn{font-size:1rem;padding:.4rem .7rem}
+  .composer-cuerpo{flex:1;min-width:0}
+  .composer textarea{min-height:2.6rem;max-height:36dvh}
+  .composer-acciones .icon-btn{font-size:1.05rem;padding:0}
   .chat-head .chat-title .txt{min-width:0;overflow:hidden}
   .chat-head #chat-face{flex:0 0 auto}
   .sidebar .brand small{font-size:.66rem}
