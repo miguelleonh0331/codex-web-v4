@@ -138,6 +138,31 @@ function check(nombre, condicion, detalle) {
   const idxExp = await (await fetch((await base()) + '/')).text();
   check('la interfaz tiene exportar e importar', /id="exportar"/.test(idxExp) && /id="importar"/.test(idxExp));
 
+  // --- movil ---
+  const cssMov = (await (await fetch((await base()) + '/style.css')).text()).replace(/\s+/g, '');
+  check('la cabecera del chat se adapta a una pantalla estrecha',
+    /\.chat-head\{flex-wrap:wrap/.test(cssMov) && /\.chat-actions\{[^}]*overflow-x:auto/.test(cssMov),
+    'cuatro botones en una fila fija desbordan en el movil');
+  check('las cuatro pestanas caben desplazandose',
+    /\.tabs\{overflow-x:auto/.test(cssMov));
+  check('el compositor pone sus botones en fila',
+    /\.composer-acciones\{flex-direction:row/.test(cssMov));
+  check('en pantalla tactil la hora y el copiar se ven sin pasar el raton',
+    /\.messages\.hora\{opacity:\.55\}/.test(cssMov));
+  check('los dialogos se pueden desplazar',
+    /dialog\{overflow-y:auto/.test(cssMov));
+  check('hay un corte extra para pantallas muy estrechas',
+    /@media\(max-width:420px\)/.test(cssMov));
+
+  // La cache sin conexion debe cubrir todo lo que el documento carga de verdad.
+  const sw = await (await fetch((await base()) + '/sw.js')).text();
+  const scripts = [...idxNom.matchAll(/src="(\/[^"?]+)/g)].map((m) => m[1]);
+  check('el armazon sin conexion incluye todos los scripts de la pagina',
+    scripts.length > 0 && scripts.every((s2) => sw.includes(`'${s2}'`)),
+    `faltan en SHELL: ${scripts.filter((s2) => !sw.includes(`'${s2}'`)).join(', ')}`);
+  check('las respuestas de la API nunca se cachean',
+    /pathname\.startsWith\('\/api\/'\)\s*\)\s*return/.test(sw));
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

@@ -96,7 +96,6 @@ dialog menu{display:flex;justify-content:flex-end;gap:.6rem;padding:0;margin:1re
 
   .icon-btn{display:block}
   .chat-actions button{font-size:.72rem;padding:.3rem .5rem}
-  .msg{max-width:92%;font-size:.95rem}
   .messages{padding:.9rem}
   .composer{padding:.7rem .9rem}
   .composer textarea{font-size:16px}          /* evita el zoom automatico en iOS */
@@ -605,3 +604,78 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 .matrix{opacity:.07}
 
 @media (max-width:900px){ .messages .linea{max-width:100%} }
+
+/* ===================================================== movil, al dia ===== */
+/* El bloque de arriba se escribio cuando la interfaz tenia la mitad de
+   elementos. Esto cubre lo anadido despues: cabecera con cuatro botones,
+   cuatro pestanas, compositor con adjuntos y dialogos muy altos. */
+@media (max-width:900px){
+
+  /* --- cabecera del chat: lo primero que se rompia --- */
+  .chat-head{flex-wrap:wrap;row-gap:.5rem;padding-left:.6rem;padding-right:.6rem}
+  .chat-head .chat-title{flex:1 1 auto;min-width:0;gap:.5rem}
+  .chat-head .robot{width:34px;height:34px}
+  .chat-head h2{font-size:.92rem}
+  .chat-head #chat-area{font-size:.68rem;display:block;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+  .chat-actions{flex:1 1 100%;order:3;display:flex;gap:.35rem;overflow-x:auto;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .chat-actions::-webkit-scrollbar{display:none}
+  .chat-actions button{flex:0 0 auto;font-size:.74rem;padding:.35rem .6rem;min-height:34px}
+
+  /* --- pestanas del panel: ya son cuatro --- */
+  .tabs{overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:0 0 auto;padding:.75rem .7rem;font-size:.78rem;white-space:nowrap}
+
+  /* --- barra lateral: botones mas compactos para que quepa la lista --- */
+  .sidebar{gap:.5rem;padding:1rem .7rem}
+  .sidebar > button{font-size:.8rem;padding:.5rem .6rem}
+  .fila-botones button{font-size:.72rem}
+  .status{font-size:.7rem;gap:.3rem}
+
+  /* --- compositor: los botones en fila, no apilados --- */
+  .composer{flex-direction:column;gap:.5rem}
+  .composer-acciones{flex-direction:row;justify-content:flex-end;align-items:center}
+  .composer-acciones button[type=submit]{flex:1}
+  .adj{max-width:100%}
+
+  /* --- conversacion --- */
+  .messages{padding:.7rem .6rem}
+  .messages .msg{padding:.4rem .7rem;font-size:.88rem}
+  .messages .msg.user{padding-right:.7rem}
+  /* en una pantalla tactil no hay raton: la hora y el copiar se ven siempre */
+  .messages .hora{opacity:.55}
+  .messages .copiar-msg{opacity:.6}
+
+  /* --- dialogos: altos de verdad, deben poder desplazarse --- */
+  dialog{overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .galeria-avatares{max-height:118px}
+  #agent-dialog .vista-previa .robot{width:66px;height:66px}
+
+  /* --- la salida ocupa su pestana entera --- */
+  #tab-salida{font-size:.72rem}
+  #tab-salida .res{white-space:normal}
+}
+
+/* pantallas estrechas de verdad */
+@media (max-width:420px){
+  .chat-actions button{font-size:.7rem;padding:.3rem .5rem}
+  .tab{padding:.7rem .5rem;font-size:.74rem}
+  .messages .msg{font-size:.85rem}
+  .brand strong{font-size:.9rem}
+}
+
+@media (max-width:900px){
+  /* En un movil la pantalla es vertical y escasa: la conversacion manda.
+     El area de escribir arranca en dos lineas y crece si hace falta. */
+  .composer{padding:.6rem .7rem calc(.6rem + env(safe-area-inset-bottom))}
+  .composer-cuerpo{width:100%}
+  .composer textarea{min-height:2.9rem;max-height:36dvh}
+  .composer-acciones .icon-btn{font-size:1rem;padding:.4rem .7rem}
+  .chat-head .chat-title .txt{min-width:0;overflow:hidden}
+  .chat-head #chat-face{flex:0 0 auto}
+  .sidebar .brand small{font-size:.66rem}
+  /* La lista de especialistas es lo que hay que poder recorrer, no el resto. */
+  .sidebar .agents{min-height:0}
+}

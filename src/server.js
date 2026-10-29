@@ -770,6 +770,9 @@ function renderIndex() {
   // replaceAll: el nombre aparece en la marca y en la pantalla de acceso, y
   // sustituir solo el primero dejaba la barra lateral con el nombre viejo.
   html = html.replaceAll('>codex-web-v4<', `>${escaparHtml(nombre)}<`);
+  // Instalada en un iPhone, el nombre bajo el icono sale de esta etiqueta.
+  html = html.replace('<meta name="apple-mobile-web-app-title" content="v4">',
+    `<meta name="apple-mobile-web-app-title" content="${escaparHtml(nombre.slice(0, 12).trim())}">`);
   for (const recurso of ['/app.js', '/style.css', '/faces.js']) {
     html = html.replace(`"${recurso}"`, `"${recurso}?v=${v}"`);
   }
@@ -789,7 +792,7 @@ function serveStatic(req, res, url) {
     try {
       const man = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'manifest.webmanifest'), 'utf8'));
       man.name = cfg.nombre || man.name;
-      man.short_name = (cfg.nombre || man.short_name).slice(0, 12);
+      man.short_name = (cfg.nombre || man.short_name).slice(0, 12).trim();
       res.writeHead(200, { 'content-type': MIME['.webmanifest'], 'cache-control': 'no-store' });
       return res.end(JSON.stringify(man, null, 2));
     } catch { /* si falla, se sirve el archivo tal cual */ }
