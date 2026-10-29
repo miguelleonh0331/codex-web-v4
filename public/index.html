@@ -172,6 +172,28 @@
       </menu>
     </div>
 
+    <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0">
+
+    <div id="codex-caja">
+      <div class="fila"><span class="k">ChatGPT (Codex)</span>
+        <span id="codex-estado">consultando…</span></div>
+      <div id="codex-paso" hidden>
+        <p class="muted" style="font-size:.84rem;line-height:1.5;margin:.6rem 0 .4rem">
+          1. Abre esta direccion y entra con tu cuenta de ChatGPT.<br>
+          2. Escribe alli el codigo. Esta pantalla se enterara sola.
+        </p>
+        <div class="prov-url"><a id="codex-url" href="#" target="_blank" rel="noopener"></a></div>
+        <div class="codigo-grande" id="codex-codigo"></div>
+        <p class="muted" id="codex-espera" style="font-size:.76rem"></p>
+      </div>
+      <p class="error" id="codex-error"></p>
+      <menu style="justify-content:flex-start">
+        <button type="button" id="codex-login" class="primary">Conectar ChatGPT</button>
+        <button type="button" id="codex-cancelar" hidden>Cancelar</button>
+        <button type="button" id="codex-logout" hidden>Desconectar</button>
+      </menu>
+    </div>
+
     <menu id="prov-acciones">
       <button type="button" id="prov-cerrar">Cerrar</button>
       <button type="button" id="prov-logout">Cerrar sesion</button>

@@ -856,3 +856,10 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
    la de los avisos de cuota: con otra habria que hacer la cuenta a mano. */
 .reloj{display:block;font-size:.68rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .reloj.esperando{color:var(--aviso,#e8b84b)}
+
+/* Codigo de un solo uso de Codex: hay que teclearlo en otro dispositivo, asi
+   que se muestra grande y con espaciado, no como texto corrido. */
+.codigo-grande{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:1.5rem;letter-spacing:.18em;text-align:center;
+  background:var(--bg);border:1px solid var(--accent);border-radius:8px;
+  padding:.6rem;margin:.5rem 0;color:var(--accent);user-select:all}

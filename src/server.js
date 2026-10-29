@@ -9,6 +9,7 @@ const { Store, uid } = require('./db');
 const { Orchestrator } = require('./orchestrator');
 const sesion = require('./session');
 const auth = require('./auth');
+const authCodex = require('./auth-codex');
 const push = require('./push');
 const proveedores = require('./proveedores');
 
@@ -825,7 +826,12 @@ async function api(req, res, url) {
       sobreuso: !!l.sobreuso,
       visto_en: l.visto_en
     }));
-    return json(res, 200, { proveedores: [{ ...(await auth.estado(cfg)), limites }] });
+    return json(res, 200, {
+      proveedores: [
+        { ...(await auth.estado(cfg)), limites },
+        await authCodex.estado(cfg)
+      ]
+    });
   }
 
   if (p === '/api/providers/claude/login' && m === 'POST') {
@@ -852,6 +858,30 @@ async function api(req, res, url) {
   if (p === '/api/providers/claude/logout' && m === 'POST') {
     const out = await auth.cerrarSesion(cfg);
     store.event('proveedor.desconectado', null, out);
+    return json(res, out.ok ? 200 : 400, out);
+  }
+
+  // Codex se conecta por codigo de dispositivo: se entrega enlace y codigo, y
+  // el propio CLI termina solo cuando el usuario autoriza. No hay nada que
+  // pegar de vuelta, solo que preguntar si ya esta.
+  if (p === '/api/providers/codex/login' && m === 'POST') {
+    const out = await authCodex.iniciar(cfg);
+    return json(res, out.error ? 400 : 200, out);
+  }
+
+  if (p === '/api/providers/codex/check' && m === 'GET') {
+    const out = await authCodex.comprobar(cfg);
+    if (out.listo) store.event('proveedor.conectado', null, { proveedor: 'codex', cuenta: out.cuenta || null });
+    return json(res, 200, out);
+  }
+
+  if (p === '/api/providers/codex/cancel' && m === 'POST') {
+    return json(res, 200, authCodex.cancelar('cancelado por el usuario'));
+  }
+
+  if (p === '/api/providers/codex/logout' && m === 'POST') {
+    const out = await authCodex.cerrarSesion(cfg);
+    store.event('proveedor.desconectado', null, { proveedor: 'codex', ...out });
     return json(res, out.ok ? 200 : 400, out);
   }
 

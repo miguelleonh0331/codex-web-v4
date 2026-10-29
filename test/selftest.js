@@ -666,6 +666,23 @@ function check(nombre, condicion, detalle) {
     provs.obtener('codex').resultado({ msg: { last_agent_message: 'hecho' } }, {}).cost === null,
     'un cero se leeria como "gratis"');
 
+  // --- conectar Codex desde la web ---
+  const provsApi = (await req('/api/providers')).data.proveedores;
+  check('la pantalla de proveedor lista los dos',
+    provsApi.length >= 2 && provsApi.some((x) => x.proveedor === 'codex'),
+    JSON.stringify(provsApi.map((x) => x.proveedor)));
+  check('dice si Codex esta instalado y si tiene sesion',
+    provsApi.some((x) => x.proveedor === 'codex' && 'instalado' in x && 'conectado' in x));
+  check('hay boton para conectar ChatGPT',
+    /id="codex-login"/.test(idxPanel) && /id="codex-codigo"/.test(idxPanel) && /id="codex-url"/.test(idxPanel),
+    'sin esto habria que entrar por consola en cada servidor');
+  check('el codigo de un solo uso se muestra legible para teclearlo en otro sitio',
+    /\.codigo-grande\{/.test(cssSal) && /letter-spacing/.test(cssSal));
+  check('se puede cancelar una conexion a medias',
+    (await req('/api/providers/codex/cancel', { method: 'POST' })).status === 200);
+  check('la comprobacion dice si ya autorizo',
+    typeof (await req('/api/providers/codex/check')).data.listo === 'boolean');
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

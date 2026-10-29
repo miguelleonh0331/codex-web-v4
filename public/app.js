@@ -773,6 +773,98 @@ async function pintarProveedor() {
   }
 }
 
+// ---------------------------------------------------- conectar con Codex
+
+/**
+ * Codex usa codigo de dispositivo: se muestran enlace y codigo, y el propio
+ * CLI termina solo cuando el usuario autoriza en el navegador. Por eso aqui
+ * no hay nada que pegar de vuelta; solo hay que preguntar si ya esta.
+ */
+let relojCodex = null;
+
+async function pintarCodex() {
+  const est = $('#codex-estado');
+  if (!est) return;
+  try {
+    const { proveedores } = await api('/api/providers');
+    const c = proveedores.find((x) => x.proveedor === 'codex') || {};
+    if (!c.instalado) {
+      est.textContent = 'no instalado en este servidor';
+      est.className = 'mal';
+      $('#codex-login').disabled = true;
+      return;
+    }
+    est.textContent = c.conectado ? (c.cuenta ? `conectado · ${c.cuenta}` : 'conectado') : 'sin sesion';
+    est.className = c.conectado ? 'bien' : 'mal';
+    $('#codex-logout').hidden = !c.conectado;
+    $('#codex-login').hidden = c.conectado;
+    if (c.conectado) pararEsperaCodex();
+  } catch (e) {
+    est.textContent = `no se pudo consultar: ${e.message}`;
+    est.className = 'mal';
+  }
+}
+
+function pararEsperaCodex() {
+  if (relojCodex) { clearInterval(relojCodex); relojCodex = null; }
+  $('#codex-paso').hidden = true;
+  $('#codex-cancelar').hidden = true;
+  $('#codex-login').disabled = false;
+  $('#codex-login').textContent = 'Conectar ChatGPT';
+}
+
+if ($('#codex-login')) {
+  $('#codex-login').onclick = async () => {
+    $('#codex-error').textContent = '';
+    $('#codex-login').disabled = true;
+    $('#codex-login').textContent = 'Pidiendo codigo…';
+    try {
+      const r = await api('/api/providers/codex/login', { method: 'POST' });
+      $('#codex-url').href = r.url;
+      $('#codex-url').textContent = r.url;
+      $('#codex-codigo').textContent = r.codigo;
+      $('#codex-paso').hidden = false;
+      $('#codex-cancelar').hidden = false;
+      $('#codex-login').textContent = 'Esperando autorizacion…';
+
+      let restan = r.expiraEn || 900;
+      const tic = async () => {
+        restan -= 3;
+        const m = Math.max(0, Math.floor(restan / 60));
+        const sg = Math.max(0, restan % 60);
+        $('#codex-espera').textContent = `El codigo caduca en ${m}:${String(sg).padStart(2, '0')}`;
+        try {
+          const est = await api('/api/providers/codex/check');
+          if (est.listo) {
+            pararEsperaCodex();
+            await pintarCodex();
+            await refreshAll();
+          } else if (est.error) {
+            $('#codex-error').textContent = est.error;
+            pararEsperaCodex();
+          }
+        } catch { /* se reintenta en el siguiente ciclo */ }
+        if (restan <= 0) { $('#codex-error').textContent = 'El codigo caduco. Vuelve a empezar.'; pararEsperaCodex(); }
+      };
+      relojCodex = setInterval(tic, 3000);
+    } catch (e) {
+      $('#codex-error').textContent = e.message;
+      pararEsperaCodex();
+    }
+  };
+
+  $('#codex-cancelar').onclick = async () => {
+    await api('/api/providers/codex/cancel', { method: 'POST' }).catch(() => {});
+    pararEsperaCodex();
+  };
+
+  $('#codex-logout').onclick = async () => {
+    if (!confirm('Desconectar ChatGPT? Los especialistas asignados a Codex dejaran de poder trabajar.')) return;
+    await api('/api/providers/codex/logout', { method: 'POST' }).catch(() => {});
+    await pintarCodex();
+  };
+}
+
 $('#btn-proveedor').onclick = async () => {
   $('#prov-paso-url').hidden = true;
   $('#prov-acciones').hidden = false;
@@ -780,6 +872,7 @@ $('#btn-proveedor').onclick = async () => {
   $('#prov-codigo').value = '';
   $('#proveedor-dialog').showModal();
   await pintarProveedor();
+  await pintarCodex();
 };
 $('#prov-cerrar').onclick = () => $('#proveedor-dialog').close();
 
