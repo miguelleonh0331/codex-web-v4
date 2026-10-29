@@ -837,12 +837,15 @@ function check(nombre, condicion, detalle) {
     manifiesto.icons.some((i) => i.purpose === 'maskable') &&
     manifiesto.icons.some((i) => i.purpose === 'any'),
     JSON.stringify(manifiesto).slice(0, 160));
-  check('a pantalla completa, con respaldo si el sistema no lo admite',
-    manifiesto.display === 'fullscreen' &&
+  // display es la linea base, no la preferencia: es lo que mira el navegador
+  // para decidir si deja instalar. La pantalla completa va en
+  // display_override, que solo aplica quien la admite. Al reves, un navegador
+  // que no acepte fullscreen se queda sin opcion de instalar.
+  check('pide pantalla completa sin arriesgar la instalacion',
+    manifiesto.display === 'standalone' &&
     Array.isArray(manifiesto.display_override) &&
-    manifiesto.display_override[0] === 'fullscreen' &&
-    manifiesto.display_override.includes('standalone'),
-    JSON.stringify(manifiesto.display_override));
+    manifiesto.display_override[0] === 'fullscreen',
+    JSON.stringify({ display: manifiesto.display, override: manifiesto.display_override }));
   check('la barra del sistema se funde con el fondo en el modo de respaldo',
     manifiesto.theme_color === '#080a0d' && /content="#080a0d"/.test(idxPanel),
     'si no coincide con el fondo del chat se ve una franja ajena');

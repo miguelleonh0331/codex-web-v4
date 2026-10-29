@@ -4,11 +4,10 @@
   "description": "Equipo de especialistas que conversan entre si para desarrollar sobre tu sistema.",
   "start_url": "/",
   "scope": "/",
-  "display": "fullscreen",
+  "display": "standalone",
   "display_override": [
     "fullscreen",
-    "standalone",
-    "minimal-ui"
+    "standalone"
   ],
   "orientation": "any",
   "background_color": "#080a0d",
