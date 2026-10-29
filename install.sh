@@ -5,6 +5,12 @@
 #   sudo ./install.sh [--user USUARIO] [--port PUERTO] [--data-dir RUTA]
 #                     [--project-path RUTA] [--project-name NOMBRE]
 #                     [--bind "127.0.0.1,100.x.y.z"] [--session-from RUTA_PERFIL]
+#                     [--https-port 8445] [--no-tailscale]
+#
+# Si Tailscale esta en marcha, publica la aplicacion por HTTPS dentro de la
+# tailnet al terminar. Hace falta para instalarla en el movil y para las
+# notificaciones: el navegador las niega fuera de un origen seguro.
+# --no-tailscale lo omite; --https-port fija el puerto en vez de elegirlo.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,6 +24,8 @@ BIND="127.0.0.1"
 PROJECT_PATH=""
 PROJECT_NAME="proyecto"
 APP_NAME="codex-web-v4"
+HTTPS_PORT=""
+SIN_TAILSCALE=0
 SESSION_FROM=""
 SESSION_DIR=""
 CLAUDE_BIN=""
@@ -45,7 +53,9 @@ while [[ $# -gt 0 ]]; do
     --node) NODE_BIN="$2"; shift 2 ;;
     --claude-bin) CLAUDE_BIN="$2"; shift 2 ;;
     --service-name) SERVICE_NAME="$2"; shift 2 ;;
-    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    --https-port) HTTPS_PORT="$2"; shift 2 ;;
+    --no-tailscale) SIN_TAILSCALE=1; shift ;;
+    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
     *) echo "Opcion desconocida: $1" >&2; exit 1 ;;
   esac
 done
@@ -202,6 +212,49 @@ for i in $(seq 1 20); do
             if(h.Proxy===mio){process.stdout.write('https://'+hp+'/');process.exit(0);}
       }catch{}" 2>/dev/null)"
 
+    # Si no la hay y Tailscale esta en marcha, se configura aqui mismo.
+    # serve expone solo dentro de la tailnet, igual que el bind actual: no
+    # amplia el alcance. (funnel, que si publica a internet, no se toca.)
+    if [[ -z "$ACCESO_HTTPS" && $SIN_TAILSCALE -eq 0 ]] && command -v tailscale >/dev/null 2>&1; then
+      if tailscale status --json 2>/dev/null | grep -q '"BackendState": *"Running"'; then
+        if [[ -z "$HTTPS_PORT" ]]; then
+          # Primer puerto libre del rango, sin pisar lo que ya sirva otra
+          # instalacion en esta misma maquina.
+          HTTPS_PORT="$("$NODE_BIN" -e "
+            let usados=new Set();
+            try{
+              const {execFileSync}=require('node:child_process');
+              const d=JSON.parse(execFileSync('tailscale',['serve','status','--json'],
+                {timeout:3000,encoding:'utf8',stdio:['ignore','pipe','ignore']}));
+              usados=new Set(Object.keys(d.TCP||{}).map(Number));
+            }catch{}
+            for(let p=8443;p<8500;p++) if(!usados.has(p)){process.stdout.write(String(p));break;}" 2>/dev/null)"
+        fi
+        if [[ -n "$HTTPS_PORT" ]]; then
+          echo "==> Publicando por HTTPS en la tailnet (puerto ${HTTPS_PORT})"
+          if SERVE_ERR="$(tailscale serve --bg --https="${HTTPS_PORT}" "http://127.0.0.1:${PORT}" 2>&1)"; then
+            sleep 1
+            ACCESO_HTTPS="$("$NODE_BIN" -e "
+              try{
+                const {execFileSync}=require('node:child_process');
+                const d=JSON.parse(execFileSync('tailscale',['serve','status','--json'],
+                  {timeout:3000,encoding:'utf8',stdio:['ignore','pipe','ignore']}));
+                const mio='http://127.0.0.1:${PORT}';
+                for(const [hp,c] of Object.entries(d.Web||{}))
+                  for(const h of Object.values(c.Handlers||{}))
+                    if(h.Proxy===mio){process.stdout.write('https://'+hp+'/');process.exit(0);}
+              }catch{}" 2>/dev/null)"
+          else
+            echo "    No se pudo: ${SERVE_ERR}"
+            if grep -qi "cert\|https" <<<"$SERVE_ERR"; then
+              echo "    Suele faltar activar los certificados HTTPS de la tailnet:"
+              echo "    consola de Tailscale > Settings > DNS > HTTPS Certificates > Enable."
+            fi
+          fi
+        fi
+      fi
+    fi
+
     if [[ -n "$ACCESO_HTTPS" ]]; then
       echo "Instalado. Abre:  ${ACCESO_HTTPS}"
       echo "                  (desde el movil usa esta, no la IP)"
@@ -210,9 +263,8 @@ for i in $(seq 1 20); do
       echo
       echo "Sin direccion HTTPS: la aplicacion funcionara, pero NO se podra"
       echo "instalar en el movil ni enviar notificaciones. El navegador lo"
-      echo "impide fuera de un origen seguro. Para conseguirla:"
-      echo "  tailscale serve --bg --https=${PORT} http://127.0.0.1:${PORT}"
-      echo "  tailscale serve status"
+      echo "impide fuera de un origen seguro. Cuando puedas:"
+      echo "  tailscale serve --bg --https=8445 http://127.0.0.1:${PORT}"
     fi
     SESION_OK="$("$NODE_BIN" -e "
       const fs=require('fs');const p=require('path');

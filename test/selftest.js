@@ -403,9 +403,19 @@ function check(nombre, condicion, detalle) {
     check('esa direccion es https y responde',
       /^https:\/\//.test(st.data.app.acceso), st.data.app.acceso);
   }
+  const inst = fs.readFileSync(`${__dirname}/../install.sh`, 'utf8');
   check('el instalador dice la direccion buena al terminar',
-    /ACCESO_HTTPS/.test(fs.readFileSync(`${__dirname}/../install.sh`, 'utf8')),
-    'en un servidor nuevo es donde mas falta hace');
+    /ACCESO_HTTPS/.test(inst), 'en un servidor nuevo es donde mas falta hace');
+  check('el instalador configura el HTTPS, no solo lo sugiere',
+    /tailscale serve --bg --https="\$\{HTTPS_PORT\}"/.test(inst),
+    'dejarlo como consejo obliga a repetir a mano lo mismo en cada servidor');
+  check('elige un puerto libre y no pisa a otra instalacion',
+    /for\(let p=8443;p<8500;p\+\+\)/.test(inst) && /d\.TCP/.test(inst));
+  check('se puede omitir y se puede fijar el puerto',
+    /--no-tailscale\)/.test(inst) && /--https-port\)/.test(inst));
+  check('nunca usa funnel, que publicaria a internet',
+    !/tailscale funnel/.test(inst),
+    'serve se queda en la tailnet; funnel abriria el sistema al exterior');
 
   check('avisa cuando se entra por HTTP, donde no hay PWA ni avisos',
     /id="aviso-inseguro"/.test(idxPanel) &&
