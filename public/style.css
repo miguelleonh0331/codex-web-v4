@@ -727,3 +727,27 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
    texto, que es lo que se quiere leer. Se retira de #tab-salida; en los
    mensajes del chat si se conserva. */
 #tab-salida .hora{display:none}
+
+/* ============================== pestanas legibles y chat con estado =======
+   En gris apagado las pestanas inactivas parecian desactivadas, sobre todo
+   en el movil. Se sube el contraste y la activa lleva fondo propio, no solo
+   una linea de dos pixeles que apenas se ve en una pantalla pequena. */
+.tab{color:#aab2c5;font-weight:500}
+.tab:hover{color:var(--fg);background:var(--bg3)}
+.tab.active{color:var(--fg);background:var(--bg3);box-shadow:inset 0 -2px 0 var(--accent)}
+
+/* Sin especialista abierto la conversacion era un hueco negro: parecia roto. */
+.vacio-chat{margin:auto;text-align:center;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;gap:.9rem;padding:2rem 1rem}
+.vacio-chat p{margin:0;font-size:.9rem}
+.vacio-chat button{font-size:.85rem}
+
+@media (max-width:900px){
+  .tab{font-size:.8rem;padding:.8rem .75rem;min-height:44px}
+  .tab.active{box-shadow:inset 0 -3px 0 var(--accent)}
+  /* Que se note que la fila se desplaza y hay mas pestanas a la derecha. */
+  .tabs{scroll-snap-type:x proximity;
+    -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);
+    mask-image:linear-gradient(90deg,#000 88%,transparent)}
+  .tab{scroll-snap-align:start}
+}

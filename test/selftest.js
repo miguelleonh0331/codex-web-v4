@@ -240,6 +240,17 @@ function check(nombre, condicion, detalle) {
   check('la salida ya no pinta la hora',
     !/class="hora"[^`]*created_at[^`]*herr/.test(appAct) && /#tab-salida\.hora\{display:none\}/.test(cssSal));
 
+  check('las pestanas inactivas se leen, no parecen desactivadas',
+    /\.tab\{color:#aab2c5/.test(cssSal), 'en gris apagado no se distinguian de un boton inhabilitado');
+  check('la pestana activa se distingue por fondo, no solo por una linea fina',
+    /\.tab\.active\{[^}]*background:var\(--bg3\)/.test(cssSal));
+  check('las pestanas son faciles de tocar en el movil',
+    /\.tab\{[^}]*min-height:44px/.test(cssSal));
+  check('sin especialista abierto la conversacion explica que hacer',
+    /pintarVacioChat/.test(appAct) && /No hay ningun especialista abierto/.test(appAct) &&
+    /\.vacio-chat\{/.test(cssSal),
+    'antes era un hueco negro y parecia que la aplicacion estaba rota');
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

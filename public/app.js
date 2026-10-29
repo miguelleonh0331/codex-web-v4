@@ -64,6 +64,7 @@ function start() {
   if (history.replaceState) history.replaceState({}, '', location.pathname);
   setView(esMovil() ? 'agents' : 'agents');
   MATRIZ.iniciar();
+  pintarVacioChat();
   refreshAll();
   setInterval(refreshAll, 2500);
   vigilarProveedor();
@@ -336,6 +337,16 @@ async function refrescarActividad(reiniciar) {
     if (abajo) caja.scrollTop = caja.scrollHeight;
   } catch { /* se reintenta en el siguiente ciclo */ }
   finally { actividadEnVuelo = false; }
+}
+
+function pintarVacioChat() {
+  $('#messages').innerHTML = `
+    <div class="vacio-chat">
+      <p>No hay ningun especialista abierto.</p>
+      <button type="button" id="ir-a-especialistas">Ver especialistas</button>
+    </div>`;
+  const b = $('#ir-a-especialistas');
+  if (b) b.onclick = () => setView('agents');
 }
 
 function roleLabel(m) {
@@ -1031,7 +1042,7 @@ $('#eliminar').onclick = async () => {
 
     if (selected === editing.id) {
       selected = null;
-      $('#messages').innerHTML = '';
+      pintarVacioChat();
       $('#chat-name').textContent = 'Selecciona un especialista';
       $('#chat-area').textContent = '';
       $('#chat-face').innerHTML = '';
