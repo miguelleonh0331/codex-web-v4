@@ -339,6 +339,19 @@ function check(nombre, condicion, detalle) {
     fs.rmSync(`${__dirname}/../.tmp-vapid`, { recursive: true, force: true });
   }
 
+  // La exportacion se comparte entre servidores: no puede llevar secretos.
+  // Se mira la estructura, no el texto: las instrucciones de los
+  // especialistas hablan de "endpoint" y "auth" como terminos del dominio.
+  const expPush = (await req('/api/export')).data;
+  const clavesRaiz = Object.keys(expPush);
+  check('la exportacion no lleva claves ni suscripciones',
+    !clavesRaiz.some((k) => /push|vapid|suscrip/i.test(k)) &&
+    !expPush.especialistas.some((e) => Object.keys(e).some((k) => /push|vapid|endpoint|p256dh/i.test(k))),
+    JSON.stringify(clavesRaiz));
+  check('la clave publica de push no viaja en la exportacion',
+    !JSON.stringify(expPush).includes(clavePush.data.clave),
+    'la publica no es secreta, pero no pinta nada en un fichero de equipo');
+
   check('la clave privada no es legible por otros',
     (fs.statSync(`${cfg.dataDir}/vapid.json`).mode & 0o077) === 0,
     'firma los envios: solo el servicio debe poder leerla');
