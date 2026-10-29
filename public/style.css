@@ -722,3 +722,8 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
   #tab-salida .act{flex-wrap:wrap}
   #tab-salida .res{flex:1 1 100%;-webkit-line-clamp:6}
 }
+
+/* La salida va en orden cronologico, asi que la hora solo robaba ancho al
+   texto, que es lo que se quiere leer. Se retira de #tab-salida; en los
+   mensajes del chat si se conserva. */
+#tab-salida .hora{display:none}

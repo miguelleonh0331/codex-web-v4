@@ -779,7 +779,11 @@ function renderIndex() {
 
   if (!cfg.requireAuth) {
     // Sin token no hay pantalla de acceso: se elimina del documento servido.
-    html = html.replace(/<div id="login"[\s\S]*?<\/div>\s*(?=<div id="app")/, '');
+    // Se recorta entre marcas, no con un patron sobre <div>: el perezoso
+    // llegaba hasta el </div> anterior a #app y se llevaba por delante el
+    // aviso de version nueva, que vive en medio. Con requireAuth en false
+    // ese aviso no existia y habia que recargar a mano.
+    html = html.replace(/<!-- login:inicio -->[\s\S]*?<!-- login:fin -->\s*/, '');
     html = html.replace('<div id="app" hidden>', '<div id="app">');
   }
   return html;

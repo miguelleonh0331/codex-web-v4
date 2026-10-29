@@ -256,11 +256,7 @@ async function selectAgent(id) {
   $('#edit-agent').hidden = false;
   $('#reset-session').hidden = false;
   $('#compactar').hidden = false;
-  $('#ver-actividad-caja').hidden = false;
   $('#parar').hidden = !a || a.status !== 'working';
-  verActividad = localStorage.getItem(claveActividad(id)) === '1';
-  $('#ver-actividad').checked = verActividad;
-  $('#actividad').hidden = !verActividad;
   await refrescarActividad(true);
   marcarVisto(id);
   renderAgents();
@@ -328,8 +324,7 @@ async function refrescarActividad(reiniciar) {
       actividadVistos.add(a.id);
       const el = document.createElement('div');
       el.className = 'act';
-      el.innerHTML = `<span class="hora">${new Date(a.created_at).toLocaleTimeString()}</span>
-        <span class="herr">${escapeHtml(a.herramienta || a.tipo)}</span>
+      el.innerHTML = `<span class="herr">${escapeHtml(a.herramienta || a.tipo)}</span>
         <span class="res" title="pulsa para ver el detalle">${escapeHtml(a.resumen || '')}</span>`;
       const res = el.querySelector('.res');
       res.onclick = () => {

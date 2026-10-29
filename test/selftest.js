@@ -65,6 +65,13 @@ function check(nombre, condicion, detalle) {
   check('protege los endpoints internos', (await req('/api/internal/agents', { token: null, bridge: 'malo' })).status === 401);
 
   // --- agentes ---
+  // Barrido previo: si una ejecucion anterior murio a medias, sus agentes de
+  // prueba se quedaron creados y acaban agotando el tope de especialistas.
+  const previos = (await req('/api/agents')).data.agents || [];
+  const basura = previos.filter((a) => /^ST-(Alfa|Beta|Imp)-\d+$/.test(a.name));
+  for (const a of basura) await req(`/api/agents/${a.id}?purgar=1`, { method: 'DELETE' });
+  if (basura.length) console.log(`  --   barridos ${basura.length} agentes de pruebas anteriores`);
+
   const sufijo = process.pid;
   const a1 = await req('/api/agents', { method: 'POST', body: { name: `ST-Alfa-${sufijo}`, area: 'prueba', instructions: 'Agente de autodiagnostico. No hace nada.' } });
   const a2 = await req('/api/agents', { method: 'POST', body: { name: `ST-Beta-${sufijo}`, area: 'prueba', instructions: 'Agente de autodiagnostico. No hace nada.' } });
@@ -204,6 +211,34 @@ function check(nombre, condicion, detalle) {
     `gana "${conWS[conWS.length - 1] || 'ninguna'}": si acaba en nowrap, vuelve a verse cortada`);
   check('el texto largo parte por donde sea antes que desbordar',
     resSalida.some((r) => /overflow-wrap:anywhere/.test(r)));
+
+  // Referencias a elementos que ya no existen: $() devuelve null y la funcion
+  // muere ahi en silencio. Asi se quedo selectAgent al mover la salida a su
+  // pestana, dejando sin ejecutar marcarVisto, renderAgents y setView.
+  // Se mira el index.html de origen, no la pagina servida: la pantalla de
+  // acceso se recorta cuando no hace falta token y seria un falso positivo.
+  const fuenteHtml = fs.readFileSync(`${__dirname}/../public/index.html`, 'utf8');
+  const idsUsados = [...appAct.matchAll(/\$\('#([\w-]+)'\)/g)].map((m) => m[1]);
+  const idsDoc = new Set([
+    ...[...fuenteHtml.matchAll(/id="([\w-]+)"/g)].map((m) => m[1]),
+    ...[...appAct.matchAll(/id="([\w-]+)"/g)].map((m) => m[1])   // los que pinta el propio js
+  ]);
+  const huerfanos = [...new Set(idsUsados)].filter((i) => !idsDoc.has(i));
+  check('app.js no busca elementos que no estan en el documento',
+    huerfanos.length === 0,
+    `$('#...') devolveria null y cortaria la funcion: ${huerfanos.join(', ')}`);
+
+  // El aviso de version vive entre la pantalla de acceso y la aplicacion: el
+  // recorte perezoso se lo llevaba por delante y no habia forma de enterarse
+  // de que la interfaz habia cambiado.
+  check('el aviso de version nueva sobrevive al recorte de la pantalla de acceso',
+    /id="aviso-version"/.test(idxPanel) && /id="recargar-ya"/.test(idxPanel));
+  if (!health.data.auth) {
+    check('sin token, la pantalla de acceso no se sirve',
+      !/id="login"/.test(idxPanel) && !/id="token-input"/.test(idxPanel));
+  }
+  check('la salida ya no pinta la hora',
+    !/class="hora"[^`]*created_at[^`]*herr/.test(appAct) && /#tab-salida\.hora\{display:none\}/.test(cssSal));
 
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
