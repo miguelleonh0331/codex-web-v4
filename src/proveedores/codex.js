@@ -46,15 +46,24 @@ function opcionesMcp(cfg, agent, { chainId, hop }) {
 module.exports = {
   nombre: 'codex',
   etiqueta: 'ChatGPT (Codex)',
-  // Comprobados uno a uno contra el propio CLI con una cuenta de ChatGPT:
-  // un modelo invalido devuelve 400 model_not_found al instante. "gpt-5" y
-  // "o3" NO valen por esta via, aunque existan en la API.
-  modelos: ['gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5-codex'],
+  /*
+   * Comprobados ejecutando un turno real con una cuenta ChatGPT Plus: un
+   * nombre invalido devuelve 400 model_not_found al instante.
+   *
+   * El esquema es gpt-<generacion>-<nombre>. Los nombres sueltos (sol, luna,
+   * terra) NO valen como --model: les falta el prefijo.
+   *
+   * Rechazados por esta via, aunque existan: gpt-6.1-luna, gpt-6.1-astra,
+   * gpt-6.1-spark, gpt-6-terra, toda la familia *-codex y los gpt-5 / o3.
+   * El mensaje es "not supported when using Codex with a ChatGPT account",
+   * asi que puede ser cuestion de plan: con Pro quiza aparezcan mas.
+   */
+  modelos: ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-sol'],
   esfuerzos: ['low', 'medium', 'high'],
 
   reanuda: true,
-  // Sin --model, lo elige el propio CLI.
-  modeloPorDefecto: null,
+  // Lo que usa el CLI si no se le dice nada, comprobado en ejecucion.
+  modeloPorDefecto: 'gpt-6.1-sol',
 
   binario(cfg) {
     if (cfg.codexBin) return cfg.codexBin;

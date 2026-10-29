@@ -667,14 +667,16 @@ function check(nombre, condicion, detalle) {
   // via, asi que no deben volver a colarse en la lista.
   const modsCodex = provs.obtener('codex').modelos;
   check('la lista de modelos de Codex es la que el CLI acepta',
-    modsCodex.every((m) => /-codex$/.test(m)) && modsCodex.includes('gpt-5.3-codex'),
+    modsCodex.every((m) => /^gpt-\d/.test(m)) && modsCodex.includes('gpt-6.1-sol'),
     JSON.stringify(modsCodex));
-  check('no se ofrecen modelos que el CLI rechaza',
+  check('no se ofrecen nombres sueltos sin prefijo ni modelos retirados',
+    !modsCodex.some((m) => /^(sol|luna|terra|astra)$/.test(m)) &&
+    !modsCodex.some((m) => /-codex$/.test(m)) &&
     !modsCodex.includes('gpt-5') && !modsCodex.includes('o3'),
-    'probados contra la cuenta real: devuelven model_not_found');
+    'probados ejecutando un turno real: devuelven model_not_found');
   check('el "por defecto" del desplegable es el del proveedor elegido',
     provs.obtener('claude').modeloPorDefecto === 'sonnet' &&
-    provs.obtener('codex').modeloPorDefecto === null &&
+    provs.obtener('codex').modeloPorDefecto === 'gpt-6.1-sol' &&
     /prov\.modeloPorDefecto \|\| 'el que elija el CLI'/.test(appAct),
     'con Codex elegido decia "por defecto (sonnet)", que es el de Claude');
 
