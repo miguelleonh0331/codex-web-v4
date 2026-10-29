@@ -18,37 +18,29 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-/** Escapa una cadena para TOML basico. */
-const toml = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+/** Valor TOML para pasarlo por -c, que es lo que espera el CLI. */
+const tomlv = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 
 /**
- * Configuracion de Codex para este agente: el servidor MCP del puente, con
- * las mismas variables que recibe en Claude. Se reescribe en cada turno
- * porque chainId y hop cambian de uno a otro.
+ * Servidor MCP del puente, inyectado por linea de comandos.
+ *
+ * No se escribe en config.toml a proposito: ese fichero vive en CODEX_HOME,
+ * que es compartido porque ahi esta la sesion. Si el MCP fuera por fichero,
+ * todos los agentes compartirian el mismo V4_AGENT_ID y el puente no sabria
+ * quien le habla. Por linea de comandos cada turno lleva los suyos.
  */
-function escribirConfig(cfg, agent, { chainId, hop }) {
-  const dir = path.join(agent.home, '.codex');
-  fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, 'config.toml');
+function opcionesMcp(cfg, agent, { chainId, hop }) {
   const puente = path.join(cfg.appDir, 'src', 'bridge', 'mcp-server.js');
-
-  const lineas = [
-    '# Generado por codex-web-v4 en cada turno. No editar a mano.',
-    '',
-    '[mcp_servers.v4]',
-    `command = ${toml(process.execPath)}`,
-    `args = [${toml(puente)}]`,
-    '',
-    '[mcp_servers.v4.env]',
-    `V4_API = ${toml(cfg.apiUrl || `http://127.0.0.1:${cfg.port}`)}`,
-    `V4_BRIDGE_TOKEN = ${toml(cfg.bridgeToken)}`,
-    `V4_AGENT_ID = ${toml(agent.id)}`,
-    `V4_CHAIN_ID = ${toml(chainId || '')}`,
-    `V4_HOP = ${toml(String(hop || 0))}`,
-    ''
+  const pares = [
+    ['mcp_servers.v4.command', tomlv(process.execPath)],
+    ['mcp_servers.v4.args', `[${tomlv(puente)}]`],
+    ['mcp_servers.v4.env.V4_API', tomlv(cfg.apiUrl || `http://127.0.0.1:${cfg.port}`)],
+    ['mcp_servers.v4.env.V4_BRIDGE_TOKEN', tomlv(cfg.bridgeToken)],
+    ['mcp_servers.v4.env.V4_AGENT_ID', tomlv(agent.id)],
+    ['mcp_servers.v4.env.V4_CHAIN_ID', tomlv(chainId || '')],
+    ['mcp_servers.v4.env.V4_HOP', tomlv(String(hop || 0))]
   ];
-  fs.writeFileSync(file, lineas.join('\n'), { mode: 0o600 });
-  return file;
+  return pares.flatMap(([k, v]) => ['-c', `${k}=${v}`]);
 }
 
 module.exports = {
@@ -77,9 +69,12 @@ module.exports = {
 
   faltaBinario: 'No se encontro el binario de Codex. Instalalo o indica config.codexBin.',
 
-  preparar(cfg, agent, turn, systemPrompt) {
-    escribirConfig(cfg, agent, { chainId: turn.chain_id, hop: turn.hop });
+  /** Donde vive la sesion compartida por todos los especialistas. */
+  dirSesion(cfg) {
+    return cfg.sessionDirCodex || path.join(cfg.dataDir, 'session-codex');
+  },
 
+  preparar(cfg, agent, turn, systemPrompt) {
     // Codex no tiene equivalente de --append-system-prompt: las instrucciones
     // del especialista y el protocolo del equipo van al principio del propio
     // mensaje, separadas de la tarea.
@@ -91,18 +86,24 @@ module.exports = {
       '--json',
       '--dangerously-bypass-approvals-and-sandbox',
       '--skip-git-repo-check',
-      '-C', agent.workspace
+      '-C', agent.workspace,
+      ...opcionesMcp(cfg, agent, { chainId: turn.chain_id, hop: turn.hop })
     );
     if (agent.model || cfg.modelCodex) args.push('--model', agent.model || cfg.modelCodex);
     args.push(texto);
+
+    const sesion = this.dirSesion(cfg);
+    fs.mkdirSync(sesion, { recursive: true });
 
     return {
       args,
       cwd: agent.workspace,
       env: {
         ...process.env,
-        HOME: agent.home,              // de aqui sale su .codex/config.toml
-        CODEX_HOME: path.join(agent.home, '.codex'),
+        HOME: agent.home,
+        // Compartido a proposito: una sola sesion para todos los
+        // especialistas, igual que CLAUDE_CONFIG_DIR en el otro proveedor.
+        CODEX_HOME: sesion,
         V4_AGENT_ID: agent.id,
         V4_AGENT_NAME: agent.name
       }

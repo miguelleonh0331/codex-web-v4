@@ -633,7 +633,7 @@ function check(nombre, condicion, detalle) {
     fs.mkdirSync(tmpHome, { recursive: true });
     try {
       const plan = cx.preparar(
-        { appDir: `${__dirname}/..`, port: 1, bridgeToken: 'b' },
+        { appDir: `${__dirname}/..`, port: 1, bridgeToken: 'b', dataDir: `${__dirname}/../.tmp-datos` },
         { id: 'y', name: 'Y', home: tmpHome, workspace: '/tmp', model: 'gpt-5-codex', session_id: 'T1' },
         { prompt: 'tarea', chain_id: 'c2', hop: 1 }, 'SP');
       check('Codex usa exec, json y su propio bypass',
@@ -642,10 +642,15 @@ function check(nombre, condicion, detalle) {
         plan.args.slice(0, 6).join(' '));
       check('Codex reanuda con su subcomando, no con --resume',
         plan.args[1] === 'resume' && plan.args[2] === 'T1' && !plan.args.includes('--resume'));
-      const toml = fs.readFileSync(`${tmpHome}/.codex/config.toml`, 'utf8');
-      check('Codex recibe el puente MCP por su config.toml',
-        /\[mcp_servers\.v4\]/.test(toml) && /V4_CHAIN_ID = "c2"/.test(toml) && /V4_HOP = "1"/.test(toml),
+      const copts = plan.args.filter((a, i) => plan.args[i - 1] === '-c');
+      check('Codex recibe el puente MCP en cada turno, no por fichero',
+        copts.some((o) => /^mcp_servers\.v4\.command=/.test(o)) &&
+        copts.some((o) => o === 'mcp_servers.v4.env.V4_AGENT_ID="y"') &&
+        copts.some((o) => o === 'mcp_servers.v4.env.V4_CHAIN_ID="c2"'),
         'sin esto no tendria send_message, claim_files ni recordar');
+      check('la sesion de Codex es una sola para todo el equipo',
+        /session-codex$/.test(plan.env.CODEX_HOME) && !plan.env.CODEX_HOME.includes(tmpHome),
+        'si colgara del home del agente, cada especialista exigiria su propio login');
       check('a Codex el prompt del sistema le va dentro del mensaje',
         plan.args[plan.args.length - 1].startsWith('SP') &&
         plan.args[plan.args.length - 1].includes('tarea'),
