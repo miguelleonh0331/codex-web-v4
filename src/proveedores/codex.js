@@ -100,6 +100,11 @@ module.exports = {
       cwd: agent.workspace,
       env: {
         ...process.env,
+        // El codex instalado por npm es un script con cabecera
+        // "#!/usr/bin/env node". Si node no esta en el PATH del usuario del
+        // servicio, el lanzamiento falla con un "node: no such file" que no
+        // dice nada de Codex. Se garantiza aqui.
+        PATH: `${path.dirname(process.execPath)}:${process.env.PATH || ''}`,
         HOME: agent.home,
         // Compartido a proposito: una sola sesion para todos los
         // especialistas, igual que CLAUDE_CONFIG_DIR en el otro proveedor.

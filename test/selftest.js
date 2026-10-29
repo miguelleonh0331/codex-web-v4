@@ -648,6 +648,10 @@ function check(nombre, condicion, detalle) {
         copts.some((o) => o === 'mcp_servers.v4.env.V4_AGENT_ID="y"') &&
         copts.some((o) => o === 'mcp_servers.v4.env.V4_CHAIN_ID="c2"'),
         'sin esto no tendria send_message, claim_files ni recordar');
+      check('Codex se lanza con node en el PATH',
+        /(^|:)\/usr\/local\/lib\/nodejs|bin(:|$)/.test(plan.env.PATH || '') &&
+        (plan.env.PATH || '').startsWith(require('node:path').dirname(process.execPath)),
+        'el codex de npm es un script con cabecera env node: sin PATH falla al arrancar');
       check('la sesion de Codex es una sola para todo el equipo',
         /session-codex$/.test(plan.env.CODEX_HOME) && !plan.env.CODEX_HOME.includes(tmpHome),
         'si colgara del home del agente, cada especialista exigiria su propio login');
