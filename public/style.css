@@ -799,3 +799,34 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
 .push-estado{font-size:.68rem;color:var(--muted);line-height:1.3}
 .push-estado.bien{color:var(--accent2)}
 .push-estado.mal{color:#ff8080}
+
+/* ===================================== interruptores compactos ===========
+   Tres casillas con su texto ocupaban cuatro lineas del pie. Pasan a una
+   sola fila de iconos: apagado se ve atenuado, encendido se enciende. El
+   titulo de cada uno sigue explicando que hace. */
+.status{flex-direction:row;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+#status-line{flex:1;min-width:0;font-size:.7rem}
+.interruptores{display:flex;gap:.3rem;flex:0 0 auto}
+.sw{position:relative;display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:28px;border:1px solid var(--line);border-radius:8px;cursor:pointer;
+  background:var(--bg);opacity:.4;transition:opacity .15s,border-color .15s,background .15s}
+.sw input{position:absolute;width:0;height:0;opacity:0}
+.sw span{font-size:.95rem;line-height:1}
+.sw:hover{opacity:.75}
+/* :has permite reflejar el estado sin JavaScript y sin perder la casilla
+   real, que es lo que hace que siga siendo accesible por teclado. */
+.sw:has(input:checked){opacity:1;border-color:var(--accent);background:var(--bg3)}
+.sw:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:1px}
+.push-estado{flex:1 0 100%}
+.push-estado:empty{display:none}
+
+@media (max-width:900px){
+  .sw{width:38px;height:34px}
+  .sw span{font-size:1.05rem}
+}
+
+/* Si el navegador no admite :has, los interruptores se ven todos al 100% en
+   vez de quedarse atenuados y parecer desactivados. */
+@supports not selector(:has(*)) {
+  .sw{opacity:1}
+}

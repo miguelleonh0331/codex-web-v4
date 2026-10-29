@@ -1380,7 +1380,7 @@ async function activarPush() {
   const j = sub.toJSON();
   await api('/api/push/suscribir', { method: 'POST', body: JSON.stringify({ endpoint: j.endpoint, keys: j.keys }) });
   localStorage.setItem('v4-push', '1');
-  estadoPush('Activas en este dispositivo.', 'bien');
+  estadoPush('');
 }
 
 async function desactivarPush() {
@@ -1403,8 +1403,7 @@ async function prepararPush() {
   }
   const sub = await suscripcionActual().catch(() => null);
   $('#push-on').checked = !!sub && Notification.permission === 'granted';
-  if ($('#push-on').checked) estadoPush('Activas en este dispositivo.', 'bien');
-  else if (Notification.permission === 'denied') estadoPush('Bloqueadas en los ajustes del navegador.', 'mal');
+  if (!$('#push-on').checked && Notification.permission === 'denied') estadoPush('Notificaciones bloqueadas en los ajustes.', 'mal');
 
   $('#push-on').onchange = async (e) => {
     estadoPush('…');

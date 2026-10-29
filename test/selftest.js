@@ -377,6 +377,22 @@ function check(nombre, condicion, detalle) {
   check('la flecha de volver ya no duplica a la barra inferior',
     !/id="back-agents"/.test(idxPanel) && !/back-agents/.test(appAct));
 
+  check('los tres interruptores caben en una fila de iconos',
+    /class="interruptores"/.test(idxPanel) &&
+    (idxPanel.match(/class="sw"/g) || []).length === 3,
+    'antes eran tres casillas con texto, cuatro lineas del pie');
+  check('siguen siendo casillas reales, no botones falsos',
+    (idxPanel.match(/class="sw"[^]*?type="checkbox"/g) || []).length >= 1 &&
+    /\.sw input ?\{[^}]*opacity: ?0/.test(cssEsp),
+    'ocultas visualmente pero accesibles por teclado');
+  check('el estado encendido se refleja sin JavaScript',
+    /\.sw:has\(input:checked\)/.test(cssSal));
+  check('hay respaldo si el navegador no admite :has',
+    /@supports not selector\(:has\(\*\)\)/.test(cssEsp),
+    'si no, se verian todos atenuados como si estuvieran apagados');
+  check('el texto de estado solo ocupa sitio cuando dice algo',
+    /\.push-estado:empty\{display:none\}/.test(cssSal));
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

@@ -54,15 +54,17 @@
     <nav id="agent-list" class="agents"></nav>
     <footer class="status muted">
       <span id="status-line">·</span>
-      <label class="check" id="sonido-caja" title="Sonido al terminar un trabajo">
-        <input type="checkbox" id="sonido" checked> <span id="sonido-icono">🔔</span> Avisos
-      </label>
-      <label class="check" title="Lluvia de caracteres detras de la conversacion">
-        <input type="checkbox" id="matrix-on" checked> Fondo matrix
-      </label>
-      <label class="check" id="push-caja" title="Avisos en el telefono aunque la aplicacion este cerrada">
-        <input type="checkbox" id="push-on"> 📲 Notificaciones
-      </label>
+      <div class="interruptores">
+        <label class="sw" id="sonido-caja" title="Sonido al terminar un trabajo">
+          <input type="checkbox" id="sonido" checked><span id="sonido-icono">🔔</span>
+        </label>
+        <label class="sw" title="Lluvia de caracteres detras de la conversacion">
+          <input type="checkbox" id="matrix-on" checked><span>▚</span>
+        </label>
+        <label class="sw" id="push-caja" title="Avisos en el telefono aunque la aplicacion este cerrada">
+          <input type="checkbox" id="push-on"><span>📲</span>
+        </label>
+      </div>
       <span id="push-estado" class="push-estado"></span>
     </footer>
   </aside>
