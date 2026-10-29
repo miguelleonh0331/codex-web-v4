@@ -673,6 +673,9 @@ function check(nombre, condicion, detalle) {
     JSON.stringify(provsApi.map((x) => x.proveedor)));
   check('dice si Codex esta instalado y si tiene sesion',
     provsApi.some((x) => x.proveedor === 'codex' && 'instalado' in x && 'conectado' in x));
+  check('el boton de la barra lateral nombra a los dos proveedores',
+    /function etiquetaProveedores/.test(appAct) && /partes\.push\(codex\.conectado/.test(appAct),
+    'llamandolo solo "Claudio" nadie encontraria donde se conecta ChatGPT');
   check('hay boton para conectar ChatGPT',
     /id="codex-login"/.test(idxPanel) && /id="codex-codigo"/.test(idxPanel) && /id="codex-url"/.test(idxPanel),
     'sin esto habria que entrar por consola en cada servidor');

@@ -766,7 +766,7 @@ async function pintarProveedor() {
     const boton = $('#btn-proveedor');
     const malo = !(p.conectado && vigente);
     boton.classList.toggle('aviso', malo);
-    $('#proveedor-etiqueta').textContent = malo ? `${NOMBRE_PROVEEDOR} · sin sesion` : NOMBRE_PROVEEDOR;
+    etiquetaProveedores(proveedores, malo);
     $('#prov-logout').hidden = !p.conectado;
   } catch (e) {
     caja.textContent = `No se pudo consultar el proveedor: ${e.message}`;
@@ -1225,6 +1225,22 @@ $('#reset-session').onclick = async () => {
 };
 
 const NOMBRE_PROVEEDOR = 'Claudio';   // como se llama de cara al usuario
+
+/**
+ * Texto del boton de la barra lateral.
+ *
+ * Con un solo proveedor bastaba su nombre. Con dos, llamarlo "Claudio"
+ * escondia que ahi dentro tambien se conecta ChatGPT: habia que saberlo de
+ * antemano para encontrarlo. Ahora resume quien esta conectado.
+ */
+function etiquetaProveedores(lista, claudeMal) {
+  const el = $('#proveedor-etiqueta');
+  if (!el) return;
+  const codex = (lista || []).find((x) => x.proveedor === 'codex');
+  const partes = [claudeMal ? `${NOMBRE_PROVEEDOR} ⚠` : NOMBRE_PROVEEDOR];
+  if (codex && codex.instalado) partes.push(codex.conectado ? 'ChatGPT' : 'ChatGPT ⚠');
+  el.textContent = partes.join(' · ');
+}
 const COLORES = ['#5b9dff','#2bd4a0','#b98cff','#ffb020','#ff6b6b','#ff8fc7','#4fd1e8','#9ad14b','#c0893f','#8b93a7'];
 
 function expresionDe(estado) {
