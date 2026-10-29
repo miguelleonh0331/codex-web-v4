@@ -264,6 +264,8 @@ async function selectAgent(id) {
   $('#edit-agent').hidden = false;
   $('#reset-session').hidden = false;
   $('#compactar').hidden = false;
+  $('#notas').hidden = false;
+  marcarBotonNotas(a);
   $('#parar').hidden = !a || a.status !== 'working';
   await refrescarActividad(true);
   marcarVisto(id);
@@ -1067,7 +1069,7 @@ $('#eliminar').onclick = async () => {
       $('#chat-name').textContent = 'Selecciona un especialista';
       $('#chat-area').textContent = '';
       $('#chat-face').innerHTML = '';
-      ['send-form', 'edit-agent', 'reset-session', 'compactar', 'parar']
+      ['send-form', 'edit-agent', 'reset-session', 'compactar', 'parar', 'notas']
         .forEach((id) => { const el = $(`#${id}`); if (el) el.hidden = true; });
     }
     editing = null;
@@ -1336,6 +1338,76 @@ function avisarCorreo(n) {
     if (b) b.classList.add('avisa');
   }
   ultimoCorreo = n;
+}
+
+// -------------------------------------------------------------- notas
+
+/**
+ * Libreta privada por especialista.
+ *
+ * Sirve para dejar preparada una serie de ordenes y pegarlas a medida que
+ * el especialista va terminando. El texto se guarda en el servidor, no en
+ * el navegador, porque se entra desde el movil y desde el escritorio.
+ *
+ * No llega al modelo por ningun camino: no esta en las instrucciones, ni en
+ * el prompt del turno, ni en el contexto. Es un margen, no parte de la
+ * conversacion.
+ */
+async function abrirNotas() {
+  if (!selected) return;
+  const a = agents.find((x) => x.id === selected);
+  $('#notas-quien').textContent = a ? a.name : '';
+  $('#notas-estado').textContent = '';
+  const caja = $('#notas-texto');
+  caja.value = 'cargando…';
+  caja.disabled = true;
+  $('#notas-dialog').showModal();
+  try {
+    const { notas } = await api(`/api/agents/${selected}/notas`);
+    caja.value = notas || '';
+  } catch (e) {
+    caja.value = '';
+    $('#notas-estado').textContent = `No se pudieron cargar: ${e.message}`;
+  }
+  caja.disabled = false;
+}
+
+async function guardarNotas() {
+  if (!selected) return;
+  const texto = $('#notas-texto').value;
+  try {
+    await api(`/api/agents/${selected}/notas`, { method: 'PUT', body: JSON.stringify({ notas: texto }) });
+    const a = agents.find((x) => x.id === selected);
+    if (a) a.tiene_notas = !!texto.trim();
+    marcarBotonNotas(a);
+  } catch (e) {
+    $('#notas-estado').textContent = `No se pudieron guardar: ${e.message}`;
+  }
+}
+
+function marcarBotonNotas(a) {
+  const b = $('#notas');
+  if (b) b.classList.toggle('tiene', !!(a && a.tiene_notas));
+}
+
+if ($('#notas')) $('#notas').onclick = abrirNotas;
+if ($('#notas-form')) {
+  $('#notas-form').addEventListener('submit', () => { guardarNotas(); });
+  $('#notas-cerrar').onclick = () => $('#notas-dialog').close();
+  $('#notas-copiar').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText($('#notas-texto').value);
+      $('#notas-estado').textContent = 'Copiado.';
+    } catch { $('#notas-estado').textContent = 'El navegador no dejo copiar.'; }
+  };
+  $('#notas-al-mensaje').onclick = () => {
+    // Se añade a lo que ya hubiera escrito en vez de pisarlo.
+    const caja = $('#send-text');
+    const previo = caja.value.trim();
+    caja.value = previo ? `${previo}\n${$('#notas-texto').value}` : $('#notas-texto').value;
+    $('#notas-dialog').close();
+    caja.focus();
+  };
 }
 
 // ------------------------------------------------------- notificaciones

@@ -88,6 +88,7 @@
       <div class="chat-actions">
         <button id="parar" class="peligro" hidden>⏹ Parar</button>
         <button id="edit-agent" hidden>Instrucciones</button>
+        <button id="notas" hidden title="Tus apuntes sobre este especialista. El no los lee nunca">📒 Notas</button>
         <button id="compactar" hidden title="Resume la conversacion y libera contexto, conservando lo importante">Compactar</button>
         <button id="reset-session" hidden>Reiniciar contexto</button>
       </div>
@@ -174,6 +175,24 @@
       <button type="button" id="prov-cerrar">Cerrar</button>
       <button type="button" id="prov-logout">Cerrar sesion</button>
       <button type="button" id="prov-login" class="primary">Iniciar sesion</button>
+    </menu>
+  </form>
+</dialog>
+
+<dialog id="notas-dialog">
+  <form method="dialog" id="notas-form">
+    <h3>Notas sobre <span id="notas-quien"></span></h3>
+    <p class="muted" style="margin:.2rem 0 .8rem;font-size:.8rem">
+      Privadas. El especialista no las lee nunca: no entran en la conversacion
+      ni en sus instrucciones.
+    </p>
+    <textarea id="notas-texto" rows="14" placeholder="Ordenes pendientes, rutas, recordatorios…"></textarea>
+    <p class="muted" id="notas-estado" style="font-size:.74rem;min-height:1.1em"></p>
+    <menu>
+      <button type="button" id="notas-copiar">Copiar</button>
+      <button type="button" id="notas-al-mensaje">Pasar al mensaje</button>
+      <button type="button" id="notas-cerrar">Cerrar</button>
+      <button value="ok" class="primary">Guardar</button>
     </menu>
   </form>
 </dialog>

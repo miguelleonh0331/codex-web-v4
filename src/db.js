@@ -123,7 +123,8 @@ const COLUMNAS_NUEVAS = [
   ['agents', 'ctx_usado', 'INTEGER'],
   ['agents', 'ctx_ventana', 'INTEGER'],
   ['agents', 'ctx_modelo', 'TEXT'],
-  ['agents', 'ctx_visto', 'TEXT']
+  ['agents', 'ctx_visto', 'TEXT'],
+  ['agents', 'notas', 'TEXT']        // apuntes del usuario, nunca llegan al modelo
 ];
 
 function migrar(db) {
@@ -260,8 +261,14 @@ class Store {
   }
 
   updateAgent(id, fields) {
-    const allowed = ['name', 'area', 'instructions', 'model', 'effort', 'status', 'session_id', 'archived', 'avatar_seed', 'avatar_color'];
-    const keys = Object.keys(fields).filter((k) => allowed.includes(k));
+    const allowed = ['name', 'area', 'instructions', 'model', 'effort', 'status',
+      'session_id', 'archived', 'avatar_seed', 'avatar_color', 'notas'];
+    const keys = Object.keys(fields);
+    // Antes se filtraban en silencio los campos desconocidos: anadir una
+    // columna y olvidarse de esta lista daba un guardado que decia "ok" y no
+    // escribia nada. Mejor romper aqui, donde se ve, que mentir al usuario.
+    const fuera = keys.filter((k) => !allowed.includes(k));
+    if (fuera.length) throw new Error(`campos no permitidos en updateAgent: ${fuera.join(', ')}`);
     if (!keys.length) return this.getAgent(id);
     const sets = keys.map((k) => `${k} = ?`).join(', ');
     this.db.prepare(`UPDATE agents SET ${sets}, updated_at = ? WHERE id = ?`)

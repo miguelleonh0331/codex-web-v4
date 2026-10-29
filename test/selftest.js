@@ -426,6 +426,44 @@ function check(nombre, condicion, detalle) {
     /id="cerrar-inseguro"/.test(idxPanel) && /CLAVE_AVISO_HTTP/.test(appAct),
     'quien entra por IP a proposito no necesita que se lo repitan cada vez');
 
+  // --- notas privadas ---
+  const notasTxt = 'orden 1\norden 2\nconsultar a @Panel';
+  await req(`/api/agents/${A}/notas`, { method: 'PUT', body: { notas: notasTxt } });
+  const leidas = await req(`/api/agents/${A}/notas`);
+  check('las notas se guardan y se releen',
+    leidas.data.notas === notasTxt, JSON.stringify(leidas.data).slice(0, 120));
+  const listaN = (await req('/api/agents')).data.agents.find((x) => x.id === A);
+  check('el listado avisa de que hay notas sin arrastrar el texto',
+    listaN.tiene_notas === true && !('notas' in listaN), JSON.stringify(Object.keys(listaN)));
+  const expN = await req('/api/export');
+  check('las notas no salen en la exportacion: son personales',
+    !JSON.stringify(expN.data).includes('orden 1'));
+  await req(`/api/agents/${A}/notas`, { method: 'PUT', body: { notas: '' } });
+  check('se pueden vaciar',
+    (await req('/api/agents')).data.agents.find((x) => x.id === A).tiene_notas === false);
+  // Se busca el acceso al campo, no la palabra suelta: "notas" aparece en
+  // frases que no tienen nada que ver y daba un falso positivo.
+  const fuga = /\b(agent|a|fila|row)\.notas\b|\['notas'\]|\bnotas:\s/;
+  check('las notas no viajan al modelo por ningun camino',
+    !fuga.test(fs.readFileSync(`${__dirname}/../src/runner.js`, 'utf8')) &&
+    !fuga.test(fs.readFileSync(`${__dirname}/../src/orchestrator.js`, 'utf8')),
+    'si el runner o el orquestador leen ese campo, acabaria en el prompt');
+  const idxN = idxPanel;
+  check('hay boton de notas en la conversacion',
+    /id="notas"/.test(idxN) && /id="notas-dialog"/.test(idxN));
+
+  // updateAgent filtraba en silencio los campos que no conocia: anadir una
+  // columna y olvidar la lista daba un guardado que respondia ok sin escribir.
+  const { Store: StoreChk } = require(`${__dirname}/../src/db.js`);
+  check('guardar un campo desconocido falla en vez de mentir', (() => {
+    const tmp = `${__dirname}/../.tmp-chk.db`;
+    try {
+      const st = new StoreChk(tmp);
+      st.createAgent({ id: 'chk', name: 'chk', instructions: 'x', home: '/tmp', workspace: '/tmp' });
+      try { st.updateAgent('chk', { inventado: 1 }); return false; } catch { return true; }
+    } finally { for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true }); }
+  })());
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

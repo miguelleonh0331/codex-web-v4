@@ -843,3 +843,11 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
 #cerrar-inseguro{background:transparent;border:none;color:inherit;
   font-size:1.1rem;line-height:1;padding:0 .3rem;cursor:pointer;opacity:.7}
 #cerrar-inseguro:hover{opacity:1}
+
+/* El boton de notas avisa, con un punto, de que ya hay algo escrito: si no,
+   habria que abrirlo para saberlo. */
+#notas.tiene{position:relative;border-color:var(--accent2)}
+#notas.tiene::after{content:"";position:absolute;top:3px;right:3px;
+  width:6px;height:6px;border-radius:50%;background:var(--accent2)}
+#notas-texto{width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.82rem;line-height:1.5;resize:vertical}

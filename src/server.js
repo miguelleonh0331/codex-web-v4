@@ -68,7 +68,8 @@ function agentPublic(a) {
       visto: a.ctx_visto || null
     } : null,
     created_at: a.created_at, updated_at: a.updated_at,
-    has_session: !!a.session_id
+    has_session: !!a.session_id,
+    tiene_notas: !!(a.notas && a.notas.trim())
   };
 }
 
@@ -587,25 +588,35 @@ async function api(req, res, url) {
       if (body.name && body.name !== a.name && store.getAgentByName(body.name)) {
         return json(res, 400, { error: 'ya existe otro especialista con ese nombre' });
       }
-      if (body.avatarSeed) body.avatar_seed = body.avatarSeed;
-      if (body.avatarColor !== undefined) {
-        const c = String(body.avatarColor || '').trim();
-        if (c && !/^#[0-9a-f]{6}$/i.test(c)) return json(res, 400, { error: 'color invalido: usa formato #rrggbb' });
-        body.avatar_color = c || null;
-      }
       if (body.effort !== undefined && body.effort !== null && body.effort !== '' && !ESFUERZOS.includes(body.effort)) {
         return json(res, 400, { error: `Esfuerzo invalido "${body.effort}". Admitidos: ${ESFUERZOS.join(', ')}.` });
       }
-      if (body.effort === '') body.effort = null;
-      if (body.model === '') body.model = null;
+
+      // Se arma un objeto explicito en vez de pasar el cuerpo del usuario a la
+      // base de datos: lo que llega del navegador no decide que columnas se
+      // escriben. Antes se traducia avatarSeed a avatar_seed pero se dejaba
+      // tambien la clave original, que se perdia en silencio por el camino.
+      const cambios = {};
+      if (body.name !== undefined) cambios.name = body.name;
+      if (body.area !== undefined) cambios.area = body.area;
+      if (body.instructions !== undefined) cambios.instructions = body.instructions;
+      if (body.model !== undefined) cambios.model = body.model === '' ? null : body.model;
+      if (body.effort !== undefined) cambios.effort = body.effort === '' ? null : body.effort;
+      if (body.avatarSeed) cambios.avatar_seed = String(body.avatarSeed);
+      if (body.avatarColor !== undefined) {
+        const c = String(body.avatarColor || '').trim();
+        if (c && !/^#[0-9a-f]{6}$/i.test(c)) return json(res, 400, { error: 'color invalido: usa formato #rrggbb' });
+        cambios.avatar_color = c || null;
+      }
 
       const antes = { model: a.model, effort: a.effort, area: a.area, name: a.name };
-      const actualizado = store.updateAgent(id, body);
-      const cambios = Object.keys(antes).filter((k) => antes[k] !== actualizado[k]);
-      if (cambios.length) {
+      const actualizado = store.updateAgent(id, cambios);
+      const camposCambiados = Object.keys(antes).filter((k) => antes[k] !== actualizado[k]);
+      if (camposCambiados.length) {
         store.event('agente.actualizado', id, {
-          cambios, antes: Object.fromEntries(cambios.map((k) => [k, antes[k]])),
-          ahora: Object.fromEntries(cambios.map((k) => [k, actualizado[k]]))
+          cambios: camposCambiados,
+          antes: Object.fromEntries(camposCambiados.map((k) => [k, antes[k]])),
+          ahora: Object.fromEntries(camposCambiados.map((k) => [k, actualizado[k]]))
         });
       }
       return json(res, 200, agentPublic(actualizado));
@@ -621,6 +632,23 @@ async function api(req, res, url) {
       store.event('agent.archived', id, {});
       return json(res, 200, { ok: true });
     }
+  }
+
+  // Notas privadas del usuario sobre un especialista. NO se envian nunca al
+  // modelo: no entran en el prompt, ni en las instrucciones, ni en el
+  // contexto del turno. Son una libreta al margen de la conversacion.
+  mm = p.match(/^\/api\/agents\/([^/]+)\/notas$/);
+  if (mm) {
+    const a = store.getAgent(mm[1]);
+    if (!a) return json(res, 404, { error: 'no existe' });
+    if (m === 'GET') return json(res, 200, { notas: a.notas || '' });
+    if (m === 'PUT') {
+      const b = await readBody(req);
+      const texto = String(b.notas || '').slice(0, 20000);
+      store.updateAgent(a.id, { notas: texto });
+      return json(res, 200, { ok: true, tiene_notas: !!texto.trim() });
+    }
+    return json(res, 405, { error: 'metodo no admitido' });
   }
 
   mm = p.match(/^\/api\/agents\/([^/]+)\/attachments$/);
