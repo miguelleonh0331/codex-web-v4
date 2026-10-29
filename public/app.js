@@ -421,6 +421,20 @@ async function renderPanel() {
   }
 }
 
+// Pantalla completa para el panel: la salida y los eventos del sistema se leen
+// fatal en una columna de 320px. Escape devuelve el panel a su sitio.
+const botonAncho = $('#panel-ancho');
+if (botonAncho) {
+  const anchoOn = () => document.body.classList.contains('panel-ancho');
+  const ponerAncho = (v) => {
+    document.body.classList.toggle('panel-ancho', v);
+    botonAncho.textContent = v ? '\u2715' : '\u26f6';
+    botonAncho.title = v ? 'Volver al panel lateral' : 'Ver a pantalla completa';
+  };
+  botonAncho.onclick = () => ponerAncho(!anchoOn());
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && anchoOn()) ponerAncho(false); });
+}
+
 document.querySelectorAll('.tab').forEach((t) => {
   t.onclick = () => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
@@ -1235,15 +1249,27 @@ const ANCHO_MOVIL = 900;
 const esMovil = () => window.matchMedia(`(max-width:${ANCHO_MOVIL}px)`).matches;
 let vista = 'agents';
 
+/**
+ * Marca en <body> que vista toca en el movil.
+ *
+ * Se tocan solo las clases view-*: asignar body.className entero borraba
+ * cualquier otra clase puesta por otra parte de la interfaz (por ejemplo
+ * panel-ancho), que desaparecia sola al cambiar de pestana.
+ */
+function aplicarVista(v) {
+  const movil = esMovil();
+  for (const c of ['view-agents', 'view-chat', 'view-panel']) {
+    document.body.classList.toggle(c, movil && c === `view-${v}`);
+  }
+}
+
 function setView(v) {
   vista = v;
-  document.body.className = `view-${v}`;
+  aplicarVista(v);
   document.querySelectorAll('.mobile-nav button').forEach((b) => {
     b.classList.toggle('active', b.dataset.view === v);
     if (b.dataset.view === v) b.classList.remove('avisa');
   });
-  // Al volver al escritorio no debe quedar ninguna columna oculta.
-  if (!esMovil()) document.body.className = '';
   if (v === 'panel') renderPanel();
 }
 
@@ -1252,9 +1278,7 @@ document.querySelectorAll('.mobile-nav button').forEach((b) => {
 });
 if ($('#back-agents')) $('#back-agents').onclick = () => setView('agents');
 
-window.addEventListener('resize', () => {
-  document.body.className = esMovil() ? `view-${vista}` : '';
-});
+window.addEventListener('resize', () => aplicarVista(vista));
 
 // Aviso en la pestana del equipo cuando llega correo entre agentes estando en otra vista.
 let ultimoCorreo = 0;

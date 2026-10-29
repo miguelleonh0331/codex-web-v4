@@ -163,6 +163,28 @@ function check(nombre, condicion, detalle) {
   check('las respuestas de la API nunca se cachean',
     /pathname\.startsWith\('\/api\/'\)\s*\)\s*return/.test(sw));
 
+  // --- ocultar de verdad lo que se marca hidden ---
+  // .tab-body{display:flex} ganaba sobre el display:none que el navegador da a
+  // [hidden]: las cuatro pestanas se pintaban a la vez, apiladas.
+  const cssCrudo = await (await fetch((await base()) + '/style.css')).text();
+  const css1 = cssCrudo.replace(/\s+/g, '');
+  const posHidden = css1.indexOf('[hidden]{display:none!important}');
+  check('el atributo hidden se respeta pese a las reglas de display',
+    posHidden >= 0, 'sin esta regla, cualquier .clase{display:...} deja visible lo oculto');
+  for (const sel of ['.tab-body', '.composer', '.adjuntos', '.check']) {
+    const m = new RegExp(`\\${sel}\\{[^}]*display:`).exec(css1);
+    check(`${sel} no puede tapar su propio hidden`,
+      !m || (posHidden >= 0 && posHidden > m.index),
+      'la regla [hidden] debe ir despues para poder ganarle');
+  }
+  const idxPanel = await (await fetch((await base()) + '/')).text();
+  check('el panel se puede ver a pantalla completa',
+    /id="panel-ancho"/.test(idxPanel) && /body\.panel-ancho\.panel\{position:fixed/.test(css1));
+  const appPanel = await (await fetch((await base()) + '/app.js')).text();
+  check('cambiar de vista no borra las demas clases del body',
+    !/document\.body\.className\s*=/.test(appPanel),
+    'asignar className entero se llevaba por delante panel-ancho');
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

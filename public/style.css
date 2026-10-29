@@ -679,3 +679,25 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
   /* La lista de especialistas es lo que hay que poder recorrer, no el resto. */
   .sidebar .agents{min-height:0}
 }
+
+/* ============================================== el atributo hidden manda ===
+   Una regla de autor con display: gana sobre el display:none que el navegador
+   aplica a [hidden]. Por eso .tab-body{display:flex} dejaba las cuatro
+   pestanas visibles a la vez, apiladas, con huecos negros entre ellas.
+   Esta linea tiene que ir despues de todo lo demas. */
+[hidden]{display:none !important}
+
+/* ================================== panel a pantalla completa ============= */
+.expandir{flex:0 0 auto;border:none;background:transparent;color:var(--muted);
+  font-size:1rem;padding:.7rem .6rem;border-radius:0;cursor:pointer}
+.expandir:hover{color:var(--fg);background:var(--bg3)}
+body.panel-ancho .panel{position:fixed;inset:0;z-index:40;border-left:none}
+body.panel-ancho .expandir{color:var(--accent)}
+/* A pantalla completa el contenido respira y la salida se lee de verdad. */
+body.panel-ancho .tab-body{padding:1.1rem 1.4rem}
+body.panel-ancho #tab-salida{font-size:.82rem}
+body.panel-ancho .item .body{max-height:none}
+@media (max-width:900px){
+  /* En un movil el panel ya ocupa la pantalla: el boton sobra. */
+  .expandir{display:none}
+}
