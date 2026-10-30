@@ -51,9 +51,13 @@ function check(nombre, condicion, detalle) {
   const health = await req('/api/health', { token: null });
   check('el servicio responde', health.status === 200 && health.data.ok);
   check('encuentra el binario de Claude', health.data.claude === true, 'config.claudeBin no resuelve');
-  check('la sesion de Claude esta vigente',
+  // Caducado no es lo mismo que sin sesion: el CLI renueva solo con el
+  // refresh token. Lo que importa es si podra trabajar.
+  check('la sesion de Claude sirve para trabajar',
     health.data.session && health.data.session.valida === true,
-    `caduca ${health.data.session && health.data.session.expira}: los agentes no podran trabajar`);
+    health.data.session && health.data.session.renovable
+      ? `caducada el ${health.data.session.expira} pero renovable`
+      : `sin sesion utilizable: los agentes no podran trabajar`);
 
   // --- autenticacion ---
   if (health.data.auth) {
@@ -969,8 +973,24 @@ function check(nombre, condicion, detalle) {
   check('list_agents distingue a los de fuera',
     /FUERA de este servidor/.test(fs.readFileSync(`${__dirname}/../src/bridge/mcp-server.js`, 'utf8')),
     'el especialista debe saber que no estan en esta maquina');
+  check('la API habla en castellano tambien para quien atiende',
+    (await req('/api/externos')).data.recepcion.every((r) => 'nombre' in r && !('name' in r)),
+    'la interfaz lee "nombre": con "name" mostraba atiende: undefined');
   check('hay interruptor de recepcion y gestion de credenciales',
     /name="recepcion"/.test(idxPanel) && /id="externo-crear"/.test(idxPanel));
+  const instSrc = fs.readFileSync(`${__dirname}/../install.sh`, 'utf8');
+  check('el instalador busca Codex y dice si falta',
+    /codex:  no instalado \(opcional\)/.test(instSrc) && /--codex-bin/.test(instSrc),
+    'sin esto, "no instalado" aparece en la web sin explicacion');
+  check('deja claro que Codex es opcional, no un requisito',
+    /SEGUNDO PROVEEDOR \(opcional\)/.test(instSrc) &&
+    /npm install -g @openai\/codex/.test(instSrc));
+  check('el README lista los dos CLI y cual es obligatorio',
+    /@anthropic-ai\/claude-code/.test(fs.readFileSync(`${__dirname}/../README.md`, 'utf8')) &&
+    /@openai\/codex/.test(fs.readFileSync(`${__dirname}/../README.md`, 'utf8')));
+  check('hay guia para parchear una instalacion existente',
+    fs.existsSync(`${__dirname}/../docs/ACTUALIZAR.md`) &&
+    /marcha atras/i.test(fs.readFileSync(`${__dirname}/../docs/ACTUALIZAR.md`, 'utf8')));
   check('esta documentado como conectar una maquina de fuera',
     fs.existsSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`) &&
     /x-v4-externo/.test(fs.readFileSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`, 'utf8')));
@@ -1227,9 +1247,12 @@ function check(nombre, condicion, detalle) {
   const prov = await req('/api/providers');
   const pr = prov.data.proveedores && prov.data.proveedores[0];
   check('publica el estado del proveedor', prov.status === 200 && pr && pr.proveedor === 'claude', JSON.stringify(prov.data).slice(0, 120));
+  // Un token caducado pero renovable sigue sirviendo: el CLI lo renueva en el
+  // siguiente turno. Exigir "vigente" daba falsa alarma cada pocas horas.
   check('el proveedor tiene sesion utilizable',
-    pr && pr.conectado === true && pr.credenciales && pr.credenciales.vigente === true,
-    `conectado=${pr && pr.conectado} vigente=${pr && pr.credenciales && pr.credenciales.vigente}`);
+    pr && pr.conectado === true && pr.credenciales && pr.credenciales.utilizable === true,
+    `conectado=${pr && pr.conectado} utilizable=${pr && pr.credenciales && pr.credenciales.utilizable}`
+    + ` (vigente=${pr && pr.credenciales && pr.credenciales.vigente})`);
   check('informa de la cuenta y el plan', !!(pr && pr.cuenta && pr.plan), JSON.stringify(pr && { cuenta: pr.cuenta, plan: pr.plan }));
 
   check('publica las ventanas de uso', Array.isArray(pr && pr.limites), JSON.stringify(pr && pr.limites));

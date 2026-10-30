@@ -2,15 +2,31 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-/** Lee la caducidad del token sin exponer el secreto. */
+/**
+ * Lee la caducidad del token sin exponer el secreto.
+ *
+ * "Caducado" NO es lo mismo que "sin sesion". El token de acceso dura unas
+ * horas y el CLI lo renueva solo con el refresh token en cuanto corre un
+ * turno. Decir "los agentes no podran trabajar" por un token que caduco hace
+ * diez minutos es una falsa alarma: ya nos la dimos una vez.
+ */
 function estado(archivo) {
   try {
     const d = JSON.parse(fs.readFileSync(archivo, 'utf8'));
     const o = d.claudeAiOauth || d;
     const exp = Number(o.expiresAt || 0);
-    return { existe: true, expiraEn: exp, vigente: exp > Date.now(), expiraIso: exp ? new Date(exp).toISOString() : null };
+    const renovable = !!(o.refreshToken || o.refresh_token);
+    return {
+      existe: true,
+      expiraEn: exp,
+      vigente: exp > Date.now(),
+      renovable,
+      // Lo que de verdad importa: si podra trabajar o no.
+      utilizable: exp > Date.now() || renovable,
+      expiraIso: exp ? new Date(exp).toISOString() : null
+    };
   } catch {
-    return { existe: false, expiraEn: 0, vigente: false, expiraIso: null };
+    return { existe: false, expiraEn: 0, vigente: false, renovable: false, utilizable: false, expiraIso: null };
   }
 }
 

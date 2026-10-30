@@ -476,6 +476,22 @@ test/selftest.js     autodiagnostico
 - Los agentes heredan los permisos del usuario del servicio. Es deliberado: necesitan
   tocar el proyecto de verdad. Instala v4 solo en servidores de desarrollo.
 
+## Requisitos
+
+- **Node 22.5+** (por `node:sqlite`).
+- **Claude Code** — obligatorio: `npm install -g @anthropic-ai/claude-code`
+- **Codex CLI** — opcional, habilita ChatGPT como segundo proveedor:
+  `npm install -g @openai/codex`
+
+El instalador detecta los dos solos. Sin Codex el sistema funciona entero
+sobre Claude; la pantalla de Proveedor dira "no instalado" y nada mas.
+
+## Actualizar
+
+Aplicar una version nueva sobre una instalacion con trabajo dentro:
+ver [docs/ACTUALIZAR.md](docs/ACTUALIZAR.md). Las migraciones son aditivas,
+asi que la marcha atras es segura.
+
 ## Agentes de otras maquinas
 
 Un agente que corre en tu PC o en otro servidor puede coordinarse con este

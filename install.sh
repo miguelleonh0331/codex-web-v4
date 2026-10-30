@@ -5,7 +5,10 @@
 #   sudo ./install.sh [--user USUARIO] [--port PUERTO] [--data-dir RUTA]
 #                     [--project-path RUTA] [--project-name NOMBRE]
 #                     [--bind "127.0.0.1,100.x.y.z"] [--session-from RUTA_PERFIL]
-#                     [--https-port 8445] [--no-tailscale]
+#                     [--https-port 8445] [--no-tailscale] [--codex-bin RUTA]
+#
+# Requiere Claude Code. Codex (ChatGPT) es opcional: habilita el segundo
+# proveedor y se detecta solo si esta instalado.
 #
 # Si Tailscale esta en marcha, publica la aplicacion por HTTPS dentro de la
 # tailnet al terminar. Hace falta para instalarla en el movil y para las
@@ -29,6 +32,7 @@ SIN_TAILSCALE=0
 SESSION_FROM=""
 SESSION_DIR=""
 CLAUDE_BIN=""
+CODEX_BIN=""
 NODE_BIN="$(command -v node || true)"
 # sudo suele limpiar el PATH, asi que buscamos node donde suele vivir.
 if [[ -z "$NODE_BIN" ]]; then
@@ -52,6 +56,7 @@ while [[ $# -gt 0 ]]; do
     --session-dir) SESSION_DIR="$2"; shift 2 ;;
     --node) NODE_BIN="$2"; shift 2 ;;
     --claude-bin) CLAUDE_BIN="$2"; shift 2 ;;
+    --codex-bin) CODEX_BIN="$2"; shift 2 ;;
     --service-name) SERVICE_NAME="$2"; shift 2 ;;
     --https-port) HTTPS_PORT="$2"; shift 2 ;;
     --no-tailscale) SIN_TAILSCALE=1; shift ;;
@@ -107,6 +112,23 @@ if ! "$CLAUDE_BIN" --version >/dev/null 2>&1; then
   echo "    aviso: $CLAUDE_BIN no responde a --version; comprueba que es ejecutable" >&2
 fi
 
+# Codex es el SEGUNDO proveedor y es opcional: sin el, el sistema funciona
+# entero sobre Claude. Pero conviene decirlo ahora y no que se descubra en la
+# pantalla de Proveedor con un "no instalado" sin explicacion.
+if [[ -z "$CODEX_BIN" ]]; then
+  for c in "$(command -v codex 2>/dev/null || true)" \
+           /usr/local/bin/codex \
+           /usr/bin/codex \
+           /opt/codex-web/node_modules/.bin/codex; do
+    [[ -n "$c" && -x "$c" ]] && { CODEX_BIN="$c"; break; }
+  done
+fi
+if [[ -n "$CODEX_BIN" ]]; then
+  echo "    codex:  $CODEX_BIN"
+else
+  echo "    codex:  no instalado (opcional)"
+fi
+
 if ss -ltn 2>/dev/null | grep -q ":${PORT}\b"; then
   echo "El puerto ${PORT} ya esta ocupado. Elige otro con --port." >&2; exit 1
 fi
@@ -125,6 +147,7 @@ if [[ -f "$CONFIG_FILE" ]]; then
   echo "    $CONFIG_FILE ya existe, se conserva"
 else
   BIND_JSON="$(printf '%s' "$BIND" | awk -F, '{for(i=1;i<=NF;i++){printf "%s\"%s\"", (i>1?", ":""), $i}}')"
+  CODEX_BIN_JSON="$([[ -n "$CODEX_BIN" ]] && printf '"%s"' "$CODEX_BIN" || echo null)"
   cat > "$CONFIG_FILE" <<JSON
 {
   "nombre": "${APP_NAME}",
@@ -132,6 +155,7 @@ else
   "bindHosts": [${BIND_JSON}],
   "dataDir": "${DATA_DIR}",
   "model": "sonnet",
+  "codexBin": ${CODEX_BIN_JSON},
   "maxConcurrentTurns": 2,
   "turnTimeoutMs": 0,
   "inactivityTimeoutMs": 1800000,
@@ -279,6 +303,15 @@ for i in $(seq 1 20); do
       echo "FALTA LA SESION DE CLAUDE (${SESION_OK}). Los agentes no podran trabajar hasta que la inicies."
       echo "Hazlo desde la propia aplicacion, en la seccion Proveedores, o a mano:"
       echo "  sudo -u ${USER_NAME} env HOME=${DATA_DIR} CLAUDE_CONFIG_DIR=\$(${NODE_BIN} -p \"JSON.parse(require('fs').readFileSync('${CONFIG_FILE}','utf8')).sessionDir||'${DATA_DIR}/session'\") ${CLAUDE_BIN} auth login"
+    fi
+    if [[ -z "$CODEX_BIN" ]]; then
+      echo
+      echo "SEGUNDO PROVEEDOR (opcional). ChatGPT no esta disponible en este servidor."
+      echo "El sistema funciona entero sobre Claude; esto solo anade la opcion de"
+      echo "asignar especialistas a ChatGPT. Para tenerlo:"
+      echo "  npm install -g @openai/codex"
+      echo "  sudo ./install.sh --codex-bin \$(command -v codex)   # o reejecuta sin mas"
+      echo "Despues, conectalo desde la web: Proveedor > Conectar ChatGPT."
     fi
     echo "Estado:           systemctl status ${SERVICE_NAME}"
     echo "Registro:         ${DATA_DIR}/logs/service.log"

@@ -416,7 +416,12 @@ async function api(req, res, url) {
       running: orq.busy, claude: !!cfg.claudeBin, port: cfg.port,
       auth: !!cfg.requireAuth,
       ui: assetVersion(),
-      session: (() => { const e = sesion.estado(sesion.archivoSesion(cfg)); return { valida: e.vigente, expira: e.expiraIso }; })()
+      session: (() => {
+        const e = sesion.estado(sesion.archivoSesion(cfg));
+        // valida = podra trabajar. Un token caducado pero renovable lo es:
+        // el CLI lo renueva solo en el siguiente turno.
+        return { valida: e.utilizable, vigente: e.vigente, renovable: e.renovable, expira: e.expiraIso };
+      })()
     });
   }
 
@@ -1008,7 +1013,9 @@ async function api(req, res, url) {
   if (p === '/api/externos' && m === 'GET') {
     return json(res, 200, {
       externos: store.listarExternos().map((e) => ({ ...e, pendientes: store.pendientesExterno(e.id) })),
-      recepcion: store.recepcionistas().map((a) => ({ id: a.id, name: a.name }))
+      // "nombre" y no "name": el resto de esta API usa castellano y la
+      // interfaz lo leia asi, con lo que mostraba "atiende: undefined".
+      recepcion: store.recepcionistas().map((a) => ({ id: a.id, nombre: a.name }))
     });
   }
 
