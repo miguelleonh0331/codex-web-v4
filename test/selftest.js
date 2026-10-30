@@ -1125,6 +1125,39 @@ function check(nombre, condicion, detalle) {
     return true;
   })(), 'el sintetizador no lo nota, pero el texto en pantalla si');
 
+  // Actividad: lo que faltaba. LILIT sabia quejarse pero no decir como va
+  // el equipo cuando no hay ningun problema.
+  const lilitAct = (await req('/api/lilit')).data.actividad;
+  check('LILIT sabe decir quien esta trabajando',
+    lilitAct && Array.isArray(lilitAct.trabajando) && typeof lilitAct.texto === 'string' &&
+    typeof lilitAct.inactivos === 'number' && typeof lilitAct.total === 'number',
+    JSON.stringify(lilitAct));
+  {
+    const d = lilitMod.decirActividad;
+    check('el parte de actividad se lee bien en todos los casos',
+      d({ trabajando: [], enCola: 0, esperandoCuota: 0, total: 5, desdeHaceMin: 0 }) === 'Ahora mismo no hay nadie trabajando.' &&
+      /^Telefonia esta trabajando, lleva 7 minutos\.$/.test(d({ trabajando: ['Telefonia'], enCola: 0, esperandoCuota: 0, total: 5, desdeHaceMin: 7 })) &&
+      /Hay 2 trabajando: A y B\. 3 trabajos en cola\./.test(d({ trabajando: ['A', 'B'], enCola: 3, esperandoCuota: 0, total: 5, desdeHaceMin: 1 })),
+      d({ trabajando: ['A', 'B'], enCola: 3, esperandoCuota: 0, total: 5, desdeHaceMin: 1 }));
+    check('con muchos trabajando no recita la lista entera',
+      /A, B, C, entre otros/.test(d({ trabajando: ['A', 'B', 'C', 'D', 'E'], enCola: 0, esperandoCuota: 0, total: 9, desdeHaceMin: 2 })) &&
+      !/y entre otros/.test(d({ trabajando: ['A', 'B', 'C', 'D'], enCola: 0, esperandoCuota: 0, total: 9, desdeHaceMin: 2 })),
+      'mas de tres nombres seguidos no se retienen de oido, y "y alguno mas" duplicaba la conjuncion');
+  }
+  check('la actividad no se cuela en la vigilancia automatica', (() => {
+    // Se recorta la funcion por su cierre en columna cero: partir por
+    // "function " cogia tambien el manejador del boton, que si la usa.
+    const i = appAct.indexOf('async function lilitMirar');
+    if (i < 0) return false;
+    const resto = appAct.slice(i);
+    const cuerpo = resto.slice(0, resto.indexOf('\n}\n'));
+    return !/actividad/.test(cuerpo);
+  })(), 'anunciar quien trabaja cada vez que cambia seria ruido continuo');
+  check('el parte a peticion empieza por como va el equipo',
+    /partes = \[`Señor\. \$\{actividad\.texto\}`\]/.test(appAct));
+  check('la pestana muestra la actividad arriba',
+    /ahora mismo<\/span>/.test(appAct) && /libres<\/span>/.test(appAct));
+
   check('hay boton para pedirle el parte a mano',
     /id="lilit-estado"/.test(idxPanel) && /anunciaSiempre/.test(appAct),
     'la vigilancia calla cuando no hay novedades; a veces se quiere preguntar');

@@ -585,8 +585,15 @@ async function renderPanel() {
   }
 
   if (active === 'lilit') {
-    const { hallazgos, modelo } = await api('/api/lilit');
-    const cab = `<p class="muted" style="font-size:.74rem">
+    const { hallazgos, modelo, actividad } = await api('/api/lilit');
+    const act = actividad || {};
+    const cab = `
+      <div class="item ${act.trabajando && act.trabajando.length ? 'activo' : ''}">
+        <div class="hdr"><span>ahora mismo</span>
+        <span>${act.inactivos ?? 0} de ${act.total ?? 0} libres</span></div>
+        <div class="body">${escapeHtml(act.texto || '')}</div>
+      </div>
+      <p class="muted" style="font-size:.74rem">
       Vigila el equipo y avisa por voz. ${modelo ? `Redaccion natural con ${escapeHtml(modelo)}.` : 'Sin modelo externo: frases propias.'}
       </p>`;
     $('#tab-lilit').innerHTML = cab + (hallazgos.length ? hallazgos.map((h) => `
@@ -2012,11 +2019,16 @@ if ($('#lilit-estado')) {
     const b = $('#lilit-estado');
     b.disabled = true;
     try {
-      const { hallazgos } = await api('/api/lilit');
-      // Al pedirlo a mano se cuentan tambien los de nivel bajo: aqui el
-      // usuario quiere el parte completo, no solo lo urgente.
+      const { hallazgos, actividad } = await api('/api/lilit');
+      // El parte empieza por "como vamos", que es lo que se pregunta al
+      // pulsarlo. La vigilancia automatica no dice esto: anunciar quien
+      // trabaja cada vez que cambia seria ruido continuo.
+      const partes = [`Señor. ${actividad.texto}`];
+
+      // Al pedirlo a mano se cuentan tambien los de nivel bajo: aqui se
+      // quiere el parte completo, no solo lo urgente.
       if (!hallazgos.length) {
-        VOZ.anunciaSiempre('Lilit', 'Señor, todo en orden. No hay nada que reportar.', { completo: true, sinNombre: true });
+        partes.push('No hay nada que reportar.');
       } else {
         let texto = hallazgos.map((h) => h.texto).join(' ');
         if (hallazgos.length > 1) {
@@ -2027,10 +2039,11 @@ if ($('#lilit-estado')) {
             if (r.texto) texto = r.texto;
           } catch { /* el diccionario ya sirve */ }
         }
-        VOZ.anunciaSiempre('Lilit', texto, { completo: true, sinNombre: true });
+        partes.push(texto);
         // Se dan por dichos: no tiene sentido que los repita un minuto despues.
         for (const h of hallazgos) lilitDichos.add(h.clave);
       }
+      VOZ.anunciaSiempre('Lilit', partes.join(' '), { completo: true, sinNombre: true });
       setView('panel');
       document.querySelector('.tab[data-tab="lilit"]').click();
     } catch (e) {

@@ -1106,8 +1106,12 @@ async function api(req, res, url) {
     })();
     const ses = sesion.estado(sesion.archivoSesion(cfg));
     const hallazgos = lilit.auditar(store, cfg, { gasto, sesion: ses });
+    const act = lilit.actividad(store);
     return json(res, 200, {
       hallazgos: hallazgos.map((h) => ({ ...h, texto: lilit.decir(h) })),
+      // La actividad va aparte de los hallazgos a proposito: no es un
+      // problema, y la vigilancia automatica no debe anunciarla.
+      actividad: { ...act, texto: lilit.decirActividad(act) },
       modelo: lilitGroq.disponible(cfg) ? lilitGroq.MODELO : null
     });
   }

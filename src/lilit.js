@@ -164,9 +164,70 @@ function auditar(store, cfg, extra = {}) {
   return hallazgos;
 }
 
+/**
+ * Quien esta trabajando ahora mismo.
+ *
+ * Esto NO sale en la vigilancia automatica: anunciar cada vez que alguien
+ * empieza o termina seria ruido constante. Es para cuando se pide el parte
+ * a mano, que es cuando la pregunta es "como vamos".
+ */
+function actividad(store) {
+  const agentes = store.listAgents();
+  const sql = (q, ...p) => { try { return store.db.prepare(q).all(...p); } catch { return []; } };
+
+  const trabajando = agentes.filter((a) => a.status === 'working').map((a) => a.name);
+  const enCola = sql("SELECT COUNT(*) c FROM turns WHERE status = 'pending'")[0];
+  const esperandoCuota = sql("SELECT COUNT(*) c FROM turns WHERE status = 'esperando_cuota'")[0];
+
+  // Cuanto llevan los que estan en marcha: "trabajando" sin mas no dice si
+  // acaba de empezar o lleva media hora.
+  const corriendo = sql("SELECT agent_id, started_at FROM turns WHERE status = 'running'");
+  const masViejo = corriendo.reduce((max, t) => {
+    const min = t.started_at ? Math.round((Date.now() - new Date(t.started_at).getTime()) / 60000) : 0;
+    return min > max ? min : max;
+  }, 0);
+
+  return {
+    trabajando,
+    enCola: enCola ? enCola.c : 0,
+    esperandoCuota: esperandoCuota ? esperandoCuota.c : 0,
+    inactivos: agentes.filter((a) => a.status === 'idle').length,
+    total: agentes.length,
+    desdeHaceMin: masViejo
+  };
+}
+
+/** El parte de actividad, dicho como se diria en voz alta. */
+function decirActividad(act) {
+  const lista = (ns) => (ns.length === 1 ? ns[0]
+    : `${ns.slice(0, -1).join(', ')} y ${ns[ns.length - 1]}`);
+
+  const partes = [];
+  if (!act.trabajando.length) {
+    partes.push(act.total
+      ? 'Ahora mismo no hay nadie trabajando'
+      : 'Todavia no hay especialistas');
+  } else if (act.trabajando.length === 1) {
+    partes.push(`${act.trabajando[0]} esta trabajando`
+      + (act.desdeHaceMin > 1 ? `, lleva ${act.desdeHaceMin} minutos` : ''));
+  } else {
+    // Mas de tres nombres seguidos no se retienen de oido: se dicen tres y
+    // se cierra con "entre otros", que no choca con la "y" de la lista.
+    const sobran = act.trabajando.length > 3;
+    const ns = act.trabajando.slice(0, 3);
+    partes.push(`Hay ${act.trabajando.length} trabajando: `
+      + (sobran ? `${ns.join(', ')}, entre otros` : lista(ns)));
+  }
+  if (act.enCola) partes.push(`${act.enCola} ${act.enCola === 1 ? 'trabajo' : 'trabajos'} en cola`);
+  if (act.esperandoCuota) {
+    partes.push(`${act.esperandoCuota} ${act.esperandoCuota === 1 ? 'esperando' : 'esperando'} a que vuelva la cuota`);
+  }
+  return `${partes.join('. ')}.`;
+}
+
 /** Convierte un hallazgo en la frase que se dira en voz alta. */
 function decir(h) {
   return frase(h.tipo, { n: h.n, quien: h.quien }, h.nivel === 'urgente');
 }
 
-module.exports = { auditar, decir, PIDE_APROBACION, PREGUNTA, contiene };
+module.exports = { auditar, decir, actividad, decirActividad, PIDE_APROBACION, PREGUNTA, contiene };
