@@ -81,4 +81,76 @@ async function redactar(cfg, hallazgos, respaldo) {
   }
 }
 
-module.exports = { redactar, disponible, MODELO };
+/** Donde vive la clave. Fuera del repositorio y solo legible por el servicio. */
+function archivoClave(cfg) {
+  return cfg.groqKeyFile || path.join(cfg.dataDir, 'secretos', 'groq.key');
+}
+
+/**
+ * Estado de la clave SIN devolverla.
+ *
+ * Se ensenan los cuatro ultimos caracteres, lo justo para reconocer cual
+ * tienes puesta. Devolverla entera seria regalar en cada carga de la pagina
+ * lo que se guardo con permisos 600.
+ */
+function estadoClave(cfg) {
+  const k = clave(cfg);
+  if (!k) return { configurada: false, cola: null, origen: null };
+  return {
+    configurada: true,
+    cola: k.slice(-4),
+    origen: process.env.GROQ_API_KEY ? 'variable de entorno' : archivoClave(cfg)
+  };
+}
+
+/** Comprueba contra el servicio que una clave sirve de verdad. */
+async function probar(k) {
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: { authorization: `Bearer ${String(k || '').trim()}` },
+      signal: AbortSignal.timeout(ESPERA_MS)
+    });
+    if (r.status === 401) return { ok: false, error: 'la clave no es valida' };
+    if (!r.ok) return { ok: false, error: `el servicio respondio ${r.status}` };
+    const d = await r.json();
+    const modelos = (d.data || []).map((m) => m.id);
+    return {
+      ok: true,
+      modelos: modelos.length,
+      // Si el modelo que usamos no esta, conviene saberlo antes de depender de el.
+      tieneElNuestro: modelos.includes(MODELO)
+    };
+  } catch (e) {
+    return { ok: false, error: `no se pudo comprobar: ${e.message}` };
+  }
+}
+
+/**
+ * Guarda la clave, pero solo si funciona.
+ *
+ * Guardar una clave mala sin avisar dejaria a LILIT usando el diccionario
+ * para siempre sin que nadie entendiera por que.
+ */
+async function guardarClave(cfg, k) {
+  const limpia = String(k || '').trim();
+  if (!limpia) throw new Error('clave vacia');
+  if (process.env.GROQ_API_KEY) {
+    throw new Error('hay una clave en la variable de entorno GROQ_API_KEY: esa manda sobre el fichero');
+  }
+  const prueba = await probar(limpia);
+  if (!prueba.ok) throw new Error(prueba.error);
+
+  const f = archivoClave(cfg);
+  fs.mkdirSync(path.dirname(f), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(f, limpia, { mode: 0o600 });
+  try { fs.chmodSync(f, 0o600); } catch { /* ya estaba */ }
+  ultima = 0;                      // que la siguiente redaccion pueda salir ya
+  return { ...estadoClave(cfg), ...prueba };
+}
+
+function borrarClave(cfg) {
+  try { fs.rmSync(archivoClave(cfg), { force: true }); } catch { /* no estaba */ }
+  return estadoClave(cfg);
+}
+
+module.exports = { redactar, disponible, MODELO, estadoClave, guardarClave, borrarClave, probar, archivoClave };

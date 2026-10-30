@@ -1121,6 +1121,29 @@ async function api(req, res, url) {
     return json(res, 200, { texto });
   }
 
+  // Clave del modelo externo de LILIT, desde la web. Nunca se devuelve:
+  // solo si esta puesta y sus cuatro ultimos caracteres.
+  if (p === '/api/lilit/clave' && m === 'GET') {
+    return json(res, 200, { ...lilitGroq.estadoClave(cfg), modelo: lilitGroq.MODELO });
+  }
+
+  if (p === '/api/lilit/clave' && m === 'POST') {
+    const b = await readBody(req);
+    try {
+      const out = await lilitGroq.guardarClave(cfg, b.clave);
+      store.event('lilit.clave', null, { configurada: true });
+      return json(res, 200, { ok: true, ...out });
+    } catch (e) {
+      return json(res, 400, { error: e.message });
+    }
+  }
+
+  if (p === '/api/lilit/clave' && m === 'DELETE') {
+    const out = lilitGroq.borrarClave(cfg);
+    store.event('lilit.clave', null, { configurada: false });
+    return json(res, 200, { ok: true, ...out });
+  }
+
   if (p === '/api/guardia' && m === 'GET') {
     return json(res, 200, {
       vigilando: cfg.rutasProtegidas || [],

@@ -1078,6 +1078,28 @@ function check(nombre, condicion, detalle) {
     'lo que hablas con tu equipo no sale del servidor');
   check('tiene limite de ritmo propio',
     /MIN_ENTRE_LLAMADAS/.test(groqSrc), 'avisar no puede costar mas que trabajar');
+  // La clave se pone desde la web: nadie deberia tener que entrar por SSH
+  // a dejar un fichero para esto.
+  const clv = (await req('/api/lilit/clave')).data;
+  check('la clave se gestiona desde la web',
+    typeof clv.configurada === 'boolean' && /id="lilit-clave-guardar"/.test(idxPanel),
+    JSON.stringify(clv));
+  check('nunca devuelve la clave, solo sus ultimos caracteres',
+    !('clave' in clv) && !('key' in clv) &&
+    (clv.cola === null || clv.cola.length <= 4),
+    'devolverla entera seria regalar en cada carga lo que se guardo con permisos 600');
+  check('una clave que no funciona se rechaza en vez de guardarse',
+    (await req('/api/lilit/clave', { method: 'POST', body: { clave: 'gsk_inventada_del_todo' } })).status === 400,
+    'guardarla dejaria a LILIT con el diccionario sin decir por que');
+  check('la que ya estaba sigue intacta tras el intento fallido',
+    (await req('/api/lilit/clave')).data.configurada === clv.configurada);
+  check('se escribe con permisos restringidos', (() => {
+    const g = require(`${__dirname}/../src/lilit-groq.js`);
+    const f = g.archivoClave({ dataDir: cfg.dataDir });
+    if (!fs.existsSync(f)) return true;        // sin clave, nada que comprobar
+    return (fs.statSync(f).mode & 0o077) === 0;
+  })());
+
   check('la clave del modelo externo no esta en el repositorio',
     !fs.existsSync(`${__dirname}/../secretos`) &&
     /secretos\//.test(fs.readFileSync(`${__dirname}/../.gitignore`, 'utf8')));

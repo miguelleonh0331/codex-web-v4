@@ -226,6 +226,25 @@
 
     <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0">
 
+    <div id="lilit-clave-caja">
+      <div class="fila"><span class="k">LILIT · modelo externo</span>
+        <span id="lilit-clave-estado" class="muted" style="font-size:.76rem">—</span></div>
+      <p class="muted" style="font-size:.74rem;margin:.2rem 0 .5rem">
+        Opcional. Solo sirve para que redacte mejor cuando hay varias cosas a la
+        vez. Sin clave usa sus propias frases y funciona igual.
+      </p>
+      <label>Clave de Groq
+        <input id="lilit-clave" type="password" placeholder="gsk_…" autocomplete="off">
+      </label>
+      <p class="error" id="lilit-clave-error"></p>
+      <menu style="justify-content:flex-start">
+        <button type="button" id="lilit-clave-guardar" class="primary">Comprobar y guardar</button>
+        <button type="button" id="lilit-clave-borrar" hidden>Quitar</button>
+      </menu>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0">
+
     <div id="externos-caja">
       <div class="fila"><span class="k">Agentes externos</span>
         <span id="externos-resumen" class="muted" style="font-size:.76rem"></span></div>

@@ -960,6 +960,56 @@ if ($('#tope-guardar')) {
 }
 
 /** Agentes de otras maquinas: credenciales y su estado. */
+/** Clave del modelo externo de LILIT. Nunca se muestra entera. */
+async function pintarClaveLilit() {
+  const el = $('#lilit-clave-estado');
+  if (!el) return;
+  try {
+    const d = await api('/api/lilit/clave');
+    el.textContent = d.configurada
+      ? `configurada (termina en ${d.cola}) · ${d.modelo}`
+      : 'sin clave: usa sus propias frases';
+    el.className = d.configurada ? 'bien' : 'muted';
+    $('#lilit-clave-borrar').hidden = !d.configurada;
+    $('#lilit-clave').placeholder = d.configurada ? 'pega otra para reemplazarla' : 'gsk_…';
+  } catch (e) {
+    el.textContent = e.message;
+    el.className = 'mal';
+  }
+}
+
+if ($('#lilit-clave-guardar')) {
+  $('#lilit-clave-guardar').onclick = async () => {
+    const campo = $('#lilit-clave');
+    const err = $('#lilit-clave-error');
+    err.textContent = '';
+    if (!campo.value.trim()) { err.textContent = 'pega la clave'; return; }
+    $('#lilit-clave-guardar').disabled = true;
+    $('#lilit-clave-guardar').textContent = 'comprobando…';
+    try {
+      // Se comprueba contra el servicio ANTES de guardar: una clave mala
+      // dejaria a LILIT con el diccionario para siempre sin decir por que.
+      const r = await api('/api/lilit/clave', { method: 'POST', body: JSON.stringify({ clave: campo.value.trim() }) });
+      campo.value = '';
+      err.textContent = '';
+      $('#lilit-clave-estado').textContent =
+        `guardada · ${r.modelos} modelos${r.tieneElNuestro ? '' : ' (OJO: no incluye el que usamos)'}`;
+      $('#lilit-clave-estado').className = r.tieneElNuestro ? 'bien' : 'mal';
+      await pintarClaveLilit();
+    } catch (e) {
+      err.textContent = e.message;
+    }
+    $('#lilit-clave-guardar').disabled = false;
+    $('#lilit-clave-guardar').textContent = 'Comprobar y guardar';
+  };
+
+  $('#lilit-clave-borrar').onclick = async () => {
+    if (!confirm('Quitar la clave? LILIT seguira avisando con sus propias frases.')) return;
+    await api('/api/lilit/clave', { method: 'DELETE' }).catch(() => {});
+    await pintarClaveLilit();
+  };
+}
+
 async function pintarExternos() {
   const caja = $('#externos-lista');
   if (!caja) return;
@@ -1163,6 +1213,7 @@ $('#btn-proveedor').onclick = async () => {
   $('#proveedor-dialog').showModal();
   await pintarProveedor();
   await pintarGasto();
+  await pintarClaveLilit();
   await pintarExternos();
   await pintarCodex();
 };

@@ -502,13 +502,13 @@ incidencias a la vez; si no responde, usa su diccionario y nadie lo nota.
 Al modelo solo se le manda el tipo de incidencia, nunca el contenido del
 trabajo.
 
-Para activarlo, la clave va fuera del repositorio:
+La clave se pone **desde la web**: Proveedor > LILIT · modelo externo. Se
+comprueba contra el servicio antes de guardarla —una clave mala dejaria a
+LILIT con el diccionario sin decir por que— y se escribe fuera del
+repositorio con permisos 600. Nunca se vuelve a mostrar entera.
 
-```bash
-sudo install -d -m 700 -o codex-web /var/lib/codex-web-v4/secretos
-printf '%s' "TU_CLAVE" | sudo tee /var/lib/codex-web-v4/secretos/groq.key >/dev/null
-sudo chmod 600 /var/lib/codex-web-v4/secretos/groq.key
-```
+Tambien se puede pasar por entorno con `GROQ_API_KEY`, que manda sobre el
+fichero.
 
 ## Actualizar
 
