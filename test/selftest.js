@@ -1135,7 +1135,7 @@ function check(nombre, condicion, detalle) {
     /opciones\.completo/.test(await (await fetch((await base()) + '/voz.js')).text()),
     'con varias incidencias, recortar dejaria fuera casi todo');
   check('los botones de la barra lateral van compactos',
-    /\.sidebar > button\{padding:\.45rem/.test(cssSal) &&
+    /\.sidebar ?> ?button ?\{padding: ?\.45rem/.test(cssEsp) &&
     /\.sidebar \.fila-botones button ?\{/.test(cssEsp) &&
     />📣 Equipo</.test(idxPanel) &&
     (idxPanel.match(/<div class="fila-botones">/g) || []).length === 2,
