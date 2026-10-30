@@ -240,10 +240,33 @@ function detectarFinales(lista) {
   document.title = pendientes ? `(${pendientes}) ${NOMBRE_APP}` : NOMBRE_APP;
 }
 
+/**
+ * Orden de la lista: delante lo que esta pasando.
+ *
+ * Primero quien trabaja, luego quien tiene algo en marcha o esperando
+ * cuota, luego quien tiene respuesta sin leer, y al final los parados.
+ * Dentro de cada grupo se respeta el orden de siempre: reordenar de mas
+ * formas haria que la lista bailara y se pulsara al que no es.
+ */
+function prioridad(a) {
+  if (a.status === 'working') return 0;
+  if (a.status === 'queued' || a.status === 'esperando_cuota') return 1;
+  if (tienePendiente(a) && selected !== a.id) return 2;
+  return 3;
+}
+
+function agentesOrdenados() {
+  // El indice original desempata, asi que el orden dentro del grupo no cambia.
+  return agents
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => prioridad(x.a) - prioridad(y.a) || x.i - y.i)
+    .map((x) => x.a);
+}
+
 function renderAgents() {
   const box = $('#agent-list');
   box.innerHTML = '';
-  for (const a of agents) {
+  for (const a of agentesOrdenados()) {
     const el = document.createElement('div');
     const pendiente = tienePendiente(a) && selected !== a.id;
     el.className = 'agent' + (selected === a.id ? ' sel' : '') + (pendiente ? ' pendiente' : '');

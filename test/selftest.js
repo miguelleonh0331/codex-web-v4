@@ -1003,6 +1003,18 @@ function check(nombre, condicion, detalle) {
     fs.existsSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`) &&
     /x-v4-externo/.test(fs.readFileSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`, 'utf8')));
 
+  // --- orden de la lista de especialistas ---
+  check('la lista pone delante a quien esta trabajando',
+    /function prioridad\(a\)/.test(appAct) &&
+    /if \(a\.status === 'working'\) return 0/.test(appAct) &&
+    /for \(const a of agentesOrdenados\(\)\)/.test(appAct),
+    'lo que esta pasando debe verse sin buscarlo');
+  check('dentro de cada grupo no se altera el orden',
+    /\|\| x\.i - y\.i/.test(appAct),
+    'sin desempate estable la lista bailaria y se pulsaria al que no es');
+  check('el que tiene respuesta sin leer sube, pero detras de los que trabajan',
+    /if \(tienePendiente\(a\) && selected !== a\.id\) return 2/.test(appAct));
+
   // --- LILIT ---
   const { frase, cuantas } = require(`${__dirname}/../src/lilit-frases.js`);
   const lilitMod = require(`${__dirname}/../src/lilit.js`);
