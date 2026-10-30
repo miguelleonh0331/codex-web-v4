@@ -1103,6 +1103,44 @@ function check(nombre, condicion, detalle) {
   check('la clave del modelo externo no esta en el repositorio',
     !fs.existsSync(`${__dirname}/../secretos`) &&
     /secretos\//.test(fs.readFileSync(`${__dirname}/../.gitignore`, 'utf8')));
+  check('LILIT trata de usted, como pide el tratamiento de señor', (() => {
+    const { FRASES } = require(`${__dirname}/../src/lilit-frases.js`);
+    const tuteo = /\b(tu|te|tuya|tuyo|tienes|puedes|decidas|aclares|pusiste|esperarte|revisa|oye|mira|atento|escucha)\b/i;
+    return Object.values(FRASES).flat().every((f) => !tuteo.test(f));
+  })(), 'llamar de señor y tutear a la vez suena a traduccion mala');
+  check('siempre se dirige al usuario como señor', (() => {
+    for (const tipo of ['conexion', 'aprobacion', 'guardia', 'cuota', 'error']) {
+      for (let i = 0; i < 25; i += 1) {
+        if (!/señor/i.test(frase(tipo, { n: 2, quien: 'X' }))) return false;
+      }
+    }
+    return true;
+  })());
+  check('el tratamiento no deja minusculas tras punto', (() => {
+    for (const tipo of ['conexion', 'aprobacion', 'guardia', 'contexto']) {
+      for (let i = 0; i < 40; i += 1) {
+        if (/[.!?]\s+[a-zñáéíóú]/.test(frase(tipo, { n: 1, quien: 'Telefonia' }))) return false;
+      }
+    }
+    return true;
+  })(), 'el sintetizador no lo nota, pero el texto en pantalla si');
+
+  check('hay boton para pedirle el parte a mano',
+    /id="lilit-estado"/.test(idxPanel) && /anunciaSiempre/.test(appAct),
+    'la vigilancia calla cuando no hay novedades; a veces se quiere preguntar');
+  check('el parte a peticion se oye aunque la voz este apagada',
+    /anunciaSiempre\(nombre, texto, opciones/.test(await (await fetch((await base()) + '/voz.js')).text()),
+    'si no, el boton pareceria roto');
+  check('el parte no se recorta a la primera frase',
+    /opciones\.completo/.test(await (await fetch((await base()) + '/voz.js')).text()),
+    'con varias incidencias, recortar dejaria fuera casi todo');
+  check('los botones de la barra lateral van compactos',
+    /\.sidebar > button\{padding:\.45rem/.test(cssSal) &&
+    /\.sidebar \.fila-botones button ?\{/.test(cssEsp) &&
+    />📣 Equipo</.test(idxPanel) &&
+    (idxPanel.match(/<div class="fila-botones">/g) || []).length === 2,
+    'el sitio de la barra es para la lista de especialistas, no para los botones');
+
   check('hay pestana e interruptor de LILIT',
     /data-tab="lilit"/.test(idxPanel) && /id="lilit-on"/.test(idxPanel));
 

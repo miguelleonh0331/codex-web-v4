@@ -1997,9 +1997,47 @@ async function lilitMirar() {
       if (r.texto) texto = r.texto;
     } catch { /* el diccionario ya sirve */ }
   }
-  VOZ.anuncia('Lilit', texto);
+  VOZ.anuncia('Lilit', texto, { completo: true, sinNombre: true });
   const t = document.querySelector('.tab[data-tab="lilit"]');
   if (t && urgentes.length) t.classList.add('avisa');
+}
+
+/**
+ * Informe a peticion: LILIT cuenta como esta todo ahora, aunque no haya
+ * nada nuevo. Es distinto de la vigilancia automatica, que calla cuando no
+ * hay novedades.
+ */
+if ($('#lilit-estado')) {
+  $('#lilit-estado').onclick = async () => {
+    const b = $('#lilit-estado');
+    b.disabled = true;
+    try {
+      const { hallazgos } = await api('/api/lilit');
+      // Al pedirlo a mano se cuentan tambien los de nivel bajo: aqui el
+      // usuario quiere el parte completo, no solo lo urgente.
+      if (!hallazgos.length) {
+        VOZ.anunciaSiempre('Lilit', 'Señor, todo en orden. No hay nada que reportar.', { completo: true, sinNombre: true });
+      } else {
+        let texto = hallazgos.map((h) => h.texto).join(' ');
+        if (hallazgos.length > 1) {
+          try {
+            const r = await api('/api/lilit/redactar', {
+              method: 'POST', body: JSON.stringify({ hallazgos })
+            });
+            if (r.texto) texto = r.texto;
+          } catch { /* el diccionario ya sirve */ }
+        }
+        VOZ.anunciaSiempre('Lilit', texto, { completo: true, sinNombre: true });
+        // Se dan por dichos: no tiene sentido que los repita un minuto despues.
+        for (const h of hallazgos) lilitDichos.add(h.clave);
+      }
+      setView('panel');
+      document.querySelector('.tab[data-tab="lilit"]').click();
+    } catch (e) {
+      alert(`No se pudo consultar a LILIT: ${e.message}`);
+    }
+    b.disabled = false;
+  };
 }
 
 if ($('#lilit-on')) {

@@ -81,7 +81,15 @@ const VOZ = (() => {
     /** Cuantas voces distintas hay para repartir. */
     get cuantas() { return voces.length; },
 
-    anuncia(nombre, texto) {
+    /**
+     * Anuncia algo por voz.
+     *
+     * Por defecto recorta a la primera frase: cuando un especialista termina,
+     * lo que importa es el titular, no la respuesta entera. Con
+     * {completo:true} se dice todo, que es lo que necesita un parte de LILIT
+     * con varias incidencias.
+     */
+    anuncia(nombre, texto, opciones = {}) {
       if (!this.activa) return;
       // Se recorta: el aviso es "he terminado", no la respuesta entera.
       const limpio = String(texto || '')
@@ -91,9 +99,26 @@ const VOZ = (() => {
         .replace(/\/[\w./-]{12,}/g, ' una ruta ')
         .replace(/\s+/g, ' ')
         .trim();
-      const frase = limpio.split(/(?<=[.!?])\s/)[0] || '';
-      cola.push({ nombre, texto: `${nombre}. ${frase.slice(0, 180)}` });
+      const cuerpo = opciones.completo
+        ? limpio.slice(0, 600)
+        : (limpio.split(/(?<=[.!?])\s/)[0] || '').slice(0, 180);
+      // Si el texto ya se dirige al usuario, anteponer el nombre sobra.
+      const presenta = opciones.sinNombre ? '' : `${nombre}. `;
+      cola.push({ nombre, texto: presenta + cuerpo });
       siguiente();
+    },
+
+    /**
+     * Dice algo aunque la voz este apagada.
+     *
+     * Se usa solo cuando el usuario lo pide con un boton: si pulsa "Estado"
+     * y no oye nada porque la voz esta en silencio, el boton parece roto.
+     */
+    anunciaSiempre(nombre, texto, opciones = {}) {
+      const antes = activa;
+      activa = true;
+      this.anuncia(nombre, texto, opciones);
+      activa = antes;
     },
 
     prueba(nombre) {

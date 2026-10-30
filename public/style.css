@@ -890,3 +890,10 @@ button.enlace:hover{color:var(--fg)}
   word-break:break-all;overflow-wrap:anywhere;white-space:normal;
   background:var(--bg);border:1px solid var(--accent);border-radius:8px;
   padding:.6rem .7rem;margin:.4rem 0;color:var(--accent);user-select:all}
+
+/* Barra lateral mas compacta: el sitio es para la lista de especialistas,
+   no para los botones. */
+.sidebar > button{padding:.45rem .6rem;font-size:.82rem}
+.sidebar .fila-botones{gap:.35rem}
+.sidebar .fila-botones button{padding:.4rem .3rem;font-size:.74rem}
+#btn-proveedor{padding:.4rem .6rem;font-size:.78rem}

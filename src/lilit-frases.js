@@ -19,14 +19,14 @@
 const FRASES = {
   // ---------------------------------------------------------- conexion
   conexion: [
-    'Oye, tenemos problemas de conexion.',
+    'Oiga, tenemos problemas de conexion.',
     'Hay fallos de conexion, {n} {turno|turnos} no {salio|salieron}.',
     'La conexion esta dando guerra.',
     'No hay manera de conectar ahora mismo.',
     'Problemas de red: {n} {intento fallido|intentos fallidos}.',
     'Se cayo la conexion en {n} {turno|turnos}.',
     'Algo pasa con la red, no responde.',
-    'Atento, la conexion falla.',
+    'Atienda, la conexion falla.',
     'No llega respuesta del otro lado.',
     'Conexion inestable, {va|van} {n} {fallo|fallos}.'
   ],
@@ -37,7 +37,7 @@ const FRASES = {
     'Sin cuota. Los trabajos esperan y saldran solos.',
     'Llegamos al limite de uso, hay {n} {trabajo|trabajos} en espera.',
     'Cuota agotada. Nadie pierde el trabajo, pero nadie avanza.',
-    'Te quedaste sin cuota por ahora.',
+    'Se quedo sin cuota por ahora.',
     'El limite de cinco horas nos paro.',
     'Hay {n} {trabajo|trabajos} esperando a que vuelva la cuota.',
     'Sin cuota: todo en pausa hasta que se renueve.',
@@ -46,28 +46,28 @@ const FRASES = {
 
   // ------------------------------------------------------- aprobacion
   aprobacion: [
-    'Oye, {quien} necesita tu aprobacion.',
-    '{quien} esta esperando que le des el visto bueno.',
-    'Hay algo pendiente de que lo autorices.',
-    '{quien} no sigue sin tu permiso.',
-    'Te estan esperando: {quien} pide aprobacion.',
-    '{n} {especialista espera|especialistas esperan} que decidas.',
+    'Oiga, {quien} necesita su aprobacion.',
+    '{quien} espera su visto bueno.',
+    'Hay algo pendiente de que lo autorice.',
+    '{quien} no sigue sin su permiso.',
+    'Le estan esperando: {quien} pide aprobacion.',
+    '{n} {especialista espera|especialistas esperan} que decida.',
     '{quien} quiere confirmacion antes de continuar.',
-    'Necesitan tu luz verde, {quien} esta parado.',
-    'Hay una decision tuya pendiente.',
-    '{quien} se detuvo a esperarte.'
+    'Necesitan su luz verde: {quien} esta parado.',
+    'Hay una decision suya pendiente.',
+    '{quien} se detuvo a esperarle.'
   ],
 
   // -------------------------------------------------------------- duda
   duda: [
-    '{quien} tiene una duda para ti.',
-    'Te han preguntado algo, {quien} espera respuesta.',
+    '{quien} tiene una duda para usted.',
+    'Le han preguntado algo: {quien} espera respuesta.',
     'Hay {n} {pregunta|preguntas} sin contestar.',
-    '{quien} necesita que le aclares algo.',
-    'Tienes preguntas esperando.',
+    '{quien} necesita que le aclare algo.',
+    'Tiene preguntas esperando.',
     '{quien} pregunto algo y sigue esperando.',
     'Hay dudas sin resolver en el equipo.',
-    'Te esperan para aclarar una cosa.'
+    'Le esperan para aclarar una cosa.'
   ],
 
   // ---------------------------------------------------------- atascado
@@ -88,11 +88,11 @@ const FRASES = {
     'Atencion: {quien} toco una ruta protegida.',
     'Se modifico algo que no deberia tocarse.',
     'Cuidado, {quien} cambio {n} {archivo protegido|archivos protegidos}.',
-    'Alguien entro donde no debia: revisa el guardia.',
+    'Alguien entro donde no debia: revise el guardia.',
     'Hay cambios en produccion sin revisar.',
-    'Se toco una ruta vigilada, puedes deshacerlo.',
+    'Se toco una ruta vigilada: puede deshacerlo.',
     'Ojo: {n} {archivo protegido cambio|archivos protegidos cambiaron}.',
-    'Revisa el guardia, hay movimiento en zona protegida.'
+    'Revise el guardia: hay movimiento en zona protegida.'
   ],
 
   // --------------------------------------------------- externo callado
@@ -132,16 +132,16 @@ const FRASES = {
   contexto: [
     'A {quien} se le esta llenando la memoria.',
     '{quien} va por el {n} por ciento de su contexto.',
-    'Conviene compactar a {quien}.',
+    'Conviene que compacte a {quien}.',
     'La conversacion de {quien} esta casi llena.',
-    '{quien} necesita que le liberes contexto.',
+    '{quien} necesita que le libere contexto.',
     'Hay {n} {especialista|especialistas} con la memoria casi llena.'
   ],
 
   // ------------------------------------------------------------ gasto
   gasto: [
     'Llegamos al tope de gasto del dia.',
-    'Se alcanzo el limite que pusiste, no salen trabajos nuevos.',
+    'Se alcanzo el limite que puso: no salen trabajos nuevos.',
     'Tope de gasto alcanzado. Lo encolado sale manana.',
     'Paramos por presupuesto.',
     'Se acabo el presupuesto de hoy.'
@@ -158,11 +158,11 @@ const FRASES = {
 
   // ----------------------------------------------------------- sesion
   sesion: [
-    'La sesion del proveedor no sirve, revisala.',
+    'La sesion del proveedor no sirve: revisela.',
     'Hay que volver a conectar el proveedor.',
     'Sin sesion valida, nadie puede trabajar.',
     'El proveedor perdio la sesion.',
-    'Revisa la conexion con el proveedor.'
+    'Revise la conexion con el proveedor.'
   ],
 
   // ------------------------------------------------------------ error
@@ -172,7 +172,7 @@ const FRASES = {
     'Algo salio mal con {quien}.',
     '{n} {error|errores} sin revisar.',
     'Un trabajo no se completo.',
-    'Revisa a {quien}, dio error.'
+    'Revise a {quien}: dio error.'
   ],
 
   // --------------------------------------------------------- resuelto
@@ -187,15 +187,43 @@ const FRASES = {
 
   // ---------------------------------------------------- saludo inicial
   saludo: [
-    'Soy Lilit. Vigilo al equipo y te aviso si algo se tuerce.',
-    'Lilit en marcha. Te aviso de lo que haga falta.',
+    'Soy Lilit. Vigilo al equipo y le aviso si algo se tuerce.',
+    'Lilit en marcha. Le aviso de lo que haga falta.',
     'Aqui Lilit, atenta al equipo.',
     'Lilit escuchando. Solo hablo si hay algo que contar.'
   ]
 };
 
+/**
+ * Tratamiento. LILIT se dirige siempre al usuario como "señor", pero
+ * colocarlo siempre en el mismo sitio suena a mayordomo de dibujos: se
+ * alterna entre el principio, el final y el medio.
+ */
+// Palabras con las que empiezan las frases del diccionario: no son nombres
+// propios aunque vayan en mayuscula, asi que pueden bajar a minuscula.
+const PALABRAS_COMUNES = new Set([
+  'Oye', 'Oiga', 'Atento', 'Atienda', 'Mira', 'Mire', 'Fijese', 'Escucha', 'Vera', 'Atencion', 'Cuidado', 'Ojo', 'Hay', 'Se',
+  'No', 'Un', 'Una', 'La', 'El', 'Te', 'Creo', 'Me', 'Revise', 'Problemas',
+  'Conexion', 'Algo', 'Listo', 'Todo', 'Ya', 'Resuelto', 'Volvemos', 'Soy',
+  'Aqui', 'Lilit', 'Llegamos', 'Tope', 'Paramos', 'Sin', 'Quedan', 'Necesitan',
+  'Tienes', 'Conviene', 'Le', 'Alguien', 'Para', 'Importante', 'Disculpe',
+  'Perdone', 'Cuota', 'Hubo', 'Vuelve', 'Nadie'
+]);
+
+const TRATAMIENTOS = [
+  { donde: 'inicio', texto: 'Señor, ' },
+  { donde: 'inicio', texto: 'Señor. ' },
+  { donde: 'final', texto: ', señor.' },
+  { donde: 'final', texto: ', señor.' },
+  { donde: 'inicio', texto: 'Disculpe, señor. ' },
+  { donde: 'inicio', texto: 'Señor, atencion: ' },
+  { donde: 'final', texto: '. Le aviso, señor.' },
+  { donde: 'inicio', texto: 'Perdone, señor. ' }
+];
+
 /** Coletillas que se anteponen a veces, para que no empiece siempre igual. */
-const APERTURAS = ['', '', '', 'Oye, ', 'Atento, ', 'Mira, ', 'Escucha, ', 'Por cierto, '];
+// En registro de usted: "oye" y "mira" chocan con el "señor".
+const APERTURAS = ['', '', '', 'Oiga, ', 'Mire, ', 'Fijese, ', 'Por cierto, ', 'Vera, '];
 
 /** Cuando algo es urgente conviene que suene distinto desde la primera silaba. */
 const APERTURAS_URGENTES = ['Atencion. ', 'Importante. ', 'Para un momento. ', ''];
@@ -215,11 +243,17 @@ function frase(tipo, datos = {}, urgente = false) {
   const plantilla = posibles[Math.floor(Math.random() * posibles.length)];
   ultimas.set(tipo, plantilla);
 
+  // El tratamiento se elige primero porque manda sobre lo demas: si va
+  // delante, hace de coletilla y no se le encadena otra. Tres capas
+  // —tratamiento, coletilla y frase— suenan recargadas.
+  const trato = TRATAMIENTOS[Math.floor(Math.random() * TRATAMIENTOS.length)];
   const aperturas = urgente ? APERTURAS_URGENTES : APERTURAS;
-  const ap = aperturas[Math.floor(Math.random() * aperturas.length)];
+  const ap = (trato.donde === 'final')
+    ? aperturas[Math.floor(Math.random() * aperturas.length)]
+    : '';
 
   // Si la frase ya trae coletilla propia, no se le encadena otra.
-  const yaTieneColetilla = /^(oye|atento|mira|escucha|atencion|cuidado|ojo)/i.test(plantilla);
+  const yaTieneColetilla = /^(oye|oiga|atento|atienda|mira|mire|fijese|escucha|vera|atencion|cuidado|ojo)/i.test(plantilla);
 
   let texto = plantilla;
   if (ap && !yaTieneColetilla) {
@@ -237,14 +271,41 @@ function frase(tipo, datos = {}, urgente = false) {
   // Concordancia: {singular|plural} elige segun n. Sin esto se oye
   // "hay 1 mensajes", que en voz alta canta mucho mas que escrito.
   const uno = datos.n === 1;
-  return texto
+  texto = texto
     .replace(/\{([^{}|]+)\|([^{}|]+)\}/g, (_, sing, plur) => (uno ? sing : plur))
     .replace(/\{n\}/g, datos.n != null ? String(datos.n) : 'varios')
     .replace(/\{quien\}/g, datos.quien || 'un especialista');
+
+  return conTratamiento(texto, trato);
+}
+
+/**
+ * Coloca el tratamiento en la frase ya montada.
+ *
+ * Se hace al final, sobre el texto completo, porque aqui ya se sabe como
+ * empieza y como acaba y no hay que pelearse con las coletillas.
+ */
+function conTratamiento(texto, trato) {
+  const t = trato || TRATAMIENTOS[Math.floor(Math.random() * TRATAMIENTOS.length)];
+
+  if (t.donde === 'final') {
+    // Se sustituye el punto final en vez de encadenar otro.
+    return texto.replace(/\s*[.!?]+\s*$/, '') + t.texto;
+  }
+
+  // Un tratamiento acabado en punto abre frase nueva: la inicial se queda
+  // en mayuscula. Uno acabado en coma o en dos puntos la continua y la baja,
+  // salvo que sea un nombre propio.
+  const abreFrase = /[.!?]\s*$/.test(t.texto);
+  if (abreFrase) return t.texto + texto;
+
+  const primera = texto.split(/\s+/)[0] || '';
+  const esNombrePropio = /^[A-ZÁÉÍÓÚÑ][a-zñáéíóú]+$/.test(primera) && !PALABRAS_COMUNES.has(primera);
+  return t.texto + (esNombrePropio ? texto : texto.charAt(0).toLowerCase() + texto.slice(1));
 }
 
 function cuantas() {
   return Object.values(FRASES).reduce((n, l) => n + l.length, 0);
 }
 
-module.exports = { FRASES, frase, cuantas, APERTURAS, APERTURAS_URGENTES };
+module.exports = { FRASES, frase, cuantas, APERTURAS, APERTURAS_URGENTES, TRATAMIENTOS, conTratamiento };
