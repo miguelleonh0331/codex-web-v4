@@ -839,11 +839,28 @@ async function api(req, res, url) {
     if (!a) return json(res, 404, { error: 'agente no encontrado' });
 
     if (m === 'GET') {
-      const msgs = store.listMessages(id).map((x) => ({
-        ...x,
-        meta: x.meta ? JSON.parse(x.meta) : null
-      }));
-      return json(res, 200, { messages: msgs, status: a.status });
+      // Tres modos, y el que mas se usa es el barato:
+      //   ?desde=N   solo lo posterior a N  -> el sondeo, cada pocos segundos
+      //   ?antes=N   los anteriores a N     -> cargar hacia arriba
+      //   sin nada   los ultimos            -> abrir la conversacion
+      const desde = Number(url.searchParams.get('desde') || 0);
+      const antes = Number(url.searchParams.get('antes') || 0);
+      const limite = Math.min(500, Math.max(10, Number(url.searchParams.get('limite') || 120)));
+
+      const filas = antes > 0
+        ? store.mensajesAnteriores(id, antes, limite)
+        : store.listMessages(id, { limite, desde });
+
+      const msgs = filas.map((x) => ({ ...x, meta: x.meta ? JSON.parse(x.meta) : null }));
+      const total = store.contarMensajes(id);
+      return json(res, 200, {
+        messages: msgs,
+        status: a.status,
+        total,
+        // Si el primero devuelto no es el primero de la conversacion, hay
+        // mas hacia arriba y la interfaz puede ofrecer cargarlos.
+        hayAnteriores: !desde && msgs.length > 0 && msgs.length < total
+      });
     }
 
     if (m === 'POST') {

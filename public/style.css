@@ -900,3 +900,8 @@ button.enlace:hover{color:var(--fg)}
 
 /* El parte de actividad de LILIT: se distingue cuando hay gente trabajando. */
 #tab-lilit .item.activo{border-left:2px solid var(--accent2)}
+
+/* Cargar lo anterior en una conversacion larga. */
+.cargar-antes{display:block;margin:.4rem auto .8rem;font-size:.76rem;
+  background:transparent;border:1px solid var(--line);color:var(--muted)}
+.cargar-antes:hover{color:var(--fg);border-color:var(--accent)}

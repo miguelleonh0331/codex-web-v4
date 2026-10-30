@@ -3,6 +3,8 @@
 const $ = (sel) => document.querySelector(sel);
 let TOKEN = localStorage.getItem('v4token') || new URL(location.href).searchParams.get('token') || '';
 let selected = null;
+let ultimoMsgId = 0;        // hasta donde se ha pintado la conversacion
+let hayAnteriores = false;  // si queda historial por encima
 let agents = [];
 let lastEventId = 0;
 let editing = null;
@@ -70,12 +72,44 @@ function start() {
   prepararPush();
   pintarVacioChat();
   refreshAll();
-  setInterval(refreshAll, 2500);
+  arrancarSondeo();
   vigilarProveedor();
   setInterval(vigilarProveedor, 60000);
   vigilarVersion();
   setInterval(vigilarVersion, 30000);
 }
+
+/**
+ * Sondeo adaptativo.
+ *
+ * Con la pestana oculta no se pide nada: antes seguia preguntando cada 2,5
+ * segundos aunque no estuvieras mirando, y con varias pestanas abiertas eso
+ * se multiplica. Al volver se refresca de inmediato, asi que no se nota.
+ *
+ * Y cuando nadie trabaja se espaciar: mirar cada dos segundos y medio una
+ * lista que no cambia no aporta nada.
+ */
+let relojSondeo = null;
+let ritmoActual = 0;
+
+function ritmoDeseado() {
+  if (document.hidden) return 0;                       // parado
+  return agents.some((a) => a.status === 'working' || a.status === 'queued') ? 2500 : 8000;
+}
+
+function arrancarSondeo() {
+  const quiero = ritmoDeseado();
+  if (quiero === ritmoActual) return;
+  ritmoActual = quiero;
+  if (relojSondeo) { clearInterval(relojSondeo); relojSondeo = null; }
+  if (quiero > 0) relojSondeo = setInterval(refreshAll, quiero);
+}
+
+document.addEventListener('visibilitychange', () => {
+  arrancarSondeo();
+  // Al volver, ponerse al dia sin esperar al siguiente ciclo.
+  if (!document.hidden) refreshAll();
+});
 
 // ----------------------------------------------------------------- datos
 
@@ -105,6 +139,7 @@ async function refreshAllInterno() {
       // El navegador puede ir desajustado; manda el reloj del servidor.
       DESFASE_MS = new Date(state.app.ahora).getTime() - Date.now();
     }
+    arrancarSondeo();            // acelera si alguien empieza a trabajar
     actualizarEspera(state.esperando);
     // La pestana del guardia avisa si alguien toco algo protegido.
     const tg = document.querySelector('.tab[data-tab="guardia"]');
@@ -307,6 +342,7 @@ async function selectAgent(id) {
   $('#notas').hidden = false;
   marcarBotonNotas(a);
   $('#parar').hidden = !a || a.status !== 'working';
+  ultimoMsgId = 0;          // conversacion nueva: se pinta de cero
   await refrescarActividad(true);
   marcarVisto(id);
   renderAgents();
@@ -405,18 +441,81 @@ function roleLabel(m) {
   return 'sistema';
 }
 
-let lastMsgCount = 0;
+/**
+ * Pinta la conversacion.
+ *
+ * Con force se carga de cero —al abrir un especialista—; sin force solo se
+ * piden los mensajes posteriores al ultimo que ya hay y se anaden al final.
+ * Antes se pedia el historial entero cada 2,5 segundos y se repintaba todo,
+ * que es lo que hacia pesada una conversacion larga.
+ */
 async function renderMessages(force) {
   if (!selected) return;
-  const { messages } = await api(`/api/agents/${selected}/messages`);
-  if (!force && messages.length === lastMsgCount) return;
-  lastMsgCount = messages.length;
   const box = $('#messages');
+  const deQuien = selected;
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  box.innerHTML = '';
-  const actual = agents.find((x) => x.id === selected);
 
-  for (const m of messages) {
+  const ruta = force
+    ? `/api/agents/${deQuien}/messages`
+    : `/api/agents/${deQuien}/messages?desde=${ultimoMsgId}`;
+
+  let datos;
+  try { datos = await api(ruta); } catch { return; }
+  // Si se cambio de especialista mientras llegaba la respuesta, se descarta:
+  // pintarla meteria los mensajes de uno en la conversacion de otro.
+  if (selected !== deQuien) return;
+
+  const nuevos = datos.messages || [];
+  if (!force && !nuevos.length) return;          // nada que hacer: ni un repintado
+
+  const actual = agents.find((x) => x.id === selected);
+  if (force) {
+    box.innerHTML = '';
+    hayAnteriores = !!datos.hayAnteriores;
+    if (hayAnteriores) box.appendChild(botonAnteriores());
+  }
+  for (const m of nuevos) {
+    box.appendChild(filaMensaje(m, actual));
+    if (m.id > ultimoMsgId) ultimoMsgId = m.id;
+  }
+  if (force || atBottom) box.scrollTop = box.scrollHeight;
+}
+
+/** Boton para traer lo anterior, arriba del todo. */
+function botonAnteriores() {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'cargar-antes';
+  b.textContent = '↑ cargar mensajes anteriores';
+  b.onclick = async () => {
+    const box = $('#messages');
+    const primera = box.querySelector('.msg');
+    const antes = primera ? Number(primera.dataset.id) : 0;
+    if (!antes) return;
+    b.disabled = true;
+    b.textContent = 'cargando…';
+    try {
+      const d = await api(`/api/agents/${selected}/messages?antes=${antes}&limite=100`);
+      const actual = agents.find((x) => x.id === selected);
+      // Se conserva la posicion de lectura: insertar arriba sin esto
+      // empujaria el texto y se perderia de vista lo que se estaba leyendo.
+      const altoAntes = box.scrollHeight;
+      for (const m of (d.messages || []).reverse()) box.insertBefore(filaMensaje(m, actual), b.nextSibling);
+      box.scrollTop += box.scrollHeight - altoAntes;
+      if (!d.messages || !d.messages.length) b.remove();
+      else { b.disabled = false; b.textContent = '↑ cargar mensajes anteriores'; }
+    } catch {
+      b.disabled = false;
+      b.textContent = '↑ cargar mensajes anteriores';
+    }
+  };
+  return b;
+}
+
+/** Construye la fila de un mensaje. Se saca aparte para poder anadir de uno
+ *  en uno sin repintar la conversacion entera. */
+function filaMensaje(m, actual) {
+  {
     const el = document.createElement('div');
     el.className = `msg ${m.role}`;
 
@@ -457,9 +556,9 @@ async function renderMessages(force) {
           <span class="peso">${pesoLegible(f.bytes || 0)}</span>
         </a>`).join('')}</span>` : '') + `</span>`;
     el.style.setProperty('--color-quien', color);
-    box.appendChild(el);
+    el.dataset.id = m.id;
+    return el;
   }
-  if (force || atBottom) box.scrollTop = box.scrollHeight;
 }
 
 let notaAbierta = null;    // {titulo, carpeta} mientras se lee una nota

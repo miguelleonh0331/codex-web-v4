@@ -1003,6 +1003,61 @@ function check(nombre, condicion, detalle) {
     fs.existsSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`) &&
     /x-v4-externo/.test(fs.readFileSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`, 'utf8')));
 
+  // --- peso del sondeo ---
+  {
+    const { Store: StoreP } = require(`${__dirname}/../src/db.js`);
+    const tmp = `${__dirname}/../.tmp-perf.db`;
+    try {
+      for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true });
+      const st = new StoreP(tmp);
+      st.createAgent({ id: 'p1', name: 'p1', instructions: 'x', home: '/tmp', workspace: '/tmp' });
+      for (let i = 0; i < 300; i += 1) st.addMessage('p1', 'assistant', `mensaje ${i}`);
+
+      const ultimos = st.listMessages('p1');
+      check('al abrir se devuelven los ULTIMOS mensajes, no los primeros',
+        ultimos.length === 120 && /mensaje 299$/.test(ultimos[ultimos.length - 1].body),
+        'una conversacion larga se lee por el final: cortar por arriba escondia lo reciente');
+      check('vienen en orden de lectura',
+        ultimos[0].id < ultimos[ultimos.length - 1].id);
+
+      const ultimoId = ultimos[ultimos.length - 1].id;
+      check('el sondeo solo trae lo posterior',
+        st.listMessages('p1', { desde: ultimoId }).length === 0,
+        'sin esto se pedia el historial entero cada pocos segundos');
+      st.addMessage('p1', 'user', 'nuevo');
+      check('y trae lo nuevo en cuanto aparece',
+        st.listMessages('p1', { desde: ultimoId }).length === 1);
+
+      const anteriores = st.mensajesAnteriores('p1', ultimos[0].id, 50);
+      check('se puede subir a buscar lo anterior',
+        anteriores.length === 50 && anteriores[anteriores.length - 1].id < ultimos[0].id);
+      check('el total permite saber si queda historial arriba',
+        st.contarMensajes('p1') === 301);
+    } finally { for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true }); }
+  }
+
+  check('la conversacion se repinta solo cuando llega algo',
+    /if \(!force && !nuevos\.length\) return;/.test(appAct),
+    'repintarla entera cada ciclo es lo que la hacia pesada');
+  check('cambiar de especialista a media peticion no mezcla conversaciones',
+    /if \(selected !== deQuien\) return;/.test(appAct),
+    'la respuesta de uno acabaria pintada en la del otro');
+  check('hay forma de cargar lo anterior',
+    /cargar mensajes anteriores/.test(appAct) && /\.cargar-antes\{/.test(cssSal));
+  check('al cargar arriba no se pierde la posicion de lectura',
+    /box\.scrollTop \+= box\.scrollHeight - altoAntes/.test(appAct),
+    'insertar arriba sin esto empuja el texto que estas leyendo');
+
+  check('con la pestana oculta no se sondea',
+    /if \(document\.hidden\) return 0;/.test(appAct) &&
+    /visibilitychange/.test(appAct),
+    'seguia pidiendo cada 2,5 s aunque no mirases');
+  check('al volver se refresca sin esperar al ciclo',
+    /if \(!document\.hidden\) refreshAll\(\);/.test(appAct));
+  check('el ritmo se espacia cuando nadie trabaja',
+    /status === 'working' \|\| a\.status === 'queued'\) \? 2500 : 8000/.test(appAct),
+    'mirar cada 2,5 s una lista que no cambia no aporta nada');
+
   // --- orden de la lista de especialistas ---
   check('la lista pone delante a quien esta trabajando',
     /function prioridad\(a\)/.test(appAct) &&

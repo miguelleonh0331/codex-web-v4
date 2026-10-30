@@ -481,8 +481,38 @@ class Store {
     return Number(info.lastInsertRowid);
   }
 
-  listMessages(agentId, limit = 500) {
-    return this.db.prepare('SELECT * FROM messages WHERE agent_id = ? ORDER BY id ASC LIMIT ?').all(agentId, limit);
+  /**
+   * Mensajes de un especialista.
+   *
+   * Por defecto devuelve los ULTIMOS, no los primeros: una conversacion
+   * larga se lee por el final. Antes cortaba por arriba con LIMIT sobre un
+   * orden ascendente, asi que al pasar de 500 mensajes dejaba de verse lo
+   * reciente, que es justo lo que se mira.
+   */
+  listMessages(agentId, { limite = 120, desde = 0 } = {}) {
+    if (desde > 0) {
+      // Solo lo nuevo: es lo que pide el sondeo cada pocos segundos.
+      return this.db.prepare(
+        'SELECT * FROM messages WHERE agent_id = ? AND id > ? ORDER BY id ASC'
+      ).all(agentId, desde);
+    }
+    const filas = this.db.prepare(
+      'SELECT * FROM messages WHERE agent_id = ? ORDER BY id DESC LIMIT ?'
+    ).all(agentId, limite);
+    return filas.reverse();
+  }
+
+  /** Cuantos hay en total y cual es el mas antiguo que se devolvio. */
+  contarMensajes(agentId) {
+    return this.db.prepare('SELECT COUNT(*) c FROM messages WHERE agent_id = ?').get(agentId).c;
+  }
+
+  /** Los anteriores a uno dado, para ir cargando hacia arriba. */
+  mensajesAnteriores(agentId, antesDe, limite = 100) {
+    const filas = this.db.prepare(
+      'SELECT * FROM messages WHERE agent_id = ? AND id < ? ORDER BY id DESC LIMIT ?'
+    ).all(agentId, antesDe, limite);
+    return filas.reverse();
   }
 
   /** Ultimo mensaje de cada agente: con eso la interfaz sabe que hay sin leer. */
