@@ -976,6 +976,14 @@ function check(nombre, condicion, detalle) {
   check('la API habla en castellano tambien para quien atiende',
     (await req('/api/externos')).data.recepcion.every((r) => 'nombre' in r && !('name' in r)),
     'la interfaz lee "nombre": con "name" mostraba atiende: undefined');
+  check('el token se muestra entero, sin cortarse',
+    /\.token-largo\{/.test(cssSal) &&
+    /word-break:break-all/.test(cssSal) && /overflow-wrap:anywhere/.test(cssSal) &&
+    !/id="externo-token-valor" class="codigo-grande"/.test(idxPanel),
+    'el estilo del codigo de dispositivo es para 10 caracteres; el token tiene 32 y se cortaba');
+  check('se puede copiar el token de un toque',
+    /id="externo-copiar"/.test(idxPanel) && /clipboard\.writeText\(r\.token\)/.test(appAct),
+    'es la unica vez que se ve: copiarlo mal significa emitir otro');
   check('hay interruptor de recepcion y gestion de credenciales',
     /name="recepcion"/.test(idxPanel) && /id="externo-crear"/.test(idxPanel));
   const instSrc = fs.readFileSync(`${__dirname}/../install.sh`, 'utf8');

@@ -880,3 +880,13 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
 button.enlace{background:none;border:none;color:var(--accent);cursor:pointer;
   font-size:.72rem;padding:0 .25rem;text-decoration:underline}
 button.enlace:hover{color:var(--fg)}
+
+/* Token de agente externo: 32 caracteres que hay que copiar enteros. No vale
+   el estilo del codigo de dispositivo, que es corto y se tecleaba a mano: ahi
+   se cortaba por la derecha y un token cortado no sirve de nada. */
+.token-largo{
+  font-family:ui-monospace,SFMono-Regular,Menlo,"Cascadia Mono",monospace;
+  font-size:.82rem;line-height:1.5;
+  word-break:break-all;overflow-wrap:anywhere;white-space:normal;
+  background:var(--bg);border:1px solid var(--accent);border-radius:8px;
+  padding:.6rem .7rem;margin:.4rem 0;color:var(--accent);user-select:all}

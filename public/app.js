@@ -996,6 +996,16 @@ if ($('#externo-crear')) {
       // Se ensena una sola vez: solo se guarda su huella.
       $('#externo-token-valor').textContent = r.token;
       $('#externo-token').hidden = false;
+      $('#externo-copiado').textContent = '';
+      // Copiar importa mas que de costumbre: es la unica vez que se ve.
+      $('#externo-copiar').onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(r.token);
+          $('#externo-copiado').textContent = 'copiado';
+        } catch {
+          $('#externo-copiado').textContent = 'el navegador no dejo copiar: seleccionalo a mano';
+        }
+      };
       $('#externo-nombre').value = '';
       await pintarExternos();
     } catch (e) {
