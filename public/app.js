@@ -449,8 +449,27 @@ function roleLabel(m) {
  * Antes se pedia el historial entero cada 2,5 segundos y se repintaba todo,
  * que es lo que hacia pesada una conversacion larga.
  */
+let pintandoMensajes = false;
+
 async function renderMessages(force) {
   if (!selected) return;
+  // Sin marcador todavia, la conversacion aun no se ha pintado: hay que
+  // cargarla de cero. Pedir "lo posterior a cero" devolveria los ultimos 120
+  // y se anadirian a lo que hubiera en pantalla, duplicando o mezclando.
+  if (!ultimoMsgId) force = true;
+
+  // Dos pintados a la vez se pisan: selectAgent y el ciclo automatico pueden
+  // coincidir, porque entre medias hay esperas.
+  if (pintandoMensajes) return;
+  pintandoMensajes = true;
+  try {
+    await pintarMensajes(force);
+  } finally {
+    pintandoMensajes = false;
+  }
+}
+
+async function pintarMensajes(force) {
   const box = $('#messages');
   const deQuien = selected;
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;

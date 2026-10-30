@@ -1039,6 +1039,12 @@ function check(nombre, condicion, detalle) {
   check('la conversacion se repinta solo cuando llega algo',
     /if \(!force && !nuevos\.length\) return;/.test(appAct),
     'repintarla entera cada ciclo es lo que la hacia pesada');
+  check('sin marcador se carga de cero, no se anade a lo que hay',
+    /if \(!ultimoMsgId\) force = true;/.test(appAct),
+    'pedir "lo posterior a cero" devuelve los ultimos 120 y los duplicaria en pantalla');
+  check('dos pintados a la vez no se pisan',
+    /if \(pintandoMensajes\) return;/.test(appAct) && /finally \{\s*pintandoMensajes = false;/.test(appAct),
+    'selectAgent y el ciclo automatico coinciden porque entre medias hay esperas');
   check('cambiar de especialista a media peticion no mezcla conversaciones',
     /if \(selected !== deQuien\) return;/.test(appAct),
     'la respuesta de uno acabaria pintada en la del otro');
