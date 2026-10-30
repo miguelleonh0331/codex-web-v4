@@ -158,7 +158,7 @@ class Orchestrator {
     // empezado termina; lo que se frena es empezar otro.
     const tope = Number(this.cfg.topeGastoDiario) || 0;
     if (tope > 0) {
-      const hoy = this.store.gastoDelDia();
+      const hoy = this.store.gastoDelDia(this.cfg.zonaHoraria);
       if (hoy.total >= tope) {
         if (!this.avisoTope || Date.now() - this.avisoTope > 600000) {
           this.avisoTope = Date.now();

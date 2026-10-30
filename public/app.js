@@ -857,6 +857,45 @@ async function pintarProveedor() {
  */
 let relojCodex = null;
 
+/** Gasto del dia y su tope, dentro del dialogo de proveedor. */
+async function pintarGasto() {
+  const el = $('#gasto-hoy');
+  if (!el) return;
+  try {
+    const st = await api('/api/state');
+    const g = st.gasto || {};
+    const tope = Number(g.tope) || 0;
+    el.textContent = tope
+      ? `$${(g.total || 0).toFixed(4)} de $${tope.toFixed(2)} · ${g.turnos || 0} turnos`
+      : `$${(g.total || 0).toFixed(4)} · ${g.turnos || 0} turnos · sin tope`;
+    el.className = g.frenado ? 'mal' : '';
+    if (document.activeElement !== $('#tope-gasto')) $('#tope-gasto').value = tope || 0;
+    if (g.frenado) $('#tope-estado').textContent = 'alcanzado: no se lanzan turnos nuevos';
+  } catch (e) {
+    el.textContent = `no se pudo consultar: ${e.message}`;
+  }
+}
+
+if ($('#tope-guardar')) {
+  $('#tope-guardar').onclick = async () => {
+    const v = Number($('#tope-gasto').value);
+    $('#tope-estado').textContent = 'guardando…';
+    try {
+      const r = await api('/api/app', {
+        method: 'PATCH', body: JSON.stringify({ topeGastoDiario: v })
+      });
+      // Avisar si el tope que acaba de poner ya esta superado: guardarlo en
+      // silencio dejaria el equipo parado sin explicacion.
+      $('#tope-estado').textContent = r.frenaYa
+        ? `guardado, pero hoy ya llevas $${r.gasto.toFixed(2)}: el equipo queda parado`
+        : (v ? 'guardado' : 'sin tope');
+      await pintarGasto();
+    } catch (e) {
+      $('#tope-estado').textContent = e.message;
+    }
+  };
+}
+
 async function pintarCodex() {
   const est = $('#codex-estado');
   if (!est) return;
@@ -909,6 +948,20 @@ function pararEsperaCodex() {
 
 // Interruptor de voz. Se prueba al encenderlo: ademas de confirmar que se
 // oye, muchos navegadores exigen un gesto del usuario antes de dejar hablar.
+// Escuchar como suena un especialista antes de guardarlo. Util porque la
+// voz sale de su nombre: cambiar el nombre cambia la voz.
+if ($('#voz-probar')) {
+  const nota = $('#voz-prueba-nota');
+  $('#voz-probar').onclick = () => {
+    if (!VOZ.soportado) { nota.textContent = 'este navegador no sabe hablar'; return; }
+    const n = ($('#agent-form').elements.name.value || '').trim() || 'Sin nombre';
+    nota.textContent = VOZ.cuantas
+      ? `${n} · ${VOZ.cuantas} voces disponibles`
+      : 'sin voces instaladas en el sistema';
+    VOZ.prueba(n);
+  };
+}
+
 if ($('#voz-on')) {
   const caja = $('#voz-caja');
   if (!VOZ.soportado) { caja.hidden = true; } else {
@@ -979,6 +1032,7 @@ $('#btn-proveedor').onclick = async () => {
   $('#prov-codigo').value = '';
   $('#proveedor-dialog').showModal();
   await pintarProveedor();
+  await pintarGasto();
   await pintarCodex();
 };
 $('#prov-cerrar').onclick = () => $('#proveedor-dialog').close();

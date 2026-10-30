@@ -593,15 +593,36 @@ async function api(req, res, url) {
 
   if (p === '/api/app' && m === 'PATCH') {
     const body = await readBody(req);
-    const nombre = String(body.nombre || '').trim();
-    if (!nombre) return json(res, 400, { error: 'el nombre no puede estar vacio' });
-    if (nombre.length > 60) return json(res, 400, { error: 'el nombre no puede pasar de 60 caracteres' });
+    const cambios = {};
+
+    if (body.nombre !== undefined) {
+      const nombre = String(body.nombre || '').trim();
+      if (!nombre) return json(res, 400, { error: 'el nombre no puede estar vacio' });
+      if (nombre.length > 60) return json(res, 400, { error: 'el nombre no puede pasar de 60 caracteres' });
+      cambios.nombre = nombre;
+    }
+
+    if (body.topeGastoDiario !== undefined) {
+      const t = Number(body.topeGastoDiario);
+      if (!Number.isFinite(t) || t < 0) return json(res, 400, { error: 'el tope debe ser un numero de 0 en adelante' });
+      // Se avisa si ya se paso: guardarlo sin decirlo dejaria el equipo
+      // parado sin explicacion.
+      cambios.topeGastoDiario = t;
+    }
+
+    if (!Object.keys(cambios).length) return json(res, 400, { error: 'nada que cambiar' });
 
     try {
-      guardar({ nombre });
-      cfg.nombre = nombre;          // surte efecto sin reiniciar el servicio
-      store.event('app.renombrada', null, { nombre });
-      return json(res, 200, { ok: true, nombre });
+      guardar(cambios);
+      Object.assign(cfg, cambios);   // surte efecto sin reiniciar el servicio
+      store.event('app.ajustada', null, cambios);
+      const gasto = store.gastoDelDia(cfg.zonaHoraria);
+      return json(res, 200, {
+        ok: true,
+        ...cambios,
+        gasto: gasto.total,
+        frenaYa: cambios.topeGastoDiario > 0 && gasto.total >= cambios.topeGastoDiario
+      });
     } catch (e) {
       return json(res, 500, { error: `no se pudo guardar: ${e.message}` });
     }
@@ -635,7 +656,7 @@ async function api(req, res, url) {
         ahora: new Date().toISOString()
       },
       gasto: (() => {
-        const g = store.gastoDelDia();
+        const g = store.gastoDelDia(cfg.zonaHoraria);
         const tope = Number(cfg.topeGastoDiario) || 0;
         return { ...g, tope, frenado: tope > 0 && g.total >= tope };
       })(),

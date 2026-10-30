@@ -196,13 +196,42 @@ class Store {
     });
   }
 
-  /** Gasto del dia, en dolares. Solo cuenta lo que el proveedor informa. */
-  gastoDelDia(dia) {
-    const d = dia || new Date().toISOString().slice(0, 10);
+  /**
+   * Gasto del dia, en dolares.
+   *
+   * El dia es el de TU zona horaria, no el UTC. Con las marcas en UTC y el
+   * usuario en Lima, el contador se reiniciaba a las 19:00, en mitad de la
+   * tarde de trabajo. Se compara contra el instante en que empieza hoy
+   * donde vives.
+   */
+  gastoDelDia(zona, dia) {
+    const z = zona || 'UTC';
+    const ahora = new Date();
+    let etiqueta = dia;
+    if (!etiqueta) {
+      try {
+        etiqueta = new Intl.DateTimeFormat('sv-SE', { timeZone: z }).format(ahora);  // AAAA-MM-DD
+      } catch { etiqueta = ahora.toISOString().slice(0, 10); }
+    }
+    // Instante en que empieza ese dia en esa zona, expresado en UTC.
+    let desde;
+    try {
+      const mediodia = new Date(`${etiqueta}T12:00:00Z`);
+      const local = new Intl.DateTimeFormat('en-US', {
+        timeZone: z, hour12: false, hour: '2-digit', minute: '2-digit'
+      }).formatToParts(mediodia);
+      const h = Number(local.find((x) => x.type === 'hour').value);
+      const mi = Number(local.find((x) => x.type === 'minute').value);
+      const desfaseMin = (h * 60 + mi) - (12 * 60);
+      desde = new Date(Date.parse(`${etiqueta}T00:00:00Z`) - desfaseMin * 60000).toISOString();
+    } catch {
+      desde = `${etiqueta}T00:00:00.000Z`;
+    }
+    const hasta = new Date(Date.parse(desde) + 86400000).toISOString();
     const r = this.db.prepare(
-      "SELECT COALESCE(SUM(cost_usd),0) total, COUNT(*) turnos FROM turns WHERE substr(created_at,1,10) = ?"
-    ).get(d);
-    return { dia: d, total: r.total, turnos: r.turnos };
+      'SELECT COALESCE(SUM(cost_usd),0) total, COUNT(*) turnos FROM turns WHERE created_at >= ? AND created_at < ?'
+    ).get(desde, hasta);
+    return { dia: etiqueta, zona: z, desde, total: r.total, turnos: r.turnos };
   }
 
   // --- guardia de rutas protegidas ---

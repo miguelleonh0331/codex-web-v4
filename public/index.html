@@ -181,6 +181,23 @@
 
     <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0">
 
+    <div id="gasto-caja">
+      <div class="fila"><span class="k">Gasto de hoy</span><span id="gasto-hoy">—</span></div>
+      <label style="margin-top:.5rem">Tope diario en dolares (0 = sin tope)
+        <input id="tope-gasto" type="number" min="0" step="0.5" inputmode="decimal">
+      </label>
+      <p class="muted" style="font-size:.74rem;margin:.1rem 0 .5rem">
+        Al alcanzarlo no se lanzan turnos nuevos. Los que esten en marcha terminan,
+        y lo que quede en cola sale solo al dia siguiente.
+      </p>
+      <menu style="justify-content:flex-start">
+        <button type="button" id="tope-guardar" class="primary">Guardar tope</button>
+        <span id="tope-estado" class="muted" style="font-size:.76rem"></span>
+      </menu>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0">
+
     <div id="codex-caja">
       <div class="fila"><span class="k">ChatGPT (Codex)</span>
         <span id="codex-estado">consultando…</span></div>
@@ -247,6 +264,11 @@
     <label>Instrucciones
       <textarea name="instructions" rows="10" required placeholder="Responsabilidad, rutas reales, limites, con quien coordina y como valida."></textarea>
     </label>
+    <menu id="voz-prueba-caja" style="justify-content:flex-start;margin:.2rem 0 .8rem">
+      <button type="button" id="voz-probar">🔊 Escuchar su voz</button>
+      <span id="voz-prueba-nota" class="muted" style="font-size:.74rem"></span>
+    </menu>
+
     <label>Proveedor
       <select name="proveedor" id="sel-proveedor"></select>
       <small class="muted" id="prov-nota" style="font-size:.72rem"></small>

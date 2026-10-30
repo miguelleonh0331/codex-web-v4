@@ -867,6 +867,39 @@ function check(nombre, condicion, detalle) {
   check('alcanzar el tope deja el trabajo pendiente, no lo descarta',
     !/finishTurn[^)]*gasto/.test(orqGas),
     'el turno debe quedar en cola y salir solo cuando el tope se renueve');
+  check('el dia del gasto es el de tu zona, no el UTC',
+    estGas.dia && estGas.zona && estGas.desde,
+    'con marcas en UTC y el usuario en Lima, el contador se reiniciaba a las 19:00');
+  {
+    const { Store: StoreZ } = require(`${__dirname}/../src/db.js`);
+    const tmp = `${__dirname}/../.tmp-zona.db`;
+    try {
+      for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true });
+      const st = new StoreZ(tmp);
+      const lima = st.gastoDelDia('America/Lima');
+      const utc = st.gastoDelDia('UTC');
+      check('cada zona empieza su dia en un instante distinto',
+        lima.desde !== utc.desde, `${lima.desde} vs ${utc.desde}`);
+    } finally { for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true }); }
+  }
+
+  check('el tope se puede fijar desde la web',
+    (await req('/api/app', { method: 'PATCH', body: { topeGastoDiario: 3 } })).data.topeGastoDiario === 3 &&
+    (await req('/api/app', { method: 'PATCH', body: { topeGastoDiario: -1 } })).status === 400 &&
+    (await req('/api/app', { method: 'PATCH', body: { topeGastoDiario: 0 } })).data.ok === true,
+    'y rechaza valores imposibles');
+  check('avisa si el tope que acabas de poner ya esta superado',
+    /frenaYa/.test(fs.readFileSync(`${__dirname}/../src/server.js`, 'utf8')) &&
+    /el equipo queda parado/.test(appAct),
+    'guardarlo en silencio dejaria todo parado sin explicacion');
+  check('cambiar el nombre sigue funcionando tras anadir el tope',
+    (await req('/api/app', { method: 'PATCH', body: { nombre: '' } })).status === 400);
+  check('hay boton para escuchar la voz de un especialista',
+    /id="voz-probar"/.test(idxPanel) && /VOZ\.prueba/.test(appAct),
+    'la voz sale del nombre: conviene oirla antes de guardarlo');
+  check('la ficha de gasto esta en la pantalla de proveedor',
+    /id="tope-gasto"/.test(idxPanel) && /pintarGasto/.test(appAct));
+
   check('avisa de que freno, sin repetirlo cada ciclo',
     /gasto\.tope/.test(orqGas) && /avisoTope/.test(orqGas));
 
