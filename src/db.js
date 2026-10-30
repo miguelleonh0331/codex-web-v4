@@ -4,6 +4,10 @@ const crypto = require('node:crypto');
 
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
+-- Sin esto, dos escrituras a la vez dan "database is locked" al instante y
+-- el error subia hasta tumbar el servicio. Con WAL los bloqueos duran
+-- milisegundos: esperar cinco segundos es de sobra y nunca se nota.
+PRAGMA busy_timeout = 5000;
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS agents (
@@ -159,7 +163,14 @@ const COLUMNAS_NUEVAS = [
   ['turns', 'reintentos', 'INTEGER'],
   ['turns', 'espera_desde', 'TEXT'],     // primer choque: sirve para el tope de 24 h
   ['agents', 'proveedor', 'TEXT'],       // claude | codex; null = el de la instalacion
-  ['agents', 'recepcion', 'INTEGER']     // 1 = atiende peticiones de fuera
+  ['agents', 'recepcion', 'INTEGER'],    // 1 = atiende peticiones de fuera
+  // Tokens por turno. El coste en dolares solo lo informa Claude; los tokens
+  // los dan los dos, y son lo unico comparable entre proveedores.
+  ['turns', 'tok_entrada', 'INTEGER'],
+  ['turns', 'tok_salida', 'INTEGER'],
+  ['turns', 'tok_cache', 'INTEGER'],
+  ['turns', 'proveedor', 'TEXT'],
+  ['turns', 'modelo', 'TEXT']
 ];
 
 function migrar(db) {
@@ -357,9 +368,20 @@ class Store {
     return this.db.prepare('SELECT * FROM push_subs').all();
   }
 
+  /**
+   * Apunte para el registro de actividad.
+   *
+   * Nunca lanza: esto es telemetria. Perder una linea del registro no puede
+   * tumbar un turno que ya se hizo, y menos el servicio entero.
+   */
   event(kind, agentId, data) {
-    this.db.prepare('INSERT INTO events (kind, agent_id, data, created_at) VALUES (?,?,?,?)')
-      .run(kind, agentId || null, data ? JSON.stringify(data) : null, now());
+    try {
+      this.db.prepare('INSERT INTO events (kind, agent_id, data, created_at) VALUES (?,?,?,?)')
+        .run(kind, agentId || null, data ? JSON.stringify(data) : null, now());
+    } catch (e) {
+      // Se deja constancia por consola y se sigue.
+      console.error(`[v4] no se pudo registrar el evento ${kind}: ${e.message}`);
+    }
   }
 
   listEvents(sinceId = 0, limit = 200) {
@@ -614,10 +636,75 @@ class Store {
     this.db.prepare("UPDATE turns SET status = 'running', started_at = ? WHERE id = ?").run(now(), id);
   }
 
-  finishTurn(id, { status, result, error, cost, numTurns, sessionId }) {
-    this.db.prepare(`UPDATE turns SET status = ?, result = ?, error = ?, cost_usd = ?, num_turns = ?, session_id = ?, ended_at = ?
+  finishTurn(id, { status, result, error, cost, numTurns, sessionId, uso, proveedor, modelo }) {
+    // Los tokens se guardan aqui y no en otro sitio porque es el unico
+    // momento en que se conocen: el proveedor los entrega al cerrar el turno.
+    const u = uso || {};
+    this.db.prepare(`UPDATE turns SET status = ?, result = ?, error = ?, cost_usd = ?, num_turns = ?,
+                       session_id = ?, tok_entrada = ?, tok_salida = ?, tok_cache = ?,
+                       proveedor = ?, modelo = ?, ended_at = ?
                      WHERE id = ?`)
-      .run(status, result || null, error || null, cost ?? null, numTurns ?? null, sessionId || null, now(), id);
+      .run(status, result || null, error || null, cost ?? null, numTurns ?? null, sessionId || null,
+        u.input_tokens ?? null, u.output_tokens ?? null,
+        (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0) || null,
+        proveedor || null, modelo || null, now(), id);
+  }
+
+  /**
+   * Gasto y consumo por especialista.
+   *
+   * Dos monedas distintas a proposito: los dolares solo los informa Claude,
+   * los tokens los dan ambos. Para comparar proveedores sirven los tokens;
+   * para saber lo que te cuesta, los dolares.
+   */
+  informeUso({ dias = 7, zona = 'UTC' } = {}) {
+    const desde = new Date(Date.now() - dias * 86400000).toISOString();
+    const filas = this.db.prepare(`
+      SELECT a.id, a.name, a.archived,
+             COALESCE(t.proveedor, a.proveedor, 'claude') prov,
+             COUNT(*)                                turnos,
+             SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) hechos,
+             COALESCE(SUM(t.cost_usd), 0)            coste,
+             COALESCE(SUM(t.tok_entrada), 0)         entrada,
+             COALESCE(SUM(t.tok_salida), 0)          salida,
+             COALESCE(SUM(t.tok_cache), 0)           cache,
+             MAX(t.ended_at)                         ultimo
+        FROM turns t JOIN agents a ON a.id = t.agent_id
+       WHERE t.created_at >= ? AND t.ended_at IS NOT NULL
+       GROUP BY a.id, prov
+       ORDER BY coste DESC, entrada DESC`).all(desde);
+
+    return filas.map((f) => {
+      // Cuantos turnos de este especialista traian coste. Si ninguno, el
+      // cero no significa "gratis" sino "su proveedor no lo informa", y
+      // mezclarlos en el total enganaria.
+      const conCoste = this.db.prepare(
+        'SELECT COUNT(*) c FROM turns WHERE agent_id = ? AND cost_usd > 0'
+      ).get(f.id).c;
+      return {
+        ...f,
+        archived: !!f.archived,
+        costeConocido: conCoste > 0,
+        // Lo util para decidir a quien mover de proveedor no es el total,
+        // sino lo que cuesta cada vez que trabaja.
+        costePorTurno: f.turnos ? f.coste / f.turnos : 0,
+        // La lectura de cache tambien es contexto procesado: dejarla fuera
+        // da la impresion de que un turno largo consumio ocho tokens.
+        tokens: f.entrada + f.cache + f.salida
+      };
+    });
+  }
+
+  /** Gasto por dia, para ver la tendencia. */
+  gastoPorDia(dias = 14) {
+    const desde = new Date(Date.now() - dias * 86400000).toISOString();
+    return this.db.prepare(`
+      SELECT substr(created_at, 1, 10) dia,
+             COUNT(*) turnos,
+             COALESCE(SUM(cost_usd), 0) coste,
+             COALESCE(SUM(tok_entrada), 0) + COALESCE(SUM(tok_salida), 0) tokens
+        FROM turns WHERE created_at >= ? AND ended_at IS NOT NULL
+       GROUP BY dia ORDER BY dia DESC`).all(desde);
   }
 
   getTurn(id) {

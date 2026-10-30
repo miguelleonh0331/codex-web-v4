@@ -1115,6 +1115,30 @@ async function api(req, res, url) {
   }
 
   // LILIT: lo que ve, para hablarlo o para pintarlo.
+  // Informe de uso: quien gasta y cuanto. Sirve para decidir a quien mover
+  // de proveedor, que es para lo que se pidio.
+  if (p === '/api/informe' && m === 'GET') {
+    const dias = Math.min(90, Math.max(1, Number(url.searchParams.get('dias') || 7)));
+    const porAgente = store.informeUso({ dias, zona: cfg.zonaHoraria });
+    const porDia = store.gastoPorDia(Math.min(30, dias * 2));
+
+    const total = porAgente.reduce((acc, x) => ({
+      turnos: acc.turnos + x.turnos,
+      coste: acc.coste + x.coste,
+      entrada: acc.entrada + x.entrada,
+      salida: acc.salida + x.salida,
+      cache: acc.cache + x.cache
+    }), { turnos: 0, coste: 0, entrada: 0, salida: 0, cache: 0 });
+
+    // Cuantos turnos antiguos no tienen tokens medidos: se dice en vez de
+    // dejar ceros que pareceran gratis.
+    const sinMedir = store.db.prepare(
+      "SELECT COUNT(*) c FROM turns WHERE ended_at IS NOT NULL AND tok_entrada IS NULL AND cost_usd > 0"
+    ).get().c;
+
+    return json(res, 200, { dias, total, porAgente, porDia, sinMedir });
+  }
+
   if (p === '/api/lilit' && m === 'GET') {
     const gasto = (() => {
       const g = store.gastoDelDia(cfg.zonaHoraria);

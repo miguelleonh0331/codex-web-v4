@@ -905,3 +905,13 @@ button.enlace:hover{color:var(--fg)}
 .cargar-antes{display:block;margin:.4rem auto .8rem;font-size:.76rem;
   background:transparent;border:1px solid var(--line);color:var(--muted)}
 .cargar-antes:hover{color:var(--fg);border-color:var(--accent)}
+
+/* Informe de gasto: la barra deja comparar de un vistazo quien consume mas,
+   que es para lo que se mira. */
+.periodo{display:flex;gap:.3rem;margin-bottom:.6rem}
+.periodo button{flex:1;font-size:.74rem;padding:.3rem;background:transparent;
+  border:1px solid var(--line);color:var(--muted)}
+.periodo button.sel{border-color:var(--accent);color:var(--fg);background:var(--bg3)}
+.gasto-fila .barra{height:4px;background:var(--bg);border-radius:2px;margin:.3rem 0;overflow:hidden}
+.gasto-fila .barra i{display:block;height:100%;background:var(--accent)}
+.gasto-fila .body{white-space:pre-wrap}

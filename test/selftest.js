@@ -1003,6 +1003,56 @@ function check(nombre, condicion, detalle) {
     fs.existsSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`) &&
     /x-v4-externo/.test(fs.readFileSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`, 'utf8')));
 
+  // --- informe de uso ---
+  const inf = (await req('/api/informe?dias=7')).data;
+  check('el informe dice quien gasta y cuanto',
+    inf.total && Array.isArray(inf.porAgente) && Array.isArray(inf.porDia) &&
+    inf.porAgente.every((a) => 'coste' in a && 'tokens' in a && 'turnos' in a && 'prov' in a),
+    JSON.stringify(inf.total));
+  check('distingue "no cuesta" de "no se sabe lo que cuesta"',
+    inf.porAgente.every((a) => typeof a.costeConocido === 'boolean'),
+    'Codex no informa coste: un cero se leeria como gratis');
+  check('cuenta tambien la lectura de cache',
+    /tokens: f\.entrada \+ f\.cache \+ f\.salida/.test(fs.readFileSync(`${__dirname}/../src/db.js`, 'utf8')),
+    'dejarla fuera hace que un turno largo parezca de ocho tokens');
+  check('avisa de los turnos antiguos sin tokens medidos',
+    typeof inf.sinMedir === 'number',
+    'sin decirlo, los ceros del historial pareceran consumo real');
+  check('el coste por turno permite decidir a quien mover de proveedor',
+    inf.porAgente.every((a) => typeof a.costePorTurno === 'number'));
+  check('hay pestana de gasto con periodo elegible',
+    /data-tab="gasto"/.test(idxPanel) && /\[1, 7, 30\]\.map/.test(appAct) && /data-dias=/.test(appAct));
+
+  {
+    const { Store: StoreU } = require(`${__dirname}/../src/db.js`);
+    const tmp = `${__dirname}/../.tmp-uso.db`;
+    try {
+      for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true });
+      const st = new StoreU(tmp);
+      st.createAgent({ id: 'u1', name: 'u1', instructions: 'x', home: '/tmp', workspace: '/tmp' });
+      const tid = st.enqueueTurn({ agentId: 'u1', prompt: 'x', origin: 'user' });
+      st.finishTurn(tid, {
+        status: 'done', cost: 0.5, numTurns: 1,
+        uso: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 900, cache_creation_input_tokens: 100 },
+        proveedor: 'claude', modelo: 'sonnet'
+      });
+      const fila = st.informeUso({ dias: 1 })[0];
+      check('los tokens de un turno quedan guardados',
+        fila && fila.entrada === 100 && fila.salida === 20 && fila.cache === 1000,
+        JSON.stringify(fila));
+      check('guarda con que proveedor y modelo se hizo cada turno',
+        st.db.prepare('SELECT proveedor, modelo FROM turns WHERE id = ?').get(tid).proveedor === 'claude',
+        'sin eso el informe no puede comparar proveedores');
+    } finally { for (const f of ['', '-shm', '-wal']) fs.rmSync(tmp + f, { force: true }); }
+  }
+
+  check('dos escrituras a la vez no tumban el servicio',
+    /PRAGMA busy_timeout/.test(fs.readFileSync(`${__dirname}/../src/db.js`, 'utf8')),
+    'sin esto, "database is locked" subia hasta matar el proceso');
+  check('un apunte de telemetria no puede tumbar un turno',
+    /no se pudo registrar el evento/.test(fs.readFileSync(`${__dirname}/../src/db.js`, 'utf8')),
+    'perder una linea del registro no puede costar el trabajo hecho');
+
   // --- peso del sondeo ---
   {
     const { Store: StoreP } = require(`${__dirname}/../src/db.js`);

@@ -581,6 +581,7 @@ function filaMensaje(m, actual) {
 }
 
 let notaAbierta = null;    // {titulo, carpeta} mientras se lee una nota
+let diasInforme = 7;       // periodo del informe de gasto
 
 async function pintarIndiceVault() {
   const { notas, raiz } = await api('/api/vault');
@@ -744,6 +745,46 @@ async function renderPanel() {
       </div>`).join('') : '<p class="muted">Todo en orden. LILIT calla cuando no hay nada que contar.</p>');
   }
 
+  if (active === 'gasto') {
+    const d = await api(`/api/informe?dias=${diasInforme}`);
+    const mil = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
+    const dolar = (n) => `$${n.toFixed(n < 1 ? 4 : 2)}`;
+
+    // El mayor gasto marca la escala de las barras: comparar entre
+    // especialistas es justo para lo que se mira esto.
+    const tope = Math.max(...d.porAgente.map((a) => a.coste), 0.0001);
+
+    $('#tab-gasto').innerHTML = `
+      <div class="periodo">
+        ${[1, 7, 30].map((n) => `<button type="button" data-dias="${n}"
+          class="${n === diasInforme ? 'sel' : ''}">${n === 1 ? 'hoy' : `${n} dias`}</button>`).join('')}
+      </div>
+      <div class="item">
+        <div class="hdr"><span>total</span><span>${d.total.turnos} turnos</span></div>
+        <div class="body">${dolar(d.total.coste)} · entrada ${mil(d.total.entrada)} ·
+          cache ${mil(d.total.cache)} · salida ${mil(d.total.salida)}</div>
+      </div>
+      ${d.porAgente.length ? d.porAgente.map((a) => `
+        <div class="item gasto-fila">
+          <div class="hdr">
+            <span>${escapeHtml(a.name)} <small class="muted">${escapeHtml(a.prov)}</small></span>
+            <span>${a.costeConocido ? dolar(a.coste) : '<em class="muted">sin coste informado</em>'}</span>
+          </div>
+          <div class="barra"><i style="width:${Math.max(2, (a.coste / tope) * 100)}%"></i></div>
+          <div class="body">${a.turnos} turnos · ${a.costeConocido ? `${dolar(a.costePorTurno)} por turno · ` : ''}${mil(a.tokens)} tokens</div>
+        </div>`).join('') : '<p class="muted">Sin actividad en el periodo.</p>'}
+      ${d.sinMedir ? `<p class="muted" style="font-size:.72rem">
+        ${d.sinMedir} turnos anteriores a esta version tienen coste pero no tokens:
+        se midieron antes de que se guardaran.</p>` : ''}
+      ${d.porDia.length ? `<div class="item"><div class="hdr"><span>por dia</span></div>
+        <div class="body">${d.porDia.map((x) =>
+          `${x.dia.slice(5)}  ${dolar(x.coste).padStart(8)}  ${x.turnos} turnos`).join('\n')}</div></div>` : ''}`;
+
+    $('#tab-gasto').querySelectorAll('[data-dias]').forEach((b) => {
+      b.onclick = () => { diasInforme = Number(b.dataset.dias); renderPanel(); };
+    });
+  }
+
   if (active === 'activity') {
     const { events } = await api('/api/events?since=0');
     $('#tab-activity').innerHTML = events.slice(0, 50).map((e) => `
@@ -771,7 +812,7 @@ document.querySelectorAll('.tab').forEach((t) => {
   t.onclick = () => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
     t.classList.add('active');
-    ['mailbox', 'salida', 'claims', 'vault', 'guardia', 'lilit', 'activity'].forEach((n) => { $(`#tab-${n}`).hidden = n !== t.dataset.tab; });
+    ['mailbox', 'salida', 'claims', 'vault', 'guardia', 'lilit', 'gasto', 'activity'].forEach((n) => { $(`#tab-${n}`).hidden = n !== t.dataset.tab; });
     renderPanel();
   };
 });

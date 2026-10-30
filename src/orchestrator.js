@@ -383,7 +383,11 @@ class Orchestrator {
           ? `Contexto compactado (venia de ${miles(antes)} tokens). El tamano nuevo se medira en su proxima respuesta.`
           : 'Contexto compactado. El especialista conserva el resumen de lo hablado.';
       this.store.addMessage(agent.id, 'system', texto, { turn_id: turn.id, compactado: true });
-      this.store.finishTurn(turn.id, { status: 'done', result: texto, cost: out.cost, numTurns: out.numTurns, sessionId: out.sessionId });
+      this.store.finishTurn(turn.id, {
+        status: 'done', result: texto, cost: out.cost, numTurns: out.numTurns, sessionId: out.sessionId,
+        uso: out.uso, proveedor: proveedores.paraAgente(agent, this.cfg).nombre,
+        modelo: agent.model || this.cfg.model || null
+      });
       this.store.event('contexto.compactado', agent.id, { antes, despues: ahora });
       this.store.updateAgent(agent.id, { status: 'idle' });
       return;
@@ -395,7 +399,13 @@ class Orchestrator {
         turn_id: turn.id, cost: out.cost, num_turns: out.numTurns
       });
       this.store.finishTurn(turn.id, {
-        status: 'done', result: out.text, cost: out.cost, numTurns: out.numTurns, sessionId: out.sessionId
+        status: 'done', result: out.text, cost: out.cost, numTurns: out.numTurns,
+        sessionId: out.sessionId,
+        // Se apunta con que motor y modelo se hizo: sin eso, el informe no
+        // podria comparar lo que cuesta cada proveedor.
+        uso: out.uso,
+        proveedor: proveedores.paraAgente(agent, this.cfg).nombre,
+        modelo: agent.model || this.cfg.model || null
       });
       this.store.event('turn.done', agent.id, { turn_id: turn.id, cost: out.cost });
       // Si venia esperando cuota, el aviso lo dice: puede haber retomado de
