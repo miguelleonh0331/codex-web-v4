@@ -14,6 +14,8 @@ const push = require('./push');
 const proveedores = require('./proveedores');
 const guardia = require('./guardia');
 const vault = require('./vault');
+const lilit = require('./lilit');
+const lilitGroq = require('./lilit-groq');
 const crypto = require('node:crypto');
 
 const cfg = load();
@@ -1093,6 +1095,30 @@ async function api(req, res, url) {
     return json(res, 200, {
       mensajes: filas.map((f) => ({ de: nameOf(f.de_agente), texto: f.cuerpo, en: f.created_at }))
     });
+  }
+
+  // LILIT: lo que ve, para hablarlo o para pintarlo.
+  if (p === '/api/lilit' && m === 'GET') {
+    const gasto = (() => {
+      const g = store.gastoDelDia(cfg.zonaHoraria);
+      const tope = Number(cfg.topeGastoDiario) || 0;
+      return { ...g, tope, frenado: tope > 0 && g.total >= tope };
+    })();
+    const ses = sesion.estado(sesion.archivoSesion(cfg));
+    const hallazgos = lilit.auditar(store, cfg, { gasto, sesion: ses });
+    return json(res, 200, {
+      hallazgos: hallazgos.map((h) => ({ ...h, texto: lilit.decir(h) })),
+      modelo: lilitGroq.disponible(cfg) ? lilitGroq.MODELO : null
+    });
+  }
+
+  // Redaccion natural de varios avisos a la vez. Si falla, el cliente ya
+  // tiene el texto del diccionario y no se queda sin voz.
+  if (p === '/api/lilit/redactar' && m === 'POST') {
+    const b = await readBody(req);
+    const lista = Array.isArray(b.hallazgos) ? b.hallazgos.slice(0, 8) : [];
+    const texto = await lilitGroq.redactar(cfg, lista);
+    return json(res, 200, { texto });
   }
 
   if (p === '/api/guardia' && m === 'GET') {

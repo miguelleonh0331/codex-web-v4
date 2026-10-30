@@ -584,6 +584,18 @@ async function renderPanel() {
     });
   }
 
+  if (active === 'lilit') {
+    const { hallazgos, modelo } = await api('/api/lilit');
+    const cab = `<p class="muted" style="font-size:.74rem">
+      Vigila el equipo y avisa por voz. ${modelo ? `Redaccion natural con ${escapeHtml(modelo)}.` : 'Sin modelo externo: frases propias.'}
+      </p>`;
+    $('#tab-lilit').innerHTML = cab + (hallazgos.length ? hallazgos.map((h) => `
+      <div class="item ${h.nivel === 'urgente' ? 'blocked' : ''}">
+        <div class="hdr"><span>${escapeHtml(h.tipo)}</span><span>${escapeHtml(h.nivel)}</span></div>
+        <div class="body">${escapeHtml(h.texto)}</div>
+      </div>`).join('') : '<p class="muted">Todo en orden. LILIT calla cuando no hay nada que contar.</p>');
+  }
+
   if (active === 'activity') {
     const { events } = await api('/api/events?since=0');
     $('#tab-activity').innerHTML = events.slice(0, 50).map((e) => `
@@ -611,7 +623,7 @@ document.querySelectorAll('.tab').forEach((t) => {
   t.onclick = () => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
     t.classList.add('active');
-    ['mailbox', 'salida', 'claims', 'vault', 'guardia', 'activity'].forEach((n) => { $(`#tab-${n}`).hidden = n !== t.dataset.tab; });
+    ['mailbox', 'salida', 'claims', 'vault', 'guardia', 'lilit', 'activity'].forEach((n) => { $(`#tab-${n}`).hidden = n !== t.dataset.tab; });
     renderPanel();
   };
 });
@@ -1893,6 +1905,70 @@ if ($('#notas-form')) {
     $('#notas-dialog').close();
     caja.focus();
   };
+}
+
+// ----------------------------------------------------------- LILIT
+
+/**
+ * Auditora: mira el estado cada minuto y habla solo si hay algo nuevo.
+ *
+ * Lo importante es lo que NO hace: no repite lo que ya dijo. Un aviso que
+ * se repite cada minuto se deja de escuchar al segundo dia, y entonces no
+ * sirve para nada.
+ */
+let LILIT_ACTIVA = localStorage.getItem('v4-lilit') === '1';
+const lilitDichos = new Set();
+let lilitReloj = null;
+
+async function lilitMirar() {
+  if (!LILIT_ACTIVA) return;
+  let hallazgos = [];
+  try { ({ hallazgos } = await api('/api/lilit')); } catch { return; }
+
+  const nuevos = hallazgos.filter((h) => !lilitDichos.has(h.clave));
+  // Lo que ya no aparece deja de estar "dicho": si vuelve a pasar, vuelve a avisar.
+  const vivas = new Set(hallazgos.map((h) => h.clave));
+  for (const c of [...lilitDichos]) if (!vivas.has(c)) lilitDichos.delete(c);
+  if (!nuevos.length) return;
+  for (const h of nuevos) lilitDichos.add(h.clave);
+
+  const urgentes = nuevos.filter((h) => h.nivel === 'urgente');
+  const hablar = urgentes.length ? urgentes : nuevos.filter((h) => h.nivel !== 'bajo');
+  if (!hablar.length) return;
+
+  let texto = hablar.map((h) => h.texto).join(' ');
+  // Con varias cosas a la vez, una lista de frases sueltas suena torpe: se
+  // intenta que el modelo externo lo diga de corrido. Si no puede, se usa
+  // lo que ya tenemos.
+  if (hablar.length > 1) {
+    try {
+      const r = await api('/api/lilit/redactar', { method: 'POST', body: JSON.stringify({ hallazgos: hablar }) });
+      if (r.texto) texto = r.texto;
+    } catch { /* el diccionario ya sirve */ }
+  }
+  VOZ.anuncia('Lilit', texto);
+  const t = document.querySelector('.tab[data-tab="lilit"]');
+  if (t && urgentes.length) t.classList.add('avisa');
+}
+
+if ($('#lilit-on')) {
+  const caja = $('#lilit-caja');
+  if (!VOZ.soportado) { caja.hidden = true; } else {
+    $('#lilit-on').checked = LILIT_ACTIVA;
+    $('#lilit-on').onchange = (e) => {
+      LILIT_ACTIVA = e.target.checked;
+      localStorage.setItem('v4-lilit', LILIT_ACTIVA ? '1' : '0');
+      if (LILIT_ACTIVA) {
+        VOZ.activa = true;
+        $('#voz-on').checked = true;
+        VOZ.prueba('Lilit');
+        lilitDichos.clear();          // al encenderla, cuenta lo que haya ahora
+        if (!lilitReloj) lilitReloj = setInterval(lilitMirar, 60000);
+        lilitMirar();
+      }
+    };
+    if (LILIT_ACTIVA) { lilitReloj = setInterval(lilitMirar, 60000); lilitMirar(); }
+  }
 }
 
 // ------------------------------------------------------- notificaciones

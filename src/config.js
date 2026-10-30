@@ -27,6 +27,9 @@ const DEFAULTS = {
   // Tope de gasto diario en dolares. 0 = sin tope. Al alcanzarlo no se
   // lanzan turnos nuevos, pero los que estan en marcha terminan.
   topeGastoDiario: 0,
+  // LILIT puede redactar sus avisos con un modelo externo. Opcional: sin
+  // clave usa su diccionario propio y funciona igual.
+  groqKeyFile: null,            // por defecto: <dataDir>/secretos/groq.key
   maxHops: 6,
   maxAgents: 24,              // tope de especialistas que el propio equipo puede crear
   maxUploadMb: 50,            // tope por archivo adjunto

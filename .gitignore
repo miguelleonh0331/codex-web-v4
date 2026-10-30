@@ -1,2 +1,6 @@
 node_modules/
 *.log
+
+# claves: nunca al repositorio
+secretos/
+*.key

@@ -1003,6 +1003,87 @@ function check(nombre, condicion, detalle) {
     fs.existsSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`) &&
     /x-v4-externo/.test(fs.readFileSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`, 'utf8')));
 
+  // --- LILIT ---
+  const { frase, cuantas } = require(`${__dirname}/../src/lilit-frases.js`);
+  const lilitMod = require(`${__dirname}/../src/lilit.js`);
+
+  check('el diccionario tiene mas de cien formas de avisar',
+    cuantas() > 100, `${cuantas()} frases`);
+  check('no repite la misma frase dos veces seguidas', (() => {
+    let ant = null;
+    for (let i = 0; i < 300; i += 1) {
+      const f = frase('conexion', { n: 2 });
+      if (f === ant) return false;
+      ant = f;
+    }
+    return true;
+  })(), 'una frase repetida suena a grabacion y se deja de escuchar');
+  // Se generan muchas y se busca el fallo, en vez de fiar la comprobacion a
+  // que salga una plantilla concreta: frase() elige al azar.
+  check('concuerda singular y plural', (() => {
+    const plural = /\b1 (mensajes|turnos|trabajos|errores|minutos|preguntas|especialistas|intentos|fallos|archivos|respuestas)\b/;
+    const singular = /\b([2-9]\d*) (mensaje|turno|trabajo|error|minuto|pregunta|especialista|intento|fallo|archivo|respuesta)\b/;
+    for (const tipo of Object.keys(require(`${__dirname}/../src/lilit-frases.js`).FRASES)) {
+      for (let i = 0; i < 40; i += 1) {
+        if (plural.test(frase(tipo, { n: 1, quien: 'X' }))) return false;
+        if (singular.test(frase(tipo, { n: 4, quien: 'X' }))) return false;
+      }
+    }
+    return true;
+  })(), 'en voz alta "1 mensajes" canta mucho mas que escrito');
+  check('no baja a minuscula un nombre propio', (() => {
+    for (let i = 0; i < 60; i += 1) {
+      if (/[,.] telefonia/.test(frase('aprobacion', { n: 1, quien: 'Telefonia' }))) return false;
+    }
+    return true;
+  })());
+  check('las frases no llevan emojis ni markdown', (() => {
+    const { FRASES } = require(`${__dirname}/../src/lilit-frases.js`);
+    return Object.values(FRASES).flat().every((f) => !/[*_`#\[\]]|[\u{1F300}-\u{1FAFF}]/u.test(f));
+  })(), 'el sintetizador los lee en alto');
+
+  check('reconoce cuando un especialista espera algo de ti',
+    lilitMod.contiene('Necesito tu aprobación antes de seguir', lilitMod.PIDE_APROBACION) &&
+    lilitMod.contiene('No puedo continuar sin que me confirmes', lilitMod.PIDE_APROBACION) &&
+    !lilitMod.contiene('Listo, tarea terminada', lilitMod.PIDE_APROBACION),
+    'y no confunde un trabajo terminado con uno bloqueado');
+  check('la deteccion no depende de las tildes',
+    lilitMod.contiene('necesito tu aprobacion', lilitMod.PIDE_APROBACION) &&
+    lilitMod.contiene('NECESITO TU APROBACIÓN', lilitMod.PIDE_APROBACION));
+
+  const auditoria = (await req('/api/lilit')).data;
+  check('LILIT publica lo que ve, con su frase ya hecha',
+    Array.isArray(auditoria.hallazgos) &&
+    auditoria.hallazgos.every((h) => h.clave && h.tipo && h.nivel && h.texto),
+    JSON.stringify(auditoria.hallazgos.slice(0, 2)));
+  check('cada hallazgo tiene clave estable para no repetir el aviso',
+    auditoria.hallazgos.every((h) => typeof h.clave === 'string' && h.clave.includes(':')),
+    'sin clave, avisaria de lo mismo cada minuto');
+
+  const appL = appAct;
+  check('LILIT no habla dos veces de lo mismo',
+    /lilitDichos/.test(appL) && /!lilitDichos\.has\(h\.clave\)/.test(appL));
+  check('lo que deja de pasar vuelve a poder avisarse',
+    /if \(!vivas\.has\(c\)\) lilitDichos\.delete\(c\)/.test(appL),
+    'si no, un problema que vuelve nunca se avisaria otra vez');
+  check('lo de nivel bajo no interrumpe por voz',
+    /h\.nivel !== 'bajo'/.test(appL));
+
+  const groqSrc = fs.readFileSync(`${__dirname}/../src/lilit-groq.js`, 'utf8');
+  check('el modelo externo es opcional: si falla, queda el diccionario',
+    /return null;   \/\/ red, tiempo agotado/.test(groqSrc) && /if \(!k \|\| !hallazgos\.length\) return null/.test(groqSrc),
+    'LILIT no puede quedarse muda por culpa de un servicio de fuera');
+  check('al modelo externo no se le manda el trabajo, solo el tipo de incidencia',
+    !/body|texto|mensaje|prompt|result/.test(groqSrc.split('const resumen')[1].split('.join')[0]),
+    'lo que hablas con tu equipo no sale del servidor');
+  check('tiene limite de ritmo propio',
+    /MIN_ENTRE_LLAMADAS/.test(groqSrc), 'avisar no puede costar mas que trabajar');
+  check('la clave del modelo externo no esta en el repositorio',
+    !fs.existsSync(`${__dirname}/../secretos`) &&
+    /secretos\//.test(fs.readFileSync(`${__dirname}/../.gitignore`, 'utf8')));
+  check('hay pestana e interruptor de LILIT',
+    /data-tab="lilit"/.test(idxPanel) && /id="lilit-on"/.test(idxPanel));
+
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',
     /id="matrix"/.test(idxExp) && /id="matrix-on"/.test(idxExp));

@@ -486,6 +486,30 @@ test/selftest.js     autodiagnostico
 El instalador detecta los dos solos. Sin Codex el sistema funciona entero
 sobre Claude; la pantalla de Proveedor dira "no instalado" y nada mas.
 
+## LILIT, la auditora
+
+Vigila el equipo y te avisa **por voz** cuando algo se tuerce: alguien espera
+tu aprobacion, falla la conexion, se acabo la cuota, una maquina remota no
+conecta, se toco una ruta protegida.
+
+No es un especialista y **no gasta cuota**: lee el estado y habla. Eso es
+deliberado — si dependiera del modelo, se quedaria muda justo cuando se
+agota la cuota, que es uno de los avisos que mas falta hacen.
+
+Tiene 112 formas distintas de decir las cosas para que no suene a grabacion.
+Opcionalmente puede redactar con un modelo externo (Groq) cuando hay varias
+incidencias a la vez; si no responde, usa su diccionario y nadie lo nota.
+Al modelo solo se le manda el tipo de incidencia, nunca el contenido del
+trabajo.
+
+Para activarlo, la clave va fuera del repositorio:
+
+```bash
+sudo install -d -m 700 -o codex-web /var/lib/codex-web-v4/secretos
+printf '%s' "TU_CLAVE" | sudo tee /var/lib/codex-web-v4/secretos/groq.key >/dev/null
+sudo chmod 600 /var/lib/codex-web-v4/secretos/groq.key
+```
+
 ## Actualizar
 
 Aplicar una version nueva sobre una instalacion con trabajo dentro:
