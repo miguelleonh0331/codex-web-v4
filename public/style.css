@@ -870,3 +870,8 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
 .item.nota{cursor:pointer}
 .item.nota:hover{background:var(--bg3)}
 #vault-volver{margin-bottom:.5rem;font-size:.76rem}
+
+/* Enlaces entre notas: navegar por ellos es lo que convierte el vault en un
+   mapa en vez de una lista de ficheros. */
+.item .enlaces a{color:var(--accent);text-decoration:none}
+.item .enlaces a:hover{text-decoration:underline}

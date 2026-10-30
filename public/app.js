@@ -439,6 +439,79 @@ async function renderMessages(force) {
   if (force || atBottom) box.scrollTop = box.scrollHeight;
 }
 
+let notaAbierta = null;    // {titulo, carpeta} mientras se lee una nota
+
+async function pintarIndiceVault() {
+  const { notas, raiz } = await api('/api/vault');
+  const caja = $('#tab-vault');
+  const html = notas.length
+    ? `<p class="muted" style="font-size:.72rem">${escapeHtml(raiz)}</p>` + notas.map((n) => `
+        <div class="item nota" data-t="${escapeHtml(n.titulo)}" data-c="${escapeHtml(n.carpeta)}">
+          <div class="hdr"><span>${escapeHtml(n.titulo)}</span>
+          <span>${escapeHtml(n.carpeta || 'raiz')}</span></div>
+          <div class="body">${n.bytes} bytes · ${n.editada ? new Date(n.editada).toLocaleString() : ''}</div>
+        </div>`).join('')
+    : '<p class="muted">El vault esta vacio. Los especialistas escriben aqui lo que vale para manana.</p>';
+  // Solo se toca el DOM si cambio: repintar cada 2,5 s cerraria cualquier
+  // seleccion de texto que estuvieras haciendo.
+  if (caja.dataset.firma !== html.length + ':' + notas.length) {
+    caja.innerHTML = html;
+    caja.dataset.firma = html.length + ':' + notas.length;
+    caja.querySelectorAll('.nota').forEach((el) => {
+      el.onclick = () => {
+        notaAbierta = { titulo: el.dataset.t, carpeta: el.dataset.c };
+        caja.dataset.firma = '';
+        pintarNota(notaAbierta);
+      };
+    });
+  }
+}
+
+async function pintarNota(ref) {
+  const caja = $('#tab-vault');
+  let n;
+  try {
+    n = await api(`/api/vault?titulo=${encodeURIComponent(ref.titulo)}`
+      + `&carpeta=${encodeURIComponent(ref.carpeta || '')}`);
+  } catch {
+    notaAbierta = null;
+    caja.dataset.firma = '';
+    return pintarIndiceVault();
+  }
+  const atras = (n.retroenlaces || []).map((r) => r.titulo);
+  // Se quita la cabecera YAML: es util en Obsidian, ruido aqui.
+  const cuerpo = n.texto.replace(/^---\n[\s\S]*?\n---\n/, '');
+  const html = `
+    <button type="button" id="vault-volver">‹ todas las notas</button>
+    <div class="item"><div class="hdr"><span>${escapeHtml(n.titulo)}</span>
+    <span>${escapeHtml(n.carpeta || 'raiz')}</span></div>
+    <div class="body" style="white-space:pre-wrap">${escapeHtml(cuerpo)}</div></div>
+    ${n.enlaces.length ? `<div class="item"><div class="hdr"><span>enlaza a</span></div>
+      <div class="body enlaces">${n.enlaces.map((e) =>
+        `<a href="#" data-ir="${escapeHtml(e)}">${escapeHtml(e)}</a>`).join(' · ')}</div></div>` : ''}
+    ${atras.length ? `<div class="item"><div class="hdr"><span>la enlazan</span></div>
+      <div class="body enlaces">${atras.map((e) =>
+        `<a href="#" data-ir="${escapeHtml(e)}">${escapeHtml(e)}</a>`).join(' · ')}</div></div>` : ''}`;
+  if (caja.dataset.firma === 'nota:' + html.length) return;
+  caja.innerHTML = html;
+  caja.dataset.firma = 'nota:' + html.length;
+  $('#vault-volver').onclick = () => {
+    notaAbierta = null;
+    caja.dataset.firma = '';
+    pintarIndiceVault();
+  };
+  // Navegar por los enlaces es lo que convierte esto en un mapa y no en
+  // una lista de ficheros.
+  caja.querySelectorAll('[data-ir]').forEach((a) => {
+    a.onclick = (e) => {
+      e.preventDefault();
+      notaAbierta = { titulo: a.dataset.ir, carpeta: '' };
+      caja.dataset.firma = '';
+      pintarNota(notaAbierta);
+    };
+  });
+}
+
 async function renderPanel() {
   const active = pestanaActiva();
   if (active === 'salida') return refrescarActividad(false);
@@ -467,33 +540,11 @@ async function renderPanel() {
   }
 
   if (active === 'vault') {
-    const { notas, raiz } = await api('/api/vault');
-    $('#tab-vault').innerHTML = notas.length
-      ? `<p class="muted" style="font-size:.72rem">${escapeHtml(raiz)}</p>` + notas.map((n) => `
-          <div class="item nota" data-t="${escapeHtml(n.titulo)}" data-c="${escapeHtml(n.carpeta)}">
-            <div class="hdr"><span>${escapeHtml(n.titulo)}</span>
-            <span>${escapeHtml(n.carpeta || 'raiz')}</span></div>
-            <div class="body">${n.bytes} bytes · ${n.editada ? new Date(n.editada).toLocaleString() : ''}</div>
-          </div>`).join('')
-      : '<p class="muted">El vault esta vacio. Los especialistas escriben aqui lo que vale para manana.</p>';
-    // Al pulsar una nota se abre con sus enlaces y quien la enlaza.
-    $('#tab-vault').querySelectorAll('.nota').forEach((el) => {
-      el.onclick = async () => {
-        const n = await api(`/api/vault?titulo=${encodeURIComponent(el.dataset.t)}`
-          + `&carpeta=${encodeURIComponent(el.dataset.c)}`);
-        const atras = (n.retroenlaces || []).map((r) => r.titulo);
-        $('#tab-vault').innerHTML = `
-          <button type="button" id="vault-volver">‹ todas las notas</button>
-          <div class="item"><div class="hdr"><span>${escapeHtml(n.titulo)}</span>
-          <span>${escapeHtml(n.carpeta || 'raiz')}</span></div>
-          <div class="body" style="white-space:pre-wrap">${escapeHtml(n.texto)}</div></div>
-          ${n.enlaces.length ? `<div class="item"><div class="hdr"><span>enlaza a</span></div>
-            <div class="body">${n.enlaces.map(escapeHtml).join(' · ')}</div></div>` : ''}
-          ${atras.length ? `<div class="item"><div class="hdr"><span>la enlazan</span></div>
-            <div class="body">${atras.map(escapeHtml).join(' · ')}</div></div>` : ''}`;
-        $('#vault-volver').onclick = renderPanel;
-      };
-    });
+    // El panel se repinta solo cada pocos segundos. Si hay una nota abierta
+    // hay que volver a pintarla: antes la lista la borraba al instante y
+    // parecia que no se podia abrir nada.
+    if (notaAbierta) await pintarNota(notaAbierta);
+    else await pintarIndiceVault();
   }
 
   if (active === 'guardia') {

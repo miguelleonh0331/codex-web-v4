@@ -835,6 +835,15 @@ function check(nombre, condicion, detalle) {
     /vault_buscar cuesta cero/.test(runnerSrc),
     'una herramienta que no se explica no se usa');
   check('hay pestana de vault', /data-tab="vault"/.test(idxPanel));
+  check('abrir una nota sobrevive al repintado del panel',
+    /if \(notaAbierta\) await pintarNota\(notaAbierta\)/.test(appAct),
+    'el panel se repinta cada 2,5 s: antes la lista borraba la nota recien abierta');
+  check('solo se toca el DOM cuando algo cambio',
+    /dataset\.firma/.test(appAct),
+    'repintar cada ciclo cortaria cualquier seleccion de texto');
+  check('se puede navegar de una nota a otra por sus enlaces',
+    /data-ir=/.test(appAct) && /pintarNota\(notaAbierta\)/.test(appAct),
+    'sin eso es una lista de ficheros, no un mapa');
 
   // --- voz ---
   const vozSrc = await (await fetch((await base()) + '/voz.js')).text();

@@ -4,7 +4,7 @@
  * abra sin conexion, nunca para servir una version vieja cuando hay red.
  * Las respuestas de /api/ no se cachean jamas: son estado vivo.
  */
-const CACHE = 'v4-shell-v16';
+const CACHE = 'v4-shell-v17';
 const SHELL = ['/', '/style.css', '/app.js', '/robot.js', '/faces.js', '/voz.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png',
   '/icons/maskable-192.png', '/icons/maskable-512.png'];
