@@ -947,6 +947,63 @@ if ($('#tope-guardar')) {
   };
 }
 
+/** Agentes de otras maquinas: credenciales y su estado. */
+async function pintarExternos() {
+  const caja = $('#externos-lista');
+  if (!caja) return;
+  try {
+    const { externos, recepcion } = await api('/api/externos');
+    $('#externos-resumen').textContent = recepcion.length
+      ? `atiende: ${recepcion.map((r) => r.nombre).join(', ')}`
+      : 'nadie atiende la puerta';
+    $('#externos-resumen').className = recepcion.length ? 'muted' : 'mal';
+    caja.innerHTML = externos.length ? externos.map((e) => `
+      <div class="fila">
+        <span class="k">${escapeHtml(e.nombre)}${e.activo ? '' : ' (revocado)'}</span>
+        <span>
+          ${e.pendientes ? `${e.pendientes} sin recoger · ` : ''}
+          ${e.ultimo_visto ? new Date(e.ultimo_visto).toLocaleString() : 'nunca conectado'}
+          ${e.activo ? `<button type="button" class="enlace" data-rev="${e.id}">revocar</button>` : ''}
+          <button type="button" class="enlace" data-del="${e.id}">borrar</button>
+        </span>
+      </div>`).join('') : '<p class="muted" style="font-size:.74rem">Ninguno todavia.</p>';
+
+    caja.querySelectorAll('[data-rev]').forEach((b) => {
+      b.onclick = async () => {
+        await api(`/api/externos/${b.dataset.rev}`, { method: 'POST' }).catch(() => {});
+        pintarExternos();
+      };
+    });
+    caja.querySelectorAll('[data-del]').forEach((b) => {
+      b.onclick = async () => {
+        if (!confirm('Borrar esta credencial y su cola de mensajes?')) return;
+        await api(`/api/externos/${b.dataset.del}`, { method: 'DELETE' }).catch(() => {});
+        pintarExternos();
+      };
+    });
+  } catch (e) {
+    caja.innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+if ($('#externo-crear')) {
+  $('#externo-crear').onclick = async () => {
+    const nombre = $('#externo-nombre').value.trim();
+    $('#externo-error').textContent = '';
+    if (!nombre) { $('#externo-error').textContent = 'ponle un nombre'; return; }
+    try {
+      const r = await api('/api/externos', { method: 'POST', body: JSON.stringify({ nombre }) });
+      // Se ensena una sola vez: solo se guarda su huella.
+      $('#externo-token-valor').textContent = r.token;
+      $('#externo-token').hidden = false;
+      $('#externo-nombre').value = '';
+      await pintarExternos();
+    } catch (e) {
+      $('#externo-error').textContent = e.message;
+    }
+  };
+}
+
 async function pintarCodex() {
   const est = $('#codex-estado');
   if (!est) return;
@@ -1084,6 +1141,7 @@ $('#btn-proveedor').onclick = async () => {
   $('#proveedor-dialog').showModal();
   await pintarProveedor();
   await pintarGasto();
+  await pintarExternos();
   await pintarCodex();
 };
 $('#prov-cerrar').onclick = () => $('#proveedor-dialog').close();
@@ -1592,6 +1650,9 @@ function openDialog(agent) {
   c.name.value = agent ? agent.name : '';
   c.area.value = agent ? (agent.area || '') : '';
   c.instructions.value = agent ? agent.instructions : PLANTILLA;
+  if ($('#agent-form').elements.recepcion) {
+    $('#agent-form').elements.recepcion.checked = !!(agent && agent.recepcion);
+  }
   montarProveedores(agent ? (agent.proveedor || '') : '');
   montarModelos(agent ? (agent.model || '') : '');
   c.effort.value = agent ? (agent.effort || '') : '';
@@ -1618,6 +1679,7 @@ $('#agent-form').addEventListener('submit', async (e) => {
     model: (c.model.value === OTRO ? c.modelOtro.value.trim() : c.model.value.trim()) || null,
     effort: c.effort.value || null,
     proveedor: (c.proveedor && c.proveedor.value) || null,
+    recepcion: !!(c.recepcion && c.recepcion.checked),
     avatarSeed: semillaActual,
     avatarColor: colorActual
   };

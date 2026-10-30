@@ -379,10 +379,13 @@ function check(nombre, condicion, detalle) {
 
   // El numero crece segun se anaden: lo que importa es que sigan en una fila
   // de iconos y no vuelvan a ser casillas con texto apiladas.
-  const nSw = (idxPanel.match(/class="sw"/g) || []).length;
-  check('los interruptores caben en una fila de iconos',
-    /class="interruptores"/.test(idxPanel) && nSw >= 3 &&
-    (idxPanel.match(/class="check"/g) || []).length <= 1,
+  // Se mira solo el pie de la barra lateral: las casillas de los dialogos
+  // son otra cosa y no tienen por que ser iconos.
+  const pie = (idxPanel.match(/<footer class="status[\s\S]*?<\/footer>/) || [''])[0];
+  const nSw = (pie.match(/class="sw"/g) || []).length;
+  check('los interruptores del pie caben en una fila de iconos',
+    /class="interruptores"/.test(pie) && nSw >= 3 &&
+    (pie.match(/class="check"/g) || []).length === 0,
     `${nSw} interruptores; antes eran casillas con texto, cuatro lineas del pie`);
   check('siguen siendo casillas reales, no botones falsos',
     (idxPanel.match(/class="sw"[^]*?type="checkbox"/g) || []).length >= 1 &&
@@ -911,6 +914,66 @@ function check(nombre, condicion, detalle) {
 
   check('avisa de que freno, sin repetirlo cada ciclo',
     /gasto\.tope/.test(orqGas) && /avisoTope/.test(orqGas));
+
+  // --- agentes de otra maquina ---
+  const crypto2 = require('node:crypto');
+  const nomExt = `ST-Ext-${sufijo}`;
+  const creado = await req('/api/externos', { method: 'POST', body: { nombre: nomExt, nota: 'prueba' } });
+  check('la credencial externa se entrega una sola vez',
+    creado.status === 201 && typeof creado.data.token === 'string' && creado.data.token.length >= 24 &&
+    !('token' in (await req('/api/externos')).data.externos.find((e) => e.nombre === nomExt)),
+    'el listado no debe poder devolver el token');
+  check('del token solo se guarda la huella',
+    creado.data.huella !== creado.data.token &&
+    creado.data.huella === crypto2.createHash('sha256').update(creado.data.token).digest('hex'),
+    'guardarlo en claro seria regalar el acceso a quien lea la base');
+
+  const tokExt = creado.data.token;
+  const comoExterno = async (ruta, opts = {}) => {
+    const r = await fetch((await base()) + ruta, {
+      method: opts.method || 'GET',
+      headers: { 'content-type': 'application/json', 'x-v4-externo': opts.token ?? tokExt },
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    return { status: r.status, data: await r.json().catch(() => ({})) };
+  };
+
+  check('una credencial inventada no entra',
+    (await comoExterno('/api/externo/quien', { token: 'inventado' })).status === 401);
+  check('el de fuera sabe quien le atiende',
+    (await comoExterno('/api/externo/quien')).status === 200);
+
+  // No debe poder nada de lo que si puede el puente interno.
+  for (const ruta of ['/api/internal/agents', '/api/internal/vault/listar']) {
+    check(`el token externo no abre ${ruta}`,
+      (await comoExterno(ruta)).status === 401,
+      'es mas estrecho que el del puente a proposito');
+  }
+
+  const hayRecep = (await req('/api/externos')).data.recepcion.length > 0;
+  if (!hayRecep) {
+    check('sin nadie atendiendo, no entra nada de fuera',
+      (await comoExterno('/api/externo/mensaje', { method: 'POST', body: { texto: 'hola' } })).status === 409,
+      'mejor rechazar que encolar algo que nadie leera');
+  }
+
+  check('se puede revocar y deja de valer al instante',
+    (await req(`/api/externos/${creado.data.id}`, { method: 'POST' })).status === 200 &&
+    (await comoExterno('/api/externo/quien')).status === 401);
+  await req(`/api/externos/${creado.data.id}`, { method: 'DELETE' });
+
+  const srvExt = fs.readFileSync(`${__dirname}/../src/server.js`, 'utf8');
+  check('contestar a un agente de fuera no le encola un turno aqui',
+    /encolado_fuera/.test(srvExt) && /encolarParaExterno/.test(srvExt),
+    'su maquina puede estar apagada: el mensaje espera a que se conecte');
+  check('list_agents distingue a los de fuera',
+    /FUERA de este servidor/.test(fs.readFileSync(`${__dirname}/../src/bridge/mcp-server.js`, 'utf8')),
+    'el especialista debe saber que no estan en esta maquina');
+  check('hay interruptor de recepcion y gestion de credenciales',
+    /name="recepcion"/.test(idxPanel) && /id="externo-crear"/.test(idxPanel));
+  check('esta documentado como conectar una maquina de fuera',
+    fs.existsSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`) &&
+    /x-v4-externo/.test(fs.readFileSync(`${__dirname}/../docs/AGENTE-EXTERNO.md`, 'utf8')));
 
   // --- aspecto de terminal ---
   check('la conversacion tiene fondo matrix con interruptor',

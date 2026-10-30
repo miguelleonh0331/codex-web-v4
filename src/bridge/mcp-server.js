@@ -187,10 +187,15 @@ async function callTool(name, args = {}) {
       return `Eres ${me.name} (id ${me.id}). Area: ${me.area || 'sin area'}.`;
     }
     case 'list_agents': {
-      const { agents } = await api('/api/internal/agents');
+      const { agents, externos } = await api('/api/internal/agents');
       const otros = agents.filter((a) => a.id !== AGENT_ID);
-      if (!otros.length) return 'No hay otros especialistas registrados.';
-      return otros.map((a) => `- ${a.name} (id ${a.id}) | area: ${a.area || 'sin area'} | estado: ${a.status}`).join('\n');
+      const fuera = (externos || []).length
+        ? '\n\nAgentes FUERA de este servidor (trabajan en otra maquina, no pueden tocar nada de aqui;\n'
+          + 'si les escribes recogeran el mensaje cuando se conecten):\n'
+          + externos.map((e) => `- ${e.nombre}${e.nota ? ` (${e.nota})` : ''}`).join('\n')
+        : '';
+      if (!otros.length) return `No hay otros especialistas registrados.${fuera}`;
+      return otros.map((a) => `- ${a.name} (id ${a.id}) | area: ${a.area || 'sin area'} | estado: ${a.status}`).join('\n') + fuera;
     }
     case 'send_message': {
       const out = await api('/api/internal/mailbox', {

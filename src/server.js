@@ -14,6 +14,7 @@ const push = require('./push');
 const proveedores = require('./proveedores');
 const guardia = require('./guardia');
 const vault = require('./vault');
+const crypto = require('node:crypto');
 
 const cfg = load();
 const store = new Store(cfg.dbPath);
@@ -74,7 +75,8 @@ function agentPublic(a) {
     created_at: a.created_at, updated_at: a.updated_at,
     has_session: !!a.session_id,
     tiene_notas: !!(a.notas && a.notas.trim()),
-    proveedor: a.proveedor || cfg.proveedor || 'claude'
+    proveedor: a.proveedor || cfg.proveedor || 'claude',
+    recepcion: !!a.recepcion
   };
 }
 
@@ -282,6 +284,18 @@ function queueMail({ from, to, text, chainId, hop }) {
   const body = String(text || '').trim();
 
   if (!body) return { status: 'blocked', reason: 'mensaje vacio' };
+
+  // El destinatario puede estar FUERA de este servidor. No se le encola un
+  // turno —no se ejecuta aqui— sino que se le deja el mensaje para cuando
+  // pase a recogerlo. Asi funciona aunque su maquina este apagada.
+  if (!toAgent) {
+    const ext = store.externoPorNombre(String(to || '').trim());
+    if (ext && ext.activo) {
+      store.encolarParaExterno(ext.id, fromAgent ? fromAgent.id : null, body);
+      store.event('externo.respuesta', fromAgent ? fromAgent.id : null, { para: ext.nombre });
+      return { status: 'encolado_fuera', reason: `${ext.nombre} lo recogera cuando se conecte` };
+    }
+  }
   if (!toAgent) {
     const nombres = store.listAgents().map((a) => a.name).join(', ');
     return { status: 'blocked', reason: `no existe el especialista "${to}". Disponibles: ${nombres || 'ninguno'}` };
@@ -717,6 +731,7 @@ async function api(req, res, url) {
         }
         cambios.proveedor = nom || null;
       }
+      if (body.recepcion !== undefined) cambios.recepcion = body.recepcion ? 1 : 0;
       if (body.avatarSeed) cambios.avatar_seed = String(body.avatarSeed);
       if (body.avatarColor !== undefined) {
         const c = String(body.avatarColor || '').trim();
@@ -975,6 +990,102 @@ async function api(req, res, url) {
     }
     if (q) return json(res, 200, { resultados: vault.buscar(cfg, q, 20) });
     return json(res, 200, { raiz: vault.raiz(cfg), notas: vault.listar(cfg) });
+  }
+
+  // ------------------------------------------------- agentes de fuera
+  //
+  // Credencial propia y estrecha: con ella solo se puede escribir a quien
+  // atiende la puerta y recoger lo que le contesten. El token del puente
+  // interno abre demasiado para darselo a una maquina de escritorio.
+
+  function externoDePeticion(req) {
+    const t = req.headers['x-v4-externo'];
+    if (!t) return null;
+    const h = crypto.createHash('sha256').update(String(t)).digest('hex');
+    return store.externoPorHuella(h);
+  }
+
+  if (p === '/api/externos' && m === 'GET') {
+    return json(res, 200, {
+      externos: store.listarExternos().map((e) => ({ ...e, pendientes: store.pendientesExterno(e.id) })),
+      recepcion: store.recepcionistas().map((a) => ({ id: a.id, name: a.name }))
+    });
+  }
+
+  if (p === '/api/externos' && m === 'POST') {
+    const b = await readBody(req);
+    const nombre = String(b.nombre || '').trim();
+    if (!nombre) return json(res, 400, { error: 'ponle un nombre: lo veras en la conversacion' });
+    if (store.externoPorNombre(nombre)) return json(res, 400, { error: 'ya existe uno con ese nombre' });
+    // El token se ensena UNA vez: solo se guarda su huella.
+    const token = crypto.randomBytes(24).toString('base64url');
+    const huella = crypto.createHash('sha256').update(token).digest('hex');
+    const ext = store.crearExterno({ id: uid('ext'), nombre, huella, nota: b.nota });
+    store.event('externo.creado', null, { nombre });
+    return json(res, 201, { ...ext, token, aviso: 'guarda este token: no se vuelve a mostrar' });
+  }
+
+  let mx = p.match(/^\/api\/externos\/([^/]+)$/);
+  if (mx && m === 'DELETE') {
+    store.borrarExterno(decodeURIComponent(mx[1]));
+    store.event('externo.borrado', null, { id: mx[1] });
+    return json(res, 200, { ok: true });
+  }
+  if (mx && m === 'POST') {
+    store.revocarExterno(decodeURIComponent(mx[1]));
+    store.event('externo.revocado', null, { id: mx[1] });
+    return json(res, 200, { ok: true });
+  }
+
+  // --- lo que usa la maquina de fuera ---
+
+  if (p === '/api/externo/quien' && m === 'GET') {
+    const e = externoDePeticion(req);
+    if (!e) return json(res, 401, { error: 'credencial no valida o revocada' });
+    store.vistoExterno(e.id);
+    const rec = store.recepcionistas();
+    return json(res, 200, {
+      nombre: e.nombre,
+      recepcion: rec.map((a) => ({ nombre: a.name, area: a.area })),
+      pendientes: store.pendientesExterno(e.id)
+    });
+  }
+
+  if (p === '/api/externo/mensaje' && m === 'POST') {
+    const e = externoDePeticion(req);
+    if (!e) return json(res, 401, { error: 'credencial no valida o revocada' });
+    const b = await readBody(req);
+    const texto = String(b.texto || '').trim().slice(0, 20000);
+    if (!texto) return json(res, 400, { error: 'mensaje vacio' });
+
+    const rec = store.recepcionistas();
+    if (!rec.length) {
+      return json(res, 409, { error: 'nadie atiende la puerta: marca a un especialista como recepcion' });
+    }
+    // Se elige por nombre si lo pide, o el primero que atienda.
+    const destino = (b.para && rec.find((a) => a.name === b.para)) || rec[0];
+
+    store.addMessage(destino.id, 'peer', `[de ${e.nombre}, fuera del servidor] ${texto}`, { externo: e.nombre });
+    const turnId = store.enqueueTurn({
+      agentId: destino.id,
+      prompt: `Mensaje de "${e.nombre}", un agente que trabaja FUERA de este servidor.\n\n${texto}\n\n`
+        + `Si tienes que contestarle, usa send_message con destinatario "${e.nombre}". `
+        + `El no puede tocar nada de este servidor: si hay que cambiar algo aqui, hazlo tu o pidelo a quien corresponda.`,
+      origin: 'externo', chainId: uid('chain'), hop: 0
+    });
+    store.vistoExterno(e.id);
+    store.event('externo.mensaje', destino.id, { de: e.nombre, turn_id: turnId });
+    return json(res, 202, { ok: true, atendido_por: destino.name, turnId });
+  }
+
+  if (p === '/api/externo/pendientes' && m === 'GET') {
+    const e = externoDePeticion(req);
+    if (!e) return json(res, 401, { error: 'credencial no valida o revocada' });
+    store.vistoExterno(e.id);
+    const filas = store.recogerDeCola(e.id);
+    return json(res, 200, {
+      mensajes: filas.map((f) => ({ de: nameOf(f.de_agente), texto: f.cuerpo, en: f.created_at }))
+    });
   }
 
   if (p === '/api/guardia' && m === 'GET') {

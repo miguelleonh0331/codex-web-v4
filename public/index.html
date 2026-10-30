@@ -219,6 +219,31 @@
       </menu>
     </div>
 
+    <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0">
+
+    <div id="externos-caja">
+      <div class="fila"><span class="k">Agentes externos</span>
+        <span id="externos-resumen" class="muted" style="font-size:.76rem"></span></div>
+      <p class="muted" style="font-size:.74rem;margin:.2rem 0 .5rem">
+        Agentes que corren en otra maquina. Solo pueden escribir a quien atienda
+        la puerta y recoger respuestas. No tocan nada de este servidor.
+      </p>
+      <div id="externos-lista"></div>
+      <label>Nombre del agente externo
+        <input id="externo-nombre" placeholder="PC-Windows" autocomplete="off">
+      </label>
+      <p class="error" id="externo-error"></p>
+      <div id="externo-token" hidden>
+        <p class="muted" style="font-size:.74rem;margin:.2rem 0">
+          Guarda este token: no se vuelve a mostrar.
+        </p>
+        <div class="codigo-grande" id="externo-token-valor"></div>
+      </div>
+      <menu style="justify-content:flex-start">
+        <button type="button" id="externo-crear" class="primary">Crear credencial</button>
+      </menu>
+    </div>
+
     <menu id="prov-acciones">
       <button type="button" id="prov-cerrar">Cerrar</button>
       <button type="button" id="prov-logout">Cerrar sesion</button>
@@ -268,6 +293,13 @@
       <button type="button" id="voz-probar">🔊 Escuchar su voz</button>
       <span id="voz-prueba-nota" class="muted" style="font-size:.74rem"></span>
     </menu>
+
+    <label class="check" style="margin-bottom:.8rem">
+      <input type="checkbox" name="recepcion"> Recibe peticiones externas
+      <small class="muted" style="display:block;font-size:.72rem;margin-left:1.4rem">
+        Sera la puerta de entrada de agentes que corren en otras maquinas.
+      </small>
+    </label>
 
     <label>Proveedor
       <select name="proveedor" id="sel-proveedor"></select>

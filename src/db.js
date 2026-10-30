@@ -102,6 +102,25 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_id ON events(id);
 
+CREATE TABLE IF NOT EXISTS externos (
+  id          TEXT PRIMARY KEY,
+  nombre      TEXT NOT NULL UNIQUE,
+  huella      TEXT NOT NULL,          -- sha256 del token; el token no se guarda
+  nota        TEXT,
+  activo      INTEGER NOT NULL DEFAULT 1,
+  ultimo_visto TEXT,
+  created_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS externo_cola (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  externo_id TEXT NOT NULL,
+  de_agente  TEXT,                    -- quien del equipo le escribe
+  cuerpo     TEXT NOT NULL,
+  entregado  INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS guardia (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   turn_id    INTEGER,
@@ -139,7 +158,8 @@ const COLUMNAS_NUEVAS = [
   ['turns', 'proximo_intento', 'TEXT'],  // cuando volver a intentarlo tras un limite
   ['turns', 'reintentos', 'INTEGER'],
   ['turns', 'espera_desde', 'TEXT'],     // primer choque: sirve para el tope de 24 h
-  ['agents', 'proveedor', 'TEXT']        // claude | codex; null = el de la instalacion
+  ['agents', 'proveedor', 'TEXT'],       // claude | codex; null = el de la instalacion
+  ['agents', 'recepcion', 'INTEGER']     // 1 = atiende peticiones de fuera
 ];
 
 function migrar(db) {
@@ -232,6 +252,60 @@ class Store {
       'SELECT COALESCE(SUM(cost_usd),0) total, COUNT(*) turnos FROM turns WHERE created_at >= ? AND created_at < ?'
     ).get(desde, hasta);
     return { dia: etiqueta, zona: z, desde, total: r.total, turnos: r.turnos };
+  }
+
+  // --- agentes de fuera ---
+  //
+  // Un agente que corre en otra maquina (un PC, otro VPS) y coordina con el
+  // equipo. No ejecuta turnos aqui: solo escribe a quien atiende la puerta y
+  // recoge lo que le contesten. Su credencial es distinta y mas estrecha que
+  // la del puente interno, que abre demasiado.
+
+  crearExterno({ id, nombre, huella, nota }) {
+    this.db.prepare('INSERT INTO externos (id, nombre, huella, nota, created_at) VALUES (?,?,?,?,?)')
+      .run(id, nombre, huella, nota || null, now());
+    return this.externo(id);
+  }
+
+  externo(id) { return this.db.prepare('SELECT * FROM externos WHERE id = ?').get(id); }
+  externoPorNombre(n) { return this.db.prepare('SELECT * FROM externos WHERE nombre = ?').get(n); }
+  externoPorHuella(h) {
+    return this.db.prepare('SELECT * FROM externos WHERE huella = ? AND activo = 1').get(h);
+  }
+  listarExternos() {
+    return this.db.prepare('SELECT id, nombre, nota, activo, ultimo_visto, created_at FROM externos ORDER BY created_at DESC').all();
+  }
+  revocarExterno(id) { this.db.prepare('UPDATE externos SET activo = 0 WHERE id = ?').run(id); }
+  borrarExterno(id) {
+    this.db.prepare('DELETE FROM externo_cola WHERE externo_id = ?').run(id);
+    this.db.prepare('DELETE FROM externos WHERE id = ?').run(id);
+  }
+  vistoExterno(id) { this.db.prepare('UPDATE externos SET ultimo_visto = ? WHERE id = ?').run(now(), id); }
+
+  /** Mensaje del equipo hacia fuera. Espera a que el de fuera lo recoja. */
+  encolarParaExterno(externoId, deAgente, cuerpo) {
+    const i = this.db.prepare('INSERT INTO externo_cola (externo_id, de_agente, cuerpo, created_at) VALUES (?,?,?,?)')
+      .run(externoId, deAgente || null, cuerpo, now());
+    return Number(i.lastInsertRowid);
+  }
+
+  /** Lo que tiene pendiente de recoger, y se marca entregado al dárselo. */
+  recogerDeCola(externoId, limite = 20) {
+    const filas = this.db.prepare(
+      'SELECT * FROM externo_cola WHERE externo_id = ? AND entregado = 0 ORDER BY id ASC LIMIT ?'
+    ).all(externoId, limite);
+    for (const f of filas) this.db.prepare('UPDATE externo_cola SET entregado = 1 WHERE id = ?').run(f.id);
+    return filas;
+  }
+
+  pendientesExterno(externoId) {
+    return this.db.prepare('SELECT COUNT(*) c FROM externo_cola WHERE externo_id = ? AND entregado = 0')
+      .get(externoId).c;
+  }
+
+  /** Quien atiende la puerta. Sin nadie marcado, no se recibe nada de fuera. */
+  recepcionistas() {
+    return this.db.prepare('SELECT * FROM agents WHERE recepcion = 1 AND archived = 0').all();
   }
 
   // --- guardia de rutas protegidas ---
@@ -376,7 +450,7 @@ class Store {
 
   updateAgent(id, fields) {
     const allowed = ['name', 'area', 'instructions', 'model', 'effort', 'status',
-      'session_id', 'archived', 'avatar_seed', 'avatar_color', 'notas', 'proveedor'];
+      'session_id', 'archived', 'avatar_seed', 'avatar_color', 'notas', 'proveedor', 'recepcion'];
     const keys = Object.keys(fields);
     // Antes se filtraban en silencio los campos desconocidos: anadir una
     // columna y olvidarse de esta lista daba un guardado que decia "ok" y no

@@ -475,3 +475,11 @@ test/selftest.js     autodiagnostico
   servidor reintenta el bind antes de rendirse.
 - Los agentes heredan los permisos del usuario del servicio. Es deliberado: necesitan
   tocar el proyecto de verdad. Instala v4 solo en servidores de desarrollo.
+
+## Agentes de otras maquinas
+
+Un agente que corre en tu PC o en otro servidor puede coordinarse con este
+equipo sin poder tocar nada de aqui: escribe a quien atienda la puerta y
+recoge las respuestas. Credencial propia, estrecha y revocable.
+
+Ver [docs/AGENTE-EXTERNO.md](docs/AGENTE-EXTERNO.md).

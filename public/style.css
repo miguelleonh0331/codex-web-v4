@@ -875,3 +875,8 @@ body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
    mapa en vez de una lista de ficheros. */
 .item .enlaces a{color:var(--accent);text-decoration:none}
 .item .enlaces a:hover{text-decoration:underline}
+
+/* Acciones en linea dentro de una ficha: revocar, borrar. */
+button.enlace{background:none;border:none;color:var(--accent);cursor:pointer;
+  font-size:.72rem;padding:0 .25rem;text-decoration:underline}
+button.enlace:hover{color:var(--fg)}
