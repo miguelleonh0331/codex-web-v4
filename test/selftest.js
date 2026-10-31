@@ -1812,25 +1812,47 @@ function check(nombre, condicion, detalle) {
   check('lista los especialistas a los que cortaria el turno',
     Array.isArray(estAct.data.trabajando));
 
-  // La proteccion que importa: con archivos editados a mano en el servidor,
-  // actualizar los machacaria. Debe negarse, y con el codigo 409.
-  const sucio = (await req('/api/actualizacion')).data.sucio;
-  if (sucio > 0) {
-    const neg = await req('/api/actualizacion/aplicar', { method: 'POST', body: {} });
-    check('con cambios sin guardar se niega a actualizar',
-      neg.status === 409 && /sin guardar/i.test(neg.data.error || ''),
-      `status ${neg.status}`);
+  // La proteccion que importa: pedir actualizar cuando no se debe tiene que
+  // devolver 409 y un actMotivo, nunca ponerse a trabajar.
+  //
+  // Ojo con el caso raro: el propio actualizador lanza este archivo como
+  // ultimo paso, asi que aqui puede haber una actualizacion en marcha. Si no
+  // lo tuvieramos en cuenta, CADA actualizacion acabaria diciendo "1 prueba
+  // en rojo" y te acostumbrarias a ignorar ese aviso, que es justo lo que no
+  // queremos que pase.
+  // Regla de oro de este bloque: un diagnostico no puede tener efectos. Solo
+  // llamamos a /aplicar cuando el estado garantiza que lo va a rechazar. Si
+  // no hubiera nada que lo frene, la llamada instalaria de verdad y el
+  // autodiagnostico se convertiria en un despliegue accidental.
+  const actEnMarcha = estAct.data.enCurso
+    || !!(estAct.data.progreso && !estAct.data.progreso.terminado);
+  const actMotivo = actEnMarcha ? /en marcha/i
+    : estAct.data.sucio > 0 ? /sin guardar/i
+    : !estAct.data.hayNuevos ? /nada nuevo/i
+    : estAct.data.trabajando.length ? /trabajando/i
+    : null;
+
+  if (actMotivo) {
+    const actNeg = await req('/api/actualizacion/aplicar', { method: 'POST', body: {} });
+    check('no actualiza cuando no debe, y dice por que',
+      actNeg.status === 409 && actMotivo.test(actNeg.data.error || ''),
+      `status ${actNeg.status}: ${actNeg.data.error || 'sin actMotivo'}`);
   } else {
-    const nada = await req('/api/actualizacion/aplicar', { method: 'POST', body: {} });
-    check('sin novedades no intenta actualizar',
-      nada.status === 409 && /nada nuevo/i.test(nada.data.error || ''),
-      `status ${nada.status}`);
+    check('no actualiza cuando no debe, y dice por que', true,
+      'omitida: ahora mismo una actualizacion seria legitima y no se lanza en pruebas');
   }
 
-  // Sin version anterior registrada no puede ofrecer vuelta atras.
+  // La vuelta atras tampoco se dispara aqui. Si no hay donde volver, el 409
+  // es inofensivo y vale como prueba; si lo hay, nos basta con ver que la
+  // web tiene la informacion para ofrecer el boton.
   if (!estAct.data.anterior) {
-    const rev = await req('/api/actualizacion/revertir', { method: 'POST', body: {} });
-    check('sin version anterior no ofrece volver atras', rev.status === 409);
+    const actRev = await req('/api/actualizacion/revertir', { method: 'POST', body: {} });
+    check('sin version anterior no ofrece volver atras',
+      actRev.status === 409, `status ${actRev.status}`);
+  } else {
+    check('sin version anterior no ofrece volver atras',
+      /^[0-9a-f]{40}$/.test(estAct.data.anterior) && !!estAct.data.tituloAnterior,
+      'hay version anterior registrada: se comprueba el dato, no se revierte');
   }
 
   const guionAct = fs.readFileSync(`${__dirname}/../tools/actualizar.sh`, 'utf8');
