@@ -1394,6 +1394,167 @@ if ($('#codex-login')) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Actualizar desde la web. Lo unico que hace esta parte es mirar y pulsar: el
+// trabajo corre en el servidor, en un proceso que sobrevive al reinicio.
+
+let actEstado = null;
+let actRelojId = null;
+
+const ACT_ICONOS = {
+  inicio: '•', copia: '🗃', traer: '↓', aplicar: '⤓', revisar: '🔍',
+  reiniciar: '↻', comprobar: '✓', deshacer: '↺', fin: '●', sucio: '!'
+};
+
+function fechaCorta(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+}
+
+function pintarProgresoAct(pr) {
+  const caja = $('#act-progreso');
+  if (!pr || !pr.pasos.length) { caja.hidden = true; caja.innerHTML = ''; return; }
+  caja.hidden = false;
+  caja.innerHTML = pr.pasos.map((p, i) => {
+    // Los pasos "curso" que ya tienen otro detras estan hechos; el ultimo es
+    // el que esta ocurriendo ahora mismo.
+    const esUltimo = i === pr.pasos.length - 1;
+    const clase = p.estado === 'curso' ? (esUltimo && !pr.terminado ? 'curso' : 'hecho') : p.estado;
+    const ic = p.estado === 'listo' ? '✓'
+      : (p.estado === 'error' || p.estado === 'revertido') ? '✕'
+      : p.estado === 'aviso' ? '⚠'
+      : (clase === 'hecho' ? '✓' : (ACT_ICONOS[p.paso] || '•'));
+    return `<div class="p ${clase}"><span class="ic">${ic}</span>`
+      + `<span>${escapeHtml(p.mensaje)}</span></div>`;
+  }).join('');
+}
+
+function pintarActualizacion(e) {
+  if (!e) return;
+  actEstado = e;
+
+  $('#act-version').textContent = e.version
+    ? `${e.version}${e.fecha ? ' · ' + fechaCorta(e.fecha) : ''}`
+    : 'desconocida';
+  $('#act-titulo').textContent = e.titulo || '';
+
+  const corriendo = e.enCurso || (e.progreso && !e.progreso.terminado);
+
+  // Lista de cambios que entrarian al instalar.
+  const nov = $('#act-novedades');
+  if (e.hayNuevos && !corriendo) {
+    nov.hidden = false;
+    nov.innerHTML = e.nuevos.map((c) =>
+      `<div class="cambio"><code>${escapeHtml(c.sha)}</code>${escapeHtml(c.titulo)}</div>`).join('');
+  } else {
+    nov.hidden = true;
+    nov.innerHTML = '';
+  }
+
+  pintarProgresoAct(e.progreso);
+
+  const nota = $('#act-nota');
+  const err = $('#act-error');
+  err.textContent = '';
+
+  if (corriendo) {
+    nota.textContent = 'Instalando. Puedes cerrar esta ventana: el trabajo no se para.';
+  } else if (e.progreso && e.progreso.estado === 'error') {
+    nota.textContent = 'No se instalo nada. Tu version sigue intacta.';
+  } else if (e.progreso && e.progreso.estado === 'revertido') {
+    nota.textContent = 'Se volvio sola a la version anterior.';
+  } else if (!e.limpio) {
+    nota.innerHTML = `<span class="act-hay">Hay ${e.sucio} archivo(s) editados en el servidor.</span> `
+      + 'Actualizar los machacaria, asi que el boton esta desactivado.';
+  } else if (e.hayNuevos) {
+    const n = e.nuevos.length;
+    nota.innerHTML = `<span class="act-hay">${n} cambio${n === 1 ? '' : 's'} nuevo${n === 1 ? '' : 's'} esperando.</span>`
+      + (e.trabajando.length
+        ? ` Ojo: ${escapeHtml(e.trabajando.join(', '))} esta${e.trabajando.length === 1 ? '' : 'n'} trabajando y el reinicio les cortaria el turno.`
+        : '');
+  } else {
+    nota.innerHTML = `<span class="act-dia">Estas al dia.</span>`
+      + (e.comprobado ? ` Mirado el ${fechaCorta(e.comprobado)}.` : '');
+  }
+
+  $('#act-instalar').hidden = !(e.hayNuevos && e.limpio) || corriendo;
+  $('#act-buscar').disabled = corriendo;
+  $('#act-revertir').hidden = !e.anterior || corriendo;
+  if (e.anterior && e.tituloAnterior) {
+    $('#act-revertir').title = 'Volver a ' + e.tituloAnterior;
+  }
+
+  // Mientras instala, refrescamos para ver avanzar los pasos. Al terminar
+  // dejamos de molestar al servidor.
+  if (corriendo && !actRelojId) {
+    actRelojId = setInterval(refrescarActualizacion, 2000);
+  } else if (!corriendo && actRelojId) {
+    clearInterval(actRelojId); actRelojId = null;
+    // Si acabo de instalarse algo, la pagina que tienes cargada es la vieja.
+    if (e.progreso && e.progreso.estado === 'listo' && e.progreso.pasos.length > 1) {
+      $('#aviso-version').hidden = false;
+    }
+  }
+}
+
+async function refrescarActualizacion() {
+  try { pintarActualizacion(await api('/api/actualizacion')); }
+  catch { /* si el servicio esta reiniciandose, el siguiente intento lo coge */ }
+}
+
+if ($('#act-buscar')) {
+  $('#act-buscar').onclick = async () => {
+    const b = $('#act-buscar');
+    b.disabled = true; b.textContent = 'Preguntando a GitHub…';
+    $('#act-error').textContent = '';
+    try {
+      pintarActualizacion(await api('/api/actualizacion/buscar', { method: 'POST', body: '{}' }));
+    } catch (e) {
+      $('#act-error').textContent = e.message;
+    }
+    b.disabled = false; b.textContent = 'Buscar actualizacion';
+  };
+
+  $('#act-instalar').onclick = async () => {
+    const b = $('#act-instalar');
+    const ocupados = (actEstado && actEstado.trabajando) || [];
+    if (ocupados.length && !confirm(
+      `${ocupados.join(', ')} esta${ocupados.length === 1 ? '' : 'n'} trabajando ahora mismo.\n\n`
+      + 'Al reiniciar se les corta el turno a medias y habra que volver a pedirlo.\n\n'
+      + '¿Instalar de todos modos?')) return;
+
+    b.disabled = true; b.textContent = 'Lanzando…';
+    $('#act-error').textContent = '';
+    try {
+      await api('/api/actualizacion/aplicar', {
+        method: 'POST', body: JSON.stringify({ aunqueTrabajen: ocupados.length > 0 })
+      });
+      await refrescarActualizacion();
+    } catch (e) {
+      $('#act-error').textContent = e.message;
+      b.disabled = false; b.textContent = 'Instalar';
+    }
+  };
+
+  $('#act-revertir').onclick = async () => {
+    const a = actEstado && actEstado.tituloAnterior;
+    if (!confirm(`Volver a la version anterior${a ? ':\n\n' + a : ''}\n\n`
+      + 'Tus conversaciones y especialistas no se tocan.\n\n¿Seguir?')) return;
+    const b = $('#act-revertir');
+    b.disabled = true; b.textContent = 'Volviendo…';
+    $('#act-error').textContent = '';
+    try {
+      await api('/api/actualizacion/revertir', { method: 'POST', body: '{}' });
+      await refrescarActualizacion();
+    } catch (e) {
+      $('#act-error').textContent = e.message;
+      b.disabled = false; b.textContent = 'Volver atras';
+    }
+  };
+}
+
 $('#btn-proveedor').onclick = async () => {
   $('#prov-paso-url').hidden = true;
   $('#prov-acciones').hidden = false;
@@ -1401,6 +1562,7 @@ $('#btn-proveedor').onclick = async () => {
   $('#prov-codigo').value = '';
   $('#proveedor-dialog').showModal();
   await pintarProveedor();
+  await refrescarActualizacion();
   await pintarGasto();
   await pintarClaveLilit();
   await pintarExternos();

@@ -915,3 +915,32 @@ button.enlace:hover{color:var(--fg)}
 .gasto-fila .barra{height:4px;background:var(--bg);border-radius:2px;margin:.3rem 0;overflow:hidden}
 .gasto-fila .barra i{display:block;height:100%;background:var(--accent)}
 .gasto-fila .body{white-space:pre-wrap}
+
+/* Actualizar desde la propia web. La caja tiene que decir tres cosas de un
+   vistazo: que version corre, si hay algo nuevo, y si ahora mismo se esta
+   instalando algo. */
+#act-caja{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);
+  padding:.7rem .8rem;margin-bottom:1rem}
+#act-caja .fila{display:flex;justify-content:space-between;gap:1rem}
+#act-caja .fila .k{color:var(--muted)}
+.act-titulo{font-size:.76rem;color:var(--muted);margin:.25rem 0 0;line-height:1.4}
+.act-hay{color:var(--accent);font-weight:600}
+.act-dia{color:var(--accent2)}
+
+/* Lista de cambios que llegarian al instalar. Limitada en alto: con veinte
+   commits la caja no debe empujar los botones fuera de la pantalla. */
+#act-novedades{margin:.5rem 0 .2rem;max-height:9rem;overflow-y:auto;
+  border-left:2px solid var(--accent);padding-left:.55rem}
+#act-novedades .cambio{font-size:.76rem;line-height:1.45;color:var(--fg);
+  padding:.12rem 0}
+#act-novedades .cambio code{color:var(--muted);font-size:.72rem;margin-right:.35rem}
+
+/* Pasos de la instalacion en marcha. */
+.act-progreso{margin:.5rem 0 .2rem;display:flex;flex-direction:column;gap:.2rem}
+.act-progreso .p{font-size:.76rem;line-height:1.4;display:flex;gap:.4rem;align-items:flex-start}
+.act-progreso .p .ic{flex:0 0 1rem;text-align:center}
+.act-progreso .p.curso{color:var(--fg)}
+.act-progreso .p.hecho{color:var(--muted)}
+.act-progreso .p.listo{color:var(--accent2)}
+.act-progreso .p.error,.act-progreso .p.revertido{color:var(--err)}
+.act-progreso .p.aviso{color:var(--warn)}

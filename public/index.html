@@ -170,6 +170,24 @@
 <dialog id="proveedor-dialog">
   <form method="dialog" id="proveedor-form">
     <h3>Proveedor de modelo</h3>
+
+    <div id="act-caja">
+      <div class="fila"><span class="k">Version instalada</span>
+        <span id="act-version" class="muted" style="font-size:.78rem">—</span></div>
+      <div id="act-titulo" class="act-titulo"></div>
+      <div id="act-novedades" hidden></div>
+      <div id="act-progreso" class="act-progreso" hidden></div>
+      <p class="error" id="act-error"></p>
+      <p class="muted" id="act-nota" style="font-size:.74rem;min-height:1.1em"></p>
+      <menu style="justify-content:flex-start">
+        <button type="button" id="act-buscar">Buscar actualizacion</button>
+        <button type="button" id="act-instalar" class="primary" hidden>Instalar</button>
+        <button type="button" id="act-revertir" hidden>Volver atras</button>
+      </menu>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0">
+
     <div id="proveedor-estado" class="prov-estado">Consultando…</div>
     <div id="prov-limites" class="prov-limites"></div>
 

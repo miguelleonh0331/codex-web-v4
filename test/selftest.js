@@ -1803,6 +1803,62 @@ function check(nombre, condicion, detalle) {
   check('los avatares estan animados', /@keyframes parpadeo/.test(css) && /@keyframes hablar/.test(css) &&
     /@keyframes pensar/.test(css) && /prefers-reduced-motion/.test(css));
 
+  // --- actualizar desde la web ---------------------------------------------
+  const estAct = await req('/api/actualizacion');
+  check('el estado de actualizacion contesta', act.status === 200);
+  check('dice que version corre', /^[0-9a-f]{7}$/.test(estAct.data.version || ''));
+  check('deduce el nombre del servicio', /^codex-web-/.test(estAct.data.servicio || ''));
+  check('sabe si el disco esta limpio', typeof estAct.data.limpio === 'boolean');
+  check('lista los especialistas a los que cortaria el turno',
+    Array.isArray(estAct.data.trabajando));
+
+  // La proteccion que importa: con archivos editados a mano en el servidor,
+  // actualizar los machacaria. Debe negarse, y con el codigo 409.
+  const sucio = (await req('/api/actualizacion')).data.sucio;
+  if (sucio > 0) {
+    const neg = await req('/api/actualizacion/aplicar', { method: 'POST', body: {} });
+    check('con cambios sin guardar se niega a actualizar',
+      neg.status === 409 && /sin guardar/i.test(neg.data.error || ''),
+      `status ${neg.status}`);
+  } else {
+    const nada = await req('/api/actualizacion/aplicar', { method: 'POST', body: {} });
+    check('sin novedades no intenta actualizar',
+      nada.status === 409 && /nada nuevo/i.test(nada.data.error || ''),
+      `status ${nada.status}`);
+  }
+
+  // Sin version anterior registrada no puede ofrecer vuelta atras.
+  if (!estAct.data.anterior) {
+    const rev = await req('/api/actualizacion/revertir', { method: 'POST', body: {} });
+    check('sin version anterior no ofrece volver atras', rev.status === 409);
+  }
+
+  const guionAct = fs.readFileSync(`${__dirname}/../tools/actualizar.sh`, 'utf8');
+  check('el actualizador copia la base antes de tocar nada',
+    /VACUUM INTO/.test(guionAct) && guionAct.indexOf('VACUUM INTO') < guionAct.indexOf('git fetch'));
+  // Ojo al ancla: "systemctl restart" tambien aparece dentro de deshacer(),
+  // que se declara arriba del archivo. El orden que importa es frente al paso
+  // de reinicio, no frente a la primera vez que se menciona el comando.
+  check('el actualizador revisa la sintaxis antes de reiniciar',
+    /--check/.test(guionAct) && guionAct.indexOf('--check') < guionAct.indexOf('paso reiniciar'));
+  check('el actualizador deshace solo si no arranca',
+    /deshacer\(\)/.test(guionAct) && /reset --hard "\$anterior"/.test(guionAct));
+  check('el actualizador solo avanza en linea recta',
+    /merge --ff-only/.test(guionAct) && /is-ancestor/.test(guionAct));
+  check('el actualizador es ejecutable',
+    (fs.statSync(`${__dirname}/../tools/actualizar.sh`).mode & 0o111) !== 0);
+
+  const moduloAct = fs.readFileSync(`${__dirname}/../src/actualizar.js`, 'utf8');
+  check('la actualizacion corre fuera del servicio',
+    /systemd-run/.test(moduloAct) && /detached: true/.test(moduloAct),
+    'si corriera dentro, el reinicio la mataria a medias');
+
+  const htmlAct = fs.readFileSync(`${__dirname}/../public/index.html`, 'utf8');
+  for (const id of ['act-version', 'act-buscar', 'act-instalar', 'act-revertir',
+    'act-progreso', 'act-novedades']) {
+    check(`el html trae #${id}`, new RegExp(`id="${id}"`).test(htmlAct));
+  }
+
   // --- limpieza ---
   await req(`/api/agents/${A}?purgar=1`, { method: 'DELETE' });
   await req(`/api/agents/${B}?purgar=1`, { method: 'DELETE' });

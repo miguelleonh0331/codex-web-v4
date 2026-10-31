@@ -4,6 +4,39 @@ Aplicar una version nueva sobre un servidor con especialistas y
 conversaciones dentro. Probado sobre una base real de 15 agentes y 171
 mensajes.
 
+## Lo normal: el boton
+
+**Proveedor → Buscar actualizacion → Instalar.** No hace falta entrar al
+servidor.
+
+El boton hace lo mismo que el procedimiento manual de mas abajo, en este
+orden, y se planta si algo no cuadra:
+
+| Paso | Si falla |
+|---|---|
+| Comprueba que no hay archivos editados a mano en el servidor | No sigue. Los machacaria |
+| Copia la base de datos, en caliente | No sigue. No trabaja sin red |
+| Trae los cambios de GitHub | No sigue |
+| Comprueba que es un avance en linea recta | No sigue. Hay que resolverlo a mano |
+| Revisa la sintaxis de todo el codigo nuevo | Deshace. No reinicia |
+| Reinicia y espera a que conteste (90 s) | **Vuelve sola a la version anterior** |
+| Pasa las 395 pruebas | Avisa, pero no deshace: tus datos estan bien |
+
+Dos detalles que no son evidentes:
+
+**El trabajo no corre dentro del programa.** Corre en un proceso suelto que
+lanza `systemd-run`, porque un programa no puede vigilar su propio reinicio:
+`systemctl restart` mataria al que tiene que comprobar si la version nueva
+arranco. Al vivir fuera, sigue ahi para deshacer si hace falta.
+
+**La copia de la base se hace con el servicio en marcha**, con `VACUUM INTO`.
+Copiar el archivo a pelo no sirve con WAL: saldria a medias. Queda en
+`backups/v4-antes-de-actualizar-<fecha>.db`.
+
+Si hay especialistas trabajando, avisa por nombre antes de reiniciar: el
+turno se les corta a medias. Y queda un boton **Volver atras** a un clic, que
+no toca conversaciones ni especialistas.
+
 ## Por que es seguro
 
 Las migraciones son **aditivas**: anaden columnas y tablas, nunca modifican

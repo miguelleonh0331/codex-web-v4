@@ -16,6 +16,7 @@ const guardia = require('./guardia');
 const vault = require('./vault');
 const lilit = require('./lilit');
 const lilitGroq = require('./lilit-groq');
+const actualizar = require('./actualizar');
 const crypto = require('node:crypto');
 
 const cfg = load();
@@ -1187,6 +1188,46 @@ async function api(req, res, url) {
     const out = lilitGroq.borrarClave(cfg);
     store.event('lilit.clave', null, { configurada: false });
     return json(res, 200, { ok: true, ...out });
+  }
+
+  // ---- Actualizaciones desde la propia web ---------------------------------
+  // Que version corre y si GitHub tiene algo mas nuevo. No usa red: contesta
+  // con lo que ya se trajo. Para preguntarle a GitHub esta /buscar.
+  if (p === '/api/actualizacion' && m === 'GET') {
+    try {
+      return json(res, 200, await actualizar.estado(cfg, store));
+    } catch (e) {
+      return json(res, 500, { error: e.message });
+    }
+  }
+
+  if (p === '/api/actualizacion/buscar' && m === 'POST') {
+    try {
+      return json(res, 200, await actualizar.buscar(cfg, store));
+    } catch (e) {
+      return json(res, e.codigo || 500, { error: e.message });
+    }
+  }
+
+  if (p === '/api/actualizacion/aplicar' && m === 'POST') {
+    const b = await readBody(req).catch(() => ({}));
+    try {
+      const out = await actualizar.aplicar(cfg, store, { aunqueTrabajen: !!b.aunqueTrabajen });
+      store.event('actualizacion.inicio', null, { desde: out.desde, commits: out.cuantos });
+      return json(res, 200, { ok: true, ...out });
+    } catch (e) {
+      return json(res, e.codigo || 500, { error: e.message, trabajando: e.trabajando || null });
+    }
+  }
+
+  if (p === '/api/actualizacion/revertir' && m === 'POST') {
+    try {
+      const out = await actualizar.revertir(cfg, store);
+      store.event('actualizacion.revertir', null, { desde: out.desde });
+      return json(res, 200, { ok: true, ...out });
+    } catch (e) {
+      return json(res, e.codigo || 500, { error: e.message });
+    }
   }
 
   if (p === '/api/guardia' && m === 'GET') {
