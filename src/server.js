@@ -980,7 +980,11 @@ async function api(req, res, url) {
     const a = store.getAgent(id);
     if (!a) return json(res, 404, { error: 'agente no encontrado' });
     const desde = Number(url.searchParams.get('desde') || 0);
-    return json(res, 200, { ...cliVivo.leer(id, desde), trabajando: a.status === 'working' });
+    const solo = url.searchParams.get('solo');
+    return json(res, 200, {
+      ...cliVivo.leer(id, desde, 100, solo === 'ordenes' ? 'ordenes' : null),
+      trabajando: a.status === 'working'
+    });
   }
 
   mm = p.match(/^\/api\/agents\/([^/]+)\/compact$/);

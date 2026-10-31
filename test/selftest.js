@@ -2418,6 +2418,69 @@ function check(nombre, condicion, detalle) {
     cv.anotar(A, 9, { type: 'algo_nuevo_del_cli', dato: 42 });
     check('un evento desconocido se enseña en crudo, no se traga',
       cv.leer(A, 0).lineas.some((l) => /algo_nuevo_del_cli/.test(l.texto)));
+    // --- la tira de "que esta lanzando ahora mismo" ---
+    // Solo la ORDEN. Ni el razonamiento, ni el resultado: fue el encargo
+    // literal ("no quiero el output del resultado").
+    cv.olvidar(A); cv.empezar(A, 11);
+    const multi = 'cd /opt/telegram-reminders-bot && /usr/local/bin/python3.11 -c "\n'
+      + 'import db\n'
+      + "with db.get_conn() as c:\n"
+      + "    c.execute('UPDATE config SET timezone=NULL WHERE chat_id=5626519137')\n"
+      + '"';
+    cv.anotar(A, 11, { type: 'assistant', message: { content: [
+      { type: 'thinking', thinking: 'razonamiento que no debe asomar' },
+      { type: 'tool_use', name: 'Bash', input: { command: multi } },
+      { type: 'tool_use', name: 'Write', input: { file_path: '/opt/viexperu/index.html', content: 'x'.repeat(900) } },
+      { type: 'tool_use', name: 'Grep', input: { pattern: 'loadOverview', path: '/opt/viexperu' } }
+    ] } });
+    cv.anotar(A, 11, { type: 'user', message: { content: [
+      { type: 'tool_result', content: 'salida que no debe asomar' }] } });
+
+    const tira = cv.leer(A, 0, 100, 'ordenes');
+    const crudo = JSON.stringify(tira.lineas);
+    check('la tira trae una linea por cada cosa que lanza',
+      tira.lineas.length === 3, String(tira.lineas.length));
+    check('la tira no lleva el razonamiento', !/no debe asomar/.test(crudo) || !/razonamiento/.test(crudo));
+    check('la tira NO lleva la salida del comando',
+      !/salida que no debe asomar/.test(crudo), crudo.slice(0, 200));
+    // Lo que se ve en la captura de referencia: el cuerpo del python, de
+    // varias lineas, es donde se lee lo que intenta hacer. Aplastarlo a una
+    // sola linea (que es lo que hace el campo `texto`) se lo lleva por medio.
+    const orden = tira.lineas[0].orden;
+    check('la orden conserva sus saltos de linea',
+      (orden.match(/\n/g) || []).length === 4, JSON.stringify(orden).slice(0, 120));
+    check('se ve el UPDATE que iba dentro del python',
+      /UPDATE config SET timezone=NULL/.test(orden));
+    // Partir por && romperia este mismo caso: hay un && antes de la comilla
+    // que abre el cuerpo de python. Y un grep "a && b" se partiria en dos.
+    check('los encadenados con && no se parten',
+      orden.split('\n')[0].includes('&&'), orden.split('\n')[0]);
+    const porOrden = (v) => tira.lineas.find((l) => l.verbo === v);
+    check('lo que toca ficheros sin consola tambien sale, con su ruta',
+      porOrden('escribe') && porOrden('escribe').ruta === '/opt/viexperu/index.html',
+      crudo);
+    check('lo que no es consola no se disfraza de comando',
+      tira.lineas.filter((l) => l.orden != null).length === 1,
+      'sin el verbo delante, un fichero reescrito pareceria un comando que nadie escribio');
+    check('una orden larga de verdad cabe entera', cv.TOPE_ORDEN >= 2000, String(cv.TOPE_ORDEN));
+
+    const appTira = fs.readFileSync(`${__dirname}/../public/app.js`, 'utf8');
+    check('la tira y el cuadro de escribir nunca salen a la vez',
+      /tira\.hidden = !\(trabajando && \$\('#send-form'\)\.hidden\)/.test(appTira));
+    check('la tira pide solo las ordenes, no todo el flujo',
+      /cli\?solo=ordenes&desde=/.test(appTira),
+      'sin el filtro se manda el razonamiento entero en cada sondeo para tirarlo');
+    check('la tira tiene su propio cursor, separado del de la pestaña',
+      /let tiraDesde = 0/.test(appTira) && /tiraDesde = Math\.max/.test(appTira),
+      'compartirlo dejaria en blanco a quien preguntase el segundo');
+    check('la orden se pinta como texto, nunca como html',
+      /querySelector\('\.cmd'\)\.textContent = l\.orden/.test(appTira));
+    const cssTira = fs.readFileSync(`${__dirname}/../public/style.css`, 'utf8');
+    check('la orden respeta sus saltos al pintarse',
+      /\.tira-lineas \.cmd\{[^}]*white-space:pre-wrap/.test(cssTira));
+    check('la letra de la tira es mas pequeña que la del panel',
+      /\.tira-lineas\{[^}]*font-size:\.6\d/.test(cssTira));
+
     cv.olvidar(A);
 
     // El punto de acceso contesta y no inventa agentes.

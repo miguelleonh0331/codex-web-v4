@@ -136,6 +136,15 @@ try {
     </header>
     <canvas id="matrix" class="matrix" aria-hidden="true"></canvas>
     <div id="messages" class="messages"></div>
+    <!-- Lo que esta lanzando ahora mismo, en el hueco que deja el cuadro de
+         escribir al esconderse. Solo la orden, nunca su salida. -->
+    <div id="tira-cli" class="tira-cli" hidden>
+      <div class="tira-cab">
+        <span class="tira-tit">ejecutando</span>
+        <span id="tira-quieto" class="tira-quieto"></span>
+      </div>
+      <div id="tira-lineas" class="tira-lineas"></div>
+    </div>
     <form id="send-form" class="composer" hidden>
       <div class="composer-cuerpo">
         <div id="adjuntos-pendientes" class="adjuntos" hidden></div>

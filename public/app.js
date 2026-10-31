@@ -170,6 +170,7 @@ async function refreshAllInterno() {
         // pintarMensajes sale antes de tiempo y no se enteraria nadie.
         ajustarCompositor();
         pintarTrabajando();
+        await refrescarTira();
       }
       await renderMessages();
     }
@@ -378,6 +379,7 @@ async function selectAgent(id) {
   // Otro especialista, otra situacion: el cuadro se decide de nuevo.
   composerForzado = false;
   ajustarCompositor();
+  refrescarTira();
   ultimoMsgId = 0;          // conversacion nueva: se pinta de cero
   await refrescarActividad(true);
   marcarVisto(id);
@@ -412,6 +414,10 @@ function ajustarCompositor() {
   const conAdjuntos = Array.isArray(adjuntos) && adjuntos.length > 0;
 
   $('#send-form').hidden = !a || (trabajando && !composerForzado && !borrador && !conAdjuntos);
+  // La tira ocupa el hueco del cuadro: o uno, o la otra, nunca las dos.
+  // Se decide aqui, sin esperar a la peticion, para que no parpadee.
+  const tira = $('#tira-cli');
+  if (tira) tira.hidden = !(trabajando && $('#send-form').hidden);
 
   const btn = $('#ver-compositor');
   if (btn) {
@@ -423,6 +429,76 @@ function ajustarCompositor() {
     btn.title = txt;
     btn.setAttribute('aria-label', txt);
   }
+}
+
+// ------------------------------------------------ la tira de lo que lanza
+
+// Cursor propio: la pestaña de detalle tiene el suyo y van a ritmos
+// distintos. Compartirlo haria que quien preguntase primero se llevara las
+// lineas y el otro se quedara en blanco.
+let tiraDesde = 0;
+let tiraDeQuien = null;
+let tiraEnVuelo = false;
+let tiraQuieto = null;
+
+/** Reloj de "sin novedad" de la tira. Corre solo, sin pedir nada. */
+setInterval(() => {
+  const el = $('#tira-quieto');
+  if (!el || !tiraQuieto) return;
+  const s = Math.round((Date.now() - tiraQuieto.base) / 1000 + tiraQuieto.ms / 1000);
+  el.textContent = s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s sin novedad` : `${s} s sin novedad`;
+  el.classList.toggle('alarma', s >= 60);
+}, 1000);
+
+function filaTira(l) {
+  const el = document.createElement('div');
+  el.className = 'tl';
+  if (l.orden != null) {
+    // La orden va TAL CUAL, con sus saltos: en un python -c de varias lineas
+    // es ahi dentro donde se ve lo que intenta hacer.
+    el.innerHTML = `<span class="sig">$</span><span class="cmd"></span>`;
+    el.querySelector('.cmd').textContent = l.orden;
+  } else {
+    el.classList.add('fich');
+    el.innerHTML = `<span class="verbo"></span><span class="ruta"></span>`;
+    el.querySelector('.verbo').textContent = l.verbo || '';
+    el.querySelector('.ruta').textContent = l.ruta || '';
+  }
+  return el;
+}
+
+/**
+ * Lo que el especialista esta lanzando ahora mismo.
+ *
+ * Solo la orden, nunca su salida: fue el encargo literal. Y por eso tampoco
+ * aparece lo que el modelo piensa ni lo que le devuelven las herramientas.
+ */
+async function refrescarTira() {
+  const caja = $('#tira-lineas');
+  if (!caja) return;
+  const a = agents.find((x) => x.id === selected);
+  const visible = !!a && a.status === 'working' && $('#send-form').hidden;
+  if (!visible) { tiraQuieto = null; return; }
+
+  if (tiraDeQuien !== selected) {
+    tiraDeQuien = selected;
+    tiraDesde = 0;
+    caja.innerHTML = '';
+  }
+  if (tiraEnVuelo) return;
+  tiraEnVuelo = true;
+  try {
+    const d = await api(`/api/agents/${selected}/cli?solo=ordenes&desde=${tiraDesde}`);
+    if (selected !== tiraDeQuien) return;
+    tiraQuieto = { ms: d.quietoMs || 0, base: Date.now() };
+    for (const l of d.lineas) {
+      tiraDesde = Math.max(tiraDesde, l.seq);
+      caja.appendChild(filaTira(l));
+    }
+    while (caja.children.length > 40) caja.removeChild(caja.firstChild);
+    if (d.lineas.length) caja.scrollTop = caja.scrollHeight;
+  } catch { /* se reintenta en el siguiente ciclo */ }
+  finally { tiraEnVuelo = false; }
 }
 
 /**
@@ -1139,6 +1215,7 @@ $('#send-form').addEventListener('submit', async (e) => {
 $('#ver-compositor').onclick = () => {
   composerForzado = !composerForzado;
   ajustarCompositor();
+  refrescarTira();
   if (composerForzado) $('#send-text').focus();
 };
 
@@ -2187,7 +2264,7 @@ $('#eliminar').onclick = async () => {
       $('#chat-area').textContent = '';
       $('#chat-face').innerHTML = '';
       ['send-form', 'edit-agent', 'reset-session', 'compactar', 'parar', 'notas',
-        'ver-compositor']
+        'ver-compositor', 'tira-cli']
         .forEach((id) => { const el = $(`#${id}`); if (el) el.hidden = true; });
     }
     editing = null;

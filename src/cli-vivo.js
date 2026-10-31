@@ -16,6 +16,7 @@
 const LINEAS = 120;          // se sirven 100; el resto es colchon
 const TOPE_DETALLE = 2000;   // por linea, en caracteres
 const TOPE_TEXTO = 600;      // lo que se ve sin desplegar
+const TOPE_ORDEN = 4000;     // la orden tal cual; un python -c largo cabe
 const AGENTES = 20;          // anillos vivos a la vez
 
 /** Eventos que no se pintan: ya se ven en otro sitio de la interfaz. */
@@ -65,7 +66,7 @@ function empezar(agentId, turnId) {
   apuntar(agentId, turnId, 'sistema', `— turno ${turnId} —`);
 }
 
-function apuntar(agentId, turnId, clase, texto, detalle) {
+function apuntar(agentId, turnId, clase, texto, detalle, extra) {
   const a = anillo(agentId);
   const corto = unaLinea(recortar(texto, TOPE_TEXTO));
   if (!corto) return;
@@ -74,26 +75,64 @@ function apuntar(agentId, turnId, clase, texto, detalle) {
   const fila = { seq: a.seq, t: a.ultimo, clase, texto: corto };
   const largo = detalle == null ? null : recortar(detalle, TOPE_DETALLE);
   if (largo && largo !== corto) fila.detalle = largo;
+  if (extra) Object.assign(fila, extra);
   a.lineas.push(fila);
   if (a.lineas.length > LINEAS) a.lineas.splice(0, a.lineas.length - LINEAS);
   if (turnId != null) a.turno = turnId;
 }
 
-/** Como se resume lo que le entra a cada herramienta. */
-function argumentos(nombre, input) {
+// Herramientas que tocan ficheros sin pasar por la consola. Son las que no
+// dejarian ni rastro si solo se pintaran las ordenes de shell: un fichero
+// reescrito con Write no es ningun comando, y es justo lo que hay que ver.
+const VERBOS = {
+  Read: 'lee', Write: 'escribe', Edit: 'edita', NotebookEdit: 'edita',
+  Glob: 'busca', Grep: 'busca',
+  WebFetch: 'web', WebSearch: 'busca web',
+  Task: 'delega', Agent: 'delega'
+};
+
+/**
+ * Que esta lanzando, para la tira en vivo.
+ *
+ * Devuelve `orden` cuando es un comando de consola (y entonces va TAL CUAL,
+ * con sus saltos de linea: ahi es donde se ve lo que intenta hacer, como en
+ * un python -c de varias lineas) o `verbo`+`ruta` cuando es una herramienta
+ * propia.
+ *
+ * No se parte por "&&". En las capturas de referencia los encadenados van en
+ * una sola linea, los varios "$" son varias EJECUCIONES distintas. Y partir
+ * por "&&" romperia por la mitad tanto un cuerpo de python entre comillas
+ * como un grep "a && b": para saber si un && esta entrecomillado haria falta
+ * interpretar shell de verdad.
+ */
+function accion(nombre, input) {
   const i = input && typeof input === 'object' ? input : {};
   const n = String(nombre || '');
-  // El encargo era ver lo que hace sin pedirselo: para eso el dato que
-  // cuenta es el comando o la ruta COMPLETOS, no un resumen amable.
-  if (n === 'Bash' || n === 'BashOutput') return i.command || i.bash_id || '';
-  if (n === 'Read' || n === 'NotebookEdit') return i.file_path || i.notebook_path || '';
-  if (n === 'Write') return `${i.file_path || ''}  (${String(i.content || '').length} caracteres)`;
-  if (n === 'Edit') return `${i.file_path || ''}\n- ${i.old_string || ''}\n+ ${i.new_string || ''}`;
-  if (n === 'Glob' || n === 'Grep') return `${i.pattern || ''}${i.path ? `  en ${i.path}` : ''}`;
-  if (n === 'WebFetch' || n === 'WebSearch') return i.url || i.query || '';
-  if (n === 'Task' || n === 'Agent') return i.description || i.prompt || '';
+
+  if (n === 'Bash') return { orden: String(i.command || '') };
+  if (n === 'BashOutput') return { verbo: 'mira consola', ruta: String(i.bash_id || '') };
+  if (n === 'KillShell') return { verbo: 'corta consola', ruta: String(i.shell_id || '') };
+
+  const verbo = VERBOS[n];
+  if (verbo) {
+    if (n === 'Glob' || n === 'Grep') {
+      return { verbo, ruta: `${i.pattern || ''}${i.path ? `  en ${i.path}` : ''}` };
+    }
+    if (n === 'WebFetch' || n === 'WebSearch') return { verbo, ruta: i.url || i.query || '' };
+    if (n === 'Task' || n === 'Agent') return { verbo, ruta: i.description || '' };
+    return { verbo, ruta: i.file_path || i.notebook_path || '' };
+  }
+
+  // Herramienta desconocida (MCP, por ejemplo): su nombre y poco mas. Mejor
+  // una linea escueta que un hueco donde deberia verse lo que hace.
   const s = JSON.stringify(i);
-  return s === '{}' ? '' : s;
+  return { verbo: n, ruta: s === '{}' ? '' : recortar(s, 200) };
+}
+
+/** Resumen de una linea, para la pestaña de detalle. */
+function argumentos(nombre, input) {
+  const a = accion(nombre, input);
+  return a.orden != null ? a.orden : `${a.ruta || ''}`;
 }
 
 /** Texto plano de lo que devolvio una herramienta, venga como venga. */
@@ -133,9 +172,16 @@ function anotar(agentId, turnId, ev) {
       if (b.type === 'thinking') apuntar(agentId, turnId, 'pensando', b.thinking, b.thinking);
       else if (b.type === 'text') apuntar(agentId, turnId, 'dice', b.text, b.text);
       else if (b.type === 'tool_use') {
-        const args = argumentos(b.name, b.input);
-        apuntar(agentId, turnId, 'herramienta', `${b.name} ${args}`.trim(),
-          `${b.name}\n${JSON.stringify(b.input || {}, null, 1)}`);
+        const acc = accion(b.name, b.input);
+        // La orden se guarda APARTE y sin tocar. El campo `texto` la aplasta
+        // a una linea para la lista de detalle, y en un python -c de varias
+        // lineas eso se lleva por delante justo lo que hay que leer.
+        const extra = acc.orden != null
+          ? { orden: recortar(acc.orden, TOPE_ORDEN) }
+          : { verbo: acc.verbo, ruta: recortar(String(acc.ruta || ''), TOPE_ORDEN) };
+        apuntar(agentId, turnId, 'herramienta',
+          `${b.name} ${argumentos(b.name, b.input)}`.trim(),
+          `${b.name}\n${JSON.stringify(b.input || {}, null, 1)}`, extra);
       }
     }
     return;
@@ -170,10 +216,17 @@ function anotar(agentId, turnId, ev) {
  * Lo posterior a `desde`. Devuelve tambien cuanto lleva callado, que es el
  * dato que de verdad dice si se atasco: el contenido dice en que.
  */
-function leer(agentId, desde = 0, limite = 100) {
+function leer(agentId, desde = 0, limite = 100, solo = null) {
   const a = anillos.get(agentId);
   if (!a) return { lineas: [], seq: 0, turno: null, quietoMs: null, vacio: true };
-  const nuevas = a.lineas.filter((l) => l.seq > Number(desde || 0));
+  let nuevas = a.lineas.filter((l) => l.seq > Number(desde || 0));
+  // La tira en vivo solo pinta lo que LANZA. Filtrar aqui y no en el
+  // navegador evita mandar en cada sondeo el razonamiento y los resultados
+  // enteros para luego tirarlos: son el grueso de los bytes.
+  if (solo === 'ordenes') {
+    nuevas = nuevas.filter((l) => l.clase === 'herramienta')
+      .map((l) => ({ seq: l.seq, t: l.t, clase: l.clase, orden: l.orden, verbo: l.verbo, ruta: l.ruta }));
+  }
   return {
     lineas: nuevas.slice(-limite),
     seq: a.seq,
@@ -185,5 +238,5 @@ function leer(agentId, desde = 0, limite = 100) {
 
 function olvidar(agentId) { anillos.delete(agentId); }
 
-module.exports = { empezar, anotar, apuntar, leer, olvidar, argumentos, salida, recortar,
-  LINEAS, TOPE_DETALLE, TOPE_TEXTO, AGENTES };
+module.exports = { empezar, anotar, apuntar, leer, olvidar, accion, argumentos, salida, recortar,
+  LINEAS, TOPE_DETALLE, TOPE_TEXTO, TOPE_ORDEN, AGENTES, VERBOS };
