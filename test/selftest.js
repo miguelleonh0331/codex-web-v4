@@ -1994,7 +1994,16 @@ function check(nombre, condicion, detalle) {
   const estAct = await req('/api/actualizacion');
   check('el estado de actualizacion contesta', act.status === 200);
   check('dice que version corre', /^[0-9a-f]{7}$/.test(estAct.data.version || ''));
-  check('deduce el nombre del servicio', /^codex-web-/.test(estAct.data.servicio || ''));
+  // No basta con que "parezca" un nombre: tiene que ser una unidad que EXISTE.
+  // Derivarlo del nombre de la carpeta daba "codex-web-codex-web" en una
+  // instalacion en /opt/codex-web. Y ese fallo no se veia: el reinicio no da
+  // error, el servicio viejo sigue vivo, la salud pasa y el actualizador dice
+  // "listo" con el codigo nuevo en disco y el viejo en memoria.
+  const unidad = estAct.data.servicio || '';
+  const existe = await new Promise((r) => require('node:child_process')
+    .execFile('systemctl', ['cat', `${unidad}.service`], (e) => r(!e)));
+  check('el servicio que reiniciaria existe de verdad', !!unidad && existe,
+    `detectado "${unidad}"`);
   check('sabe si el disco esta limpio', typeof estAct.data.limpio === 'boolean');
   check('lista los especialistas a los que cortaria el turno',
     Array.isArray(estAct.data.trabajando));

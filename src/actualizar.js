@@ -11,10 +11,42 @@ const path = require('node:path');
 const RAIZ = path.resolve(__dirname, '..');
 const UNIDAD = 'v4-actualizacion';   // nombre del proceso suelto que lanzamos
 
-// Nombre del servicio de systemd. Se deduce de la carpeta para que esto
-// funcione igual en otra instalacion sin tocar codigo.
+/**
+ * Nombre de la unidad de systemd que nos esta ejecutando.
+ *
+ * Se pregunta, no se adivina. Antes se derivaba del nombre de la carpeta, y
+ * eso fallaba en cuanto la instalacion no se llamaba codex-web-vN: en
+ * /opt/codex-web daba "codex-web-codex-web", que no existe.
+ *
+ * Y el fallo era peor de lo que parece: el reinicio no daria error visible,
+ * el servicio viejo seguiria vivo, la comprobacion de salud pasaria y el
+ * actualizador diria "listo" sin haber reiniciado nada. Codigo nuevo en
+ * disco, codigo viejo en memoria, y nadie enterado.
+ *
+ * El kernel lo sabe: el cgroup del proceso lleva el nombre de la unidad.
+ */
 function servicioDe() {
-  return process.env.V4_SERVICIO || `codex-web-${path.basename(RAIZ).replace(/^codex-web-/, '')}`;
+  if (process.env.V4_SERVICIO) return process.env.V4_SERVICIO;
+
+  try {
+    const cg = fs.readFileSync('/proc/self/cgroup', 'utf8');
+    const m = cg.match(/([A-Za-z0-9_.@\\-]+)\.service/);
+    if (m) return m[1];
+  } catch { /* sin cgroups: seguimos probando */ }
+
+  // Sin cgroup legible, buscamos la unidad que apunta a esta carpeta.
+  try {
+    for (const f of fs.readdirSync('/etc/systemd/system')) {
+      if (!f.endsWith('.service')) continue;
+      const txt = fs.readFileSync(path.join('/etc/systemd/system', f), 'utf8');
+      if (new RegExp(`^(WorkingDirectory|ExecStart)=.*${RAIZ}(/|\\s|$)`, 'm').test(txt)) {
+        return f.replace(/\.service$/, '');
+      }
+    }
+  } catch { /* ni eso: ultimo recurso abajo */ }
+
+  // Ultimo recurso, el de antes. Solo acierta si la carpeta sigue el patron.
+  return `codex-web-${path.basename(RAIZ).replace(/^codex-web-/, '')}`;
 }
 
 function git(args, { timeout = 20000 } = {}) {
