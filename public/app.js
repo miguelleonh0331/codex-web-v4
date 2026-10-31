@@ -2394,11 +2394,35 @@ function pintarReloj() {
     hora = ahora.toLocaleTimeString('es', { timeZone: ZONA, hour: '2-digit', minute: '2-digit' });
   } catch { hora = ahora.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }); }
   const corta = ZONA.split('/').pop().replace(/_/g, ' ');
-  el.textContent = `${hora} ${corta}${TEXTO_CUOTA ? ` · ${TEXTO_CUOTA}` : ''}`;
-  el.classList.toggle('esperando', !!TEXTO_CUOTA);
+  // Solo la hora. El aviso de cuota tiene su propia linea: metido aqui no
+  // cabia en la cabecera y se comia el nombre de la instalacion.
+  el.textContent = `${hora} ${corta}`;
+  el.classList.toggle('esperando', !!ESPERA_CUOTA.length);
+  pintarAvisoCuota();
 }
 
-let TEXTO_CUOTA = '';
+let ESPERA_CUOTA = [];
+
+/** Hora de pared del servidor para un instante, sin la fecha. */
+function horaDe(iso) {
+  const d = new Date(iso);
+  try {
+    return d.toLocaleTimeString('es', { timeZone: ZONA, hour: '2-digit', minute: '2-digit' });
+  } catch { return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }); }
+}
+
+function pintarAvisoCuota() {
+  const caja = $('#aviso-cuota');
+  if (!caja) return;
+  if (!ESPERA_CUOTA.length) { caja.hidden = true; return; }
+  const proximo = ESPERA_CUOTA.reduce((a, b) => (a.proximo < b.proximo ? a : b));
+  const n = ESPERA_CUOTA.length;
+  caja.hidden = false;
+  // Se da la hora ademas de la cuenta atras: "en 14m" obliga a mirar el
+  // reloj y sumar, y estos avisos se leen de reojo.
+  caja.innerHTML = `Sin cuota: ${n} ${n === 1 ? 'trabajo espera' : 'trabajos esperan'}.`
+    + ` Reanuda <b>${escapeHtml(horaDe(proximo.proximo))}</b> (${escapeHtml(faltan(proximo.proximo))}).`;
+}
 
 function faltan(iso) {
   const ms = new Date(iso).getTime() - (Date.now() + DESFASE_MS);
@@ -2408,10 +2432,8 @@ function faltan(iso) {
 }
 
 function actualizarEspera(lista) {
-  if (!lista || !lista.length) { TEXTO_CUOTA = ''; return; }
-  const proximo = lista.reduce((a, b) => (a.proximo < b.proximo ? a : b));
-  const n = lista.length;
-  TEXTO_CUOTA = `sin cuota: ${n} ${n === 1 ? 'trabajo' : 'trabajos'} reanudan en ${faltan(proximo.proximo)}`;
+  ESPERA_CUOTA = Array.isArray(lista) ? lista : [];
+  pintarAvisoCuota();
 }
 
 setInterval(pintarReloj, 1000);

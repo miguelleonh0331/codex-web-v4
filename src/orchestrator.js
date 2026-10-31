@@ -3,6 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { runTurn } = require('./runner');
 const { uid } = require('./db');
+const { cuandoVuelve } = require('./cuota');
 const proveedores = require('./proveedores');
 const guardia = require('./guardia');
 const sesion = require('./session');
@@ -585,10 +586,24 @@ class Orchestrator {
         this.store.event('turn.error', agent.id, { turn_id: turn.id, error: out.error });
         this.notificar('turn.error', agent, { error: `Sin cuota tras ${horas} h. Trabajo abandonado.` });
       } else {
-        const proximo = new Date(Date.now() + esperaMs).toISOString();
+        // El aviso del CLI suele decir a que hora vuelve la cuota. Si se
+        // puede leer, se espera hasta esa hora y no media hora a ciegas:
+        // con "resets 4:30am" recibido a las 4:24 la diferencia eran 24
+        // minutos de equipo parado con la cuota ya devuelta.
+        const leido = cuandoVuelve(out.error, { zona: this.cfg.zonaHoraria, ahora: Date.now() });
+        // Aunque el aviso prometa siete horas, no se duerme de un tiron mas
+        // de dos: si la lectura fuera erronea el trabajo quedaria muerto
+        // toda la tarde. Al despertar se vuelve a aparcar leyendo el aviso
+        // nuevo, asi que esperar de mas sigue sin costar reintentos.
+        const topeSuenoMs = 2 * 3600000;
+        const cuando = leido !== null
+          ? Math.min(Math.max(leido, Date.now() + 60000), Date.now() + topeSuenoMs)
+          : Date.now() + esperaMs;
+        const proximo = new Date(cuando).toISOString();
         this.store.esperarCuota(turn.id, proximo, out.error);
         this.store.event('turn.espera_cuota', agent.id, {
-          turn_id: turn.id, proximo, reintentos: (turn.reintentos || 0) + 1
+          turn_id: turn.id, proximo, leido: leido !== null,
+          reintentos: (turn.reintentos || 0) + 1
         });
         this.store.updateAgent(agent.id, { status: 'idle' });
         return;   // sin mensaje de error: el trabajo no se ha perdido

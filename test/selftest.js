@@ -2316,6 +2316,72 @@ function check(nombre, condicion, detalle) {
       !!dicha && !/\{/.test(dicha), dicha);
   }
 
+  // --- cuando vuelve la cuota ----------------------------------------------
+  // El aviso del CLI trae la hora de vuelta y antes se tiraba: se esperaba
+  // media hora fija. Un aviso recibido a las 4:24 que dice "resets 4:30am"
+  // dejaba al equipo parado hasta las 4:54 con la cuota ya devuelta, que es
+  // justo cuando el usuario ve avisos de "sin cuota" mientras el trabaja.
+  {
+    const { cuandoVuelve } = require(`${__dirname}/../src/cuota`);
+    const Z = 'America/Lima';
+    const real = "You've hit your session limit · resets 4:30am (America/Lima)";
+    const t0 = new Date('2026-10-31T09:24:29.615Z').getTime();
+    const leido = cuandoVuelve(real, { zona: Z, ahora: t0 });
+    check('lee del aviso a que hora vuelve la cuota', leido !== null);
+    check('la espera leida es la de verdad, no media hora a ciegas',
+      leido !== null && leido - t0 < 12 * 60000 && leido > t0,
+      leido === null ? 'no leyo' : `${Math.round((leido - t0) / 60000)} min`);
+
+    // Ante la duda se espera de mas, nunca de menos: null manda usar la
+    // espera fija de siempre, que reintenta igual. Una lectura equivocada
+    // hacia abajo seria un bucle de llamadas contra un limite activo.
+    for (const [texto, porque] of [
+      ['usage limit reached', 'sin hora en el aviso'],
+      ['resets 99:99am', 'hora imposible'],
+      ['limit reached, resets 4:30am (America/Lima)', 'la hora ya paso: seria manana']
+    ]) {
+      const v = cuandoVuelve(texto, { zona: Z, ahora: new Date('2026-10-31T10:00:00Z').getTime() });
+      check(`ante "${porque}" cae en la espera fija`, v === null, String(v));
+    }
+    check('una zona inventada en el aviso no rompe la lectura',
+      cuandoVuelve('resets 3am (Zona/Inventada)', { zona: Z, ahora: t0 }) === null
+      || typeof cuandoVuelve('resets 3am (Zona/Inventada)', { zona: Z, ahora: t0 }) === 'number');
+
+    const orq = fs.readFileSync(`${__dirname}/../src/orchestrator.js`, 'utf8');
+    check('el motor usa la hora leida para aparcar el turno',
+      /cuandoVuelve\(out\.error/.test(orq));
+    // Si la lectura fuera erronea, dormir siete horas de un tiron dejaria el
+    // trabajo muerto toda la tarde. Se despierta antes y se vuelve a aparcar.
+    check('ninguna espera de cuota duerme mas de dos horas seguidas',
+      /topeSuenoMs/.test(orq) && /Math\.min\(/.test(orq));
+  }
+
+  // --- el aviso de cuota no puede comerse la cabecera -----------------------
+  // Paso de verdad: el reloj llevaba el aviso dentro, no encogia (flex:0 0
+  // auto), y .marca-texto (flex:1 min-width:0) se quedaba en cero. El nombre
+  // se salia de su hueco, el reloj se pintaba encima y ademas se quedaba con
+  // sus clics, asi que renombrar la instalacion no funcionaba.
+  {
+    const css = fs.readFileSync(`${__dirname}/../public/style.css`, 'utf8');
+    const html = fs.readFileSync(`${__dirname}/../public/index.html`, 'utf8');
+    const js = fs.readFileSync(`${__dirname}/../public/app.js`, 'utf8');
+    check('la caja del nombre recorta en vez de desbordarse',
+      /\.marca-texto\{[^}]*overflow:hidden/.test(css));
+    check('el nombre de la instalacion se corta con puntos suspensivos',
+      /#app-nombre\{[^}]*text-overflow:ellipsis/.test(css));
+    check('el aviso de cuota tiene linea propia fuera de la cabecera',
+      /id="aviso-cuota"/.test(html)
+      && html.indexOf('id="aviso-cuota"') > html.indexOf('</header>'));
+    check('el reloj ya no lleva el aviso de cuota pegado',
+      !/TEXTO_CUOTA/.test(js) && /\$\('#aviso-cuota'\)/.test(js));
+    check('el aviso de cuota dice la hora y no solo la cuenta atras',
+      /Reanuda <b>\$\{escapeHtml\(horaDe\(/.test(js));
+    // Nada de colores a pelo: los temas se rompen uno por uno si se cuelan.
+    const reglaAviso = (css.match(/\.aviso-cuota\{[^}]*\}/) || [''])[0];
+    check('el aviso de cuota se pinta con variables del tema',
+      /var\(--warn\)/.test(reglaAviso) && !/#[0-9a-f]{3,8}\b/i.test(reglaAviso), reglaAviso);
+  }
+
   // --- actualizar desde la web ---------------------------------------------
   const estAct = await req('/api/actualizacion');
   check('el estado de actualizacion contesta', act.status === 200);
