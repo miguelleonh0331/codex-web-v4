@@ -156,7 +156,7 @@ function buildSystemPrompt(agent, cfg) {
 /**
  * Ejecuta un turno del agente. Devuelve { ok, text, sessionId, cost, numTurns, raw, error }.
  */
-function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
+function runTurn(cfg, agent, turn, rutaLog, onEvento, onProceso) {
   return new Promise((resolve) => {
     // Quien ejecuta este turno. De aqui en adelante da igual cual sea.
     const prov = proveedores.paraAgente(agent, cfg);
@@ -170,7 +170,12 @@ function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
     // no al crear el especialista, para que los que ya existian la tengan sin
     // tener que recrearlos. Es idempotente: nunca pisa lo que el ya escribio.
     const sembrado = memoria.preparar(agent, prov.nombre);
-    if (sembrado.length && log) log(`memoria preparada: ${sembrado.join(', ')}`);
+    if (sembrado.length && rutaLog) {
+      // Ojo: esto es una RUTA, no una funcion. Se escribe en el archivo.
+      try {
+        fs.appendFileSync(rutaLog, `\n==== memoria preparada para ${agent.name}: ${sembrado.join(', ')} ====\n`);
+      } catch { /* el registro no debe tumbar el turno */ }
+    }
 
     let plan;
     try {
@@ -284,9 +289,9 @@ function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
       settled = true;
       limpiarRelojes();
 
-      if (log) {
+      if (rutaLog) {
         try {
-          fs.appendFileSync(log, `\n==== turno ${turn.id} agente ${agent.name} code=${code} ====\n${stdout}\n--- stderr ---\n${stderr}\n`);
+          fs.appendFileSync(rutaLog, `\n==== turno ${turn.id} agente ${agent.name} code=${code} ====\n${stdout}\n--- stderr ---\n${stderr}\n`);
         } catch { /* el log no debe tumbar el turno */ }
       }
 

@@ -2203,6 +2203,58 @@ function check(nombre, condicion, detalle) {
     /memoria\.preparar\(agent, prov\.nombre\)/.test(runSrc),
     'asi la tienen los especialistas que ya existian');
 
+  // El cuarto argumento de runTurn es una RUTA de archivo, no una funcion.
+  // Llamarlo rompia el PRIMER turno de cada especialista —justo cuando se
+  // crea su memoria— y al repetir funcionaba, que es lo que lo hacia
+  // desconcertante. El nombre "log" invitaba al error; ahora es rutaLog.
+  check('el registro del turno se trata como ruta, no como funcion',
+    !/\brutaLog\(/.test(runSrc) && !/\blog\(`/.test(runSrc) &&
+    /function runTurn\(cfg, agent, turn, rutaLog/.test(runSrc),
+    'romperia el primer turno de cada especialista');
+
+  // Y la prueba de verdad: ejecutar un turno con el espacio de trabajo
+  // RECIEN creado, que es el camino que fallaba. Se simula el proceso hijo
+  // para no gastar modelo.
+  {
+    const cp = require('node:child_process');
+    const { EventEmitter } = require('node:events');
+    const spawnReal = cp.spawn;
+    cp.spawn = () => {
+      const c = new EventEmitter();
+      c.stdout = new EventEmitter(); c.stderr = new EventEmitter(); c.kill = () => {};
+      setImmediate(() => c.emit('close', 0));
+      return c;
+    };
+    try {
+      const { runTurn } = require(`${__dirname}/../src/runner`);
+      // Ojo: el cfg de este archivo es el JSON crudo, SIN las rutas que
+      // rellena config.load() (entre ellas la del binario). Con el crudo,
+      // runTurn se rinde antes de llegar a sembrar la memoria y la prueba
+      // pasaria por el motivo equivocado.
+      const cfgReal = require(`${__dirname}/../src/config`).load();
+      const agentes = (await req('/api/agents')).data.agents;
+      const base0 = JSON.parse(JSON.stringify(agentes[0]));
+      base0.workspace = `/tmp/selftest-ws-${Date.now()}`;
+      base0.home = '/tmp/selftest-home';
+      base0.instructions = base0.instructions || 'prueba';
+      const r = await runTurn(cfgReal, base0, { id: 0, prompt: 'x', chain_id: 'c', hop: 0 },
+        null, () => {}, () => {});
+      // Da igual que el turno no produzca salida: lo que se comprueba es que
+      // sembrar la memoria por primera vez no lanza una excepcion.
+      check('el primer turno de un especialista nuevo no revienta',
+        !/is not a function/.test(r.error || ''), r.error || 'ok');
+      const provNom = require(`${__dirname}/../src/proveedores`).paraAgente(base0, cfgReal).nombre;
+      const archivoMem = require(`${__dirname}/../src/memoria`).ARCHIVO_POR_PROVEEDOR[provNom];
+      check('al primer turno se le crea su memoria de trabajo',
+        fs.existsSync(`${base0.workspace}/${archivoMem}`)
+        && fs.existsSync(`${base0.workspace}/herramientas`),
+        `motor ${provNom}, esperaba ${archivoMem}`);
+      fs.rmSync(base0.workspace, { recursive: true, force: true });
+    } finally {
+      cp.spawn = spawnReal;
+    }
+  }
+
   // LILIT decia "conviene que compacte a X" cuando compactar ya no es trabajo
   // del usuario. Avisar de algo que el sistema ya hizo entrena a ignorarla.
   const fr = require(`${__dirname}/../src/lilit-frases`);
