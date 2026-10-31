@@ -84,6 +84,9 @@ async function estado(cfg, store) {
 
   let anterior = null;
   try { anterior = fs.readFileSync(rutaAnterior(cfg), 'utf8').trim() || null; } catch { /* sin vuelta atras */ }
+  // Tras una vuelta atras automatica, el registro apunta a la version en la
+  // que ya estamos. Ofrecer "volver" a donde ya estas no significa nada.
+  if (anterior && anterior === actual.salida) anterior = null;
   let tituloAnterior = null;
   if (anterior) {
     const t = await git(['log', '-1', '--pretty=%h %s', anterior]);

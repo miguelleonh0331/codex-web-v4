@@ -1842,6 +1842,10 @@ function check(nombre, condicion, detalle) {
       'omitida: ahora mismo una actualizacion seria legitima y no se lanza en pruebas');
   }
 
+  // Tras una vuelta atras automatica el registro apunta a donde ya estamos.
+  check('no ofrece volver a la version en la que ya estas',
+    estAct.data.anterior !== estAct.data.commit);
+
   // La vuelta atras tampoco se dispara aqui. Si no hay donde volver, el 409
   // es inofensivo y vale como prueba; si lo hay, nos basta con ver que la
   // web tiene la informacion para ofrecer el boton.
