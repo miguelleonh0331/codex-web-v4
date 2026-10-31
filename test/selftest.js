@@ -1936,14 +1936,73 @@ function check(nombre, condicion, detalle) {
   check('las semillas con letras funcionan, no solo las hexadecimales',
     (await icoBajar('/icons/icon-192-masterchief.png')).slice(1, 4).toString() === 'PNG');
 
-  // Formas de empresa: el motivo por el que existen es que se reconozcan.
+  // Iconos de empresa: son de Lucide, no dibujos a mano.
   const icoSrc = fs.readFileSync(`${__dirname}/../src/iconos.js`, 'utf8');
-  for (const f of ['auricular', 'burbujas', 'ondas', 'barras', 'embudo', 'escudo', 'diana', 'traspaso']) {
-    check(`existe la forma de empresa "${f}"`, new RegExp(`'${f}'`).test(icoSrc));
+  const datosIco = require(`${__dirname}/../src/iconos-datos`);
+  check('el juego de iconos profesional esta incluido',
+    Object.keys(datosIco).length >= 15, `${Object.keys(datosIco).length} iconos`);
+  check('se conserva el aviso de licencia de los iconos',
+    fs.existsSync(`${__dirname}/../assets/iconos/LICENSE-lucide.txt`) &&
+    /Lucide/.test(fs.readFileSync(`${__dirname}/../src/iconos-datos.js`, 'utf8')),
+    'son de terceros, con licencia ISC');
+  for (const f of ['headset', 'phone-call', 'messages-square', 'chart-column', 'target']) {
+    check(`esta el icono "${f}"`, !!datosIco[f]);
   }
   check('las formas de empresa usan paleta sobria, no arcoiris',
     /const PALETAS = \[/.test(icoSrc) && /empresa \? paleta\.h/.test(icoSrc),
     'el arcoiris de puntos no pasa por el logotipo de una empresa');
+
+  // La prueba que de verdad sirve: que CADA icono deje tinta en el lienzo.
+  // Asi se cazo que tres de ellos (bot, network, workflow) salian a medias
+  // porque el lector de SVG no entendia <rect> y se comia media figura.
+  const { generar: genIco, receta: recIco } = require(`${__dirname}/../src/iconos`);
+  const zlibIco = require('node:zlib');
+  const tinta = (png) => {
+    let o = 8; let dat = Buffer.alloc(0); let w = 0; let h = 0;
+    while (o < png.length) {
+      const ln = png.readUInt32BE(o); const t = png.slice(o + 4, o + 8).toString();
+      if (t === 'IHDR') { w = png.readUInt32BE(o + 8); h = png.readUInt32BE(o + 12); }
+      if (t === 'IDAT') dat = Buffer.concat([dat, png.slice(o + 8, o + 8 + ln)]);
+      o += 12 + ln;
+    }
+    const raw = zlibIco.inflateSync(dat); const st = w * 4 + 1;
+    const bg = [raw[(h >> 1) * st + 1], raw[(h >> 1) * st + 2], raw[(h >> 1) * st + 3]];
+    let n = 0; let tot = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i2 = y * st + 1 + x * 4;
+        if (raw[i2 + 3] < 10) continue;
+        tot += 1;
+        if (Math.abs(raw[i2] - bg[0]) + Math.abs(raw[i2 + 1] - bg[1])
+          + Math.abs(raw[i2 + 2] - bg[2]) > 40) n += 1;
+      }
+    }
+    return n / tot;
+  };
+  const semillaDe = (forma) => {
+    for (let i = 0; i < 60000; i++) {
+      const c = `z${i.toString(36)}`;
+      if (recIco(c).forma === forma) return c;
+    }
+    return null;
+  };
+  let flojos = [];
+  for (const nombre of Object.keys(datosIco)) {
+    const s = semillaDe(nombre);
+    if (!s) continue;
+    const t = tinta(genIco(s, 128));
+    if (t < 0.025 || t > 0.45) flojos.push(`${nombre} ${(t * 100).toFixed(1)}%`);
+  }
+  check('todos los iconos dibujan algo reconocible', flojos.length === 0,
+    flojos.join(', ') || 'ok');
+
+  const trazoSrc = fs.readFileSync(`${__dirname}/../src/trazo.js`, 'utf8');
+  check('el lector de SVG entiende rectangulos',
+    /<rect\[\^>\]\*>/.test(trazoSrc) || /matchAll\(\/<rect/.test(trazoSrc),
+    'tres iconos del juego los usan y salian a medio dibujar');
+  check('el lector de SVG entiende arcos',
+    /function arcoSvg/.test(trazoSrc),
+    'las esquinas redondeadas de casi todos los iconos son arcos');
 
   // --- temas ---------------------------------------------------------------
   const cssTema = await (await fetch((await base()) + '/style.css')).text();
