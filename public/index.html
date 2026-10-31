@@ -47,17 +47,17 @@
         <strong id="app-nombre" title="Pulsa para renombrar esta instalacion">codex-web-v4</strong>
         <input id="app-nombre-edit" maxlength="60" hidden>
         <small id="project-label" class="muted"></small>
-        <small id="reloj" class="reloj" title="Hora del servidor, en la misma zona que los avisos de cuota"></small>
       </div>
+      <small id="reloj" class="reloj" title="Hora del servidor, en la misma zona que los avisos de cuota"></small>
     </header>
     <button id="new-agent" class="primary">+ Nuevo especialista</button>
-    <div class="fila-botones">
-      <button id="ask-team" title="La misma pregunta a todos los especialistas">📣 Equipo</button>
-      <button id="lilit-estado" title="Que LILIT informe del estado ahora mismo">👁 Estado</button>
-    </div>
-    <div class="fila-botones">
-      <button id="exportar" title="Descargar la configuracion del equipo">⇩ Exportar</button>
-      <button id="importar" title="Cargar un equipo desde un archivo">⇧ Importar</button>
+    <!-- Una sola fila: el icono basta y el nombre completo vive en el tooltip.
+         Antes eran dos filas de dos, y en movil se comian la lista. -->
+    <div class="fila-iconos">
+      <button id="ask-team" title="Preguntar lo mismo a todo el equipo"><span>📣</span>Equipo</button>
+      <button id="lilit-estado" title="Que LILIT informe del estado ahora mismo"><span>👁</span>Estado</button>
+      <button id="exportar" title="Descargar la configuracion del equipo"><span>⇩</span>Exportar</button>
+      <button id="importar" title="Cargar un equipo desde un archivo"><span>⇧</span>Importar</button>
       <input type="file" id="importar-archivo" accept=".json,application/json" hidden>
     </div>
     <button id="btn-proveedor">🔌 <span id="proveedor-etiqueta">Claudio</span>
@@ -170,6 +170,23 @@
 <dialog id="proveedor-dialog">
   <form method="dialog" id="proveedor-form">
     <h3>Proveedor de modelo</h3>
+
+    <div id="icono-caja">
+      <div class="fila"><span class="k">Icono de la aplicacion</span>
+        <span id="icono-desc" class="muted" style="font-size:.76rem">—</span></div>
+      <p class="muted" style="font-size:.74rem;margin:.2rem 0 .5rem">
+        El que se ve en la pestana del navegador y bajo el icono al instalarla
+        en el movil. Con varias instalaciones conviene que cada una tenga el suyo.
+      </p>
+      <div id="icono-opciones" class="icono-rejilla"></div>
+      <p class="error" id="icono-error"></p>
+      <menu style="justify-content:flex-start">
+        <button type="button" id="icono-otros">Ver otros</button>
+        <span id="icono-estado" class="muted" style="font-size:.76rem"></span>
+      </menu>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0">
 
     <div id="act-caja">
       <div class="fila"><span class="k">Version instalada</span>

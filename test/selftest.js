@@ -1292,10 +1292,17 @@ function check(nombre, condicion, detalle) {
     'con varias incidencias, recortar dejaria fuera casi todo');
   check('los botones de la barra lateral van compactos',
     /\.sidebar ?> ?button ?\{padding: ?\.45rem/.test(cssEsp) &&
-    /\.sidebar \.fila-botones button ?\{/.test(cssEsp) &&
-    />📣 Equipo</.test(idxPanel) &&
-    (idxPanel.match(/<div class="fila-botones">/g) || []).length === 2,
+    /\.fila-iconos button ?\{/.test(cssEsp) &&
+    // Las cuatro acciones en UNA fila, no en dos: en movil, dos filas
+    // empujaban la lista de especialistas fuera de la pantalla.
+    (idxPanel.match(/<div class="fila-iconos">/g) || []).length === 1 &&
+    ['ask-team', 'lilit-estado', 'exportar', 'importar']
+      .every((b) => new RegExp(`id="${b}"[^>]*>\\s*<span>`).test(idxPanel)) &&
+    !/<div class="fila-botones">/.test(idxPanel),
     'el sitio de la barra es para la lista de especialistas, no para los botones');
+  check('el reloj no gasta un renglon propio',
+    /\.brand \.reloj\{flex:0 0 auto/.test(cssEsp),
+    'iba debajo del nombre, ocupando una linea entera para cinco caracteres');
 
   check('hay pestana e interruptor de LILIT',
     /data-tab="lilit"/.test(idxPanel) && /id="lilit-on"/.test(idxPanel));
@@ -1802,6 +1809,65 @@ function check(nombre, condicion, detalle) {
 
   check('los avatares estan animados', /@keyframes parpadeo/.test(css) && /@keyframes hablar/.test(css) &&
     /@keyframes pensar/.test(css) && /prefers-reduced-motion/.test(css));
+
+  // --- icono de la aplicacion ----------------------------------------------
+  const ico = await req('/api/iconos?n=5');
+  check('ofrece iconos para elegir',
+    ico.status === 200 && Array.isArray(ico.data.opciones) && ico.data.opciones.length === 5);
+  check('el actual va entre las opciones', ico.data.opciones.includes(ico.data.actual));
+
+  const icoBajar = async (ruta) => Buffer.from(
+    await (await fetch((await base()) + ruta)).arrayBuffer());
+  const icoPng = await icoBajar('/icons/icon-192.png');
+  check('el icono es un PNG de verdad',
+    icoPng.slice(1, 4).toString() === 'PNG' && icoPng.slice(-8, -4).toString() === 'IEND',
+    `${icoPng.length} bytes`);
+  check('misma semilla, mismo icono',
+    Buffer.compare(await icoBajar('/icons/icon-192-abc123.png'),
+      await icoBajar('/icons/icon-192-abc123.png')) === 0);
+  check('semillas distintas dan iconos distintos',
+    Buffer.compare(await icoBajar('/icons/icon-192-abc123.png'),
+      await icoBajar('/icons/icon-192-def456.png')) !== 0);
+
+  // El maskable tiene que ser OPACO: Android lo recorta en circulo y un fondo
+  // translucido deja el icono gris sobre el fondo del sistema. Paso por aqui
+  // una vez: con radio 0, el suavizado daba media opacidad a todo.
+  const icoMask = await icoBajar('/icons/maskable-64-abc123.png');
+  const icoZlib = require('node:zlib');
+  let icoIdat = Buffer.alloc(0); let w = 0; let h = 0; let icoOff = 8;
+  while (icoOff < icoMask.length) {
+    const ln = icoMask.readUInt32BE(icoOff);
+    const tipo = icoMask.slice(icoOff + 4, icoOff + 8).toString();
+    if (tipo === 'IHDR') { w = icoMask.readUInt32BE(icoOff + 8); h = icoMask.readUInt32BE(icoOff + 12); }
+    if (tipo === 'IDAT') icoIdat = Buffer.concat([icoIdat, icoMask.slice(icoOff + 8, icoOff + 8 + ln)]);
+    icoOff += 12 + ln;
+  }
+  const icoCrudo = icoZlib.inflateSync(icoIdat);
+  let icoTranslucidos = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (icoCrudo[y * (w * 4 + 1) + 1 + x * 4 + 3] !== 255) icoTranslucidos += 1;
+    }
+  }
+  check('el icono maskable es totalmente opaco', icoTranslucidos === 0,
+    `${icoTranslucidos} pixeles icoTranslucidos: Android lo recorta y se veria gris`);
+
+  for (const mala of ['../../etc/passwd', 'ab', 'x;rm -rf /']) {
+    const r = await req('/api/iconos', { method: 'POST', body: { semilla: mala } });
+    check(`rechaza la semilla "${mala.slice(0, 14)}"`, r.status === 400, `status ${r.status}`);
+  }
+
+  const icoMan = await (await fetch((await base()) + '/manifest.webmanifest')).json();
+  check('el manifest lleva la semilla en las direcciones',
+    icoMan.icons.every((i) => new RegExp(`-${ico.data.actual}\\.png$`).test(i.src)),
+    'sin eso el navegador conserva el icono viejo de su cache');
+  check('el manifest trae iconos maskable',
+    icoMan.icons.some((i) => i.purpose === 'maskable'));
+  const idxIco = await (await fetch(await base())).text();
+  check('la pagina enlaza el icono con semilla',
+    new RegExp(`href="/icons/icon-192-${ico.data.actual}\\.png"`).test(idxIco));
+  check('hay donde elegir el icono en la web',
+    /id="icono-opciones"/.test(idxIco) && /id="icono-otros"/.test(idxIco));
 
   // --- economia de contexto: memoria, rtk y compactacion automatica --------
   const estado2 = await req('/api/state');

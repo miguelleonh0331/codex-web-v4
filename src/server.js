@@ -17,6 +17,7 @@ const vault = require('./vault');
 const lilit = require('./lilit');
 const lilitGroq = require('./lilit-groq');
 const actualizar = require('./actualizar');
+const iconos = require('./iconos');
 const crypto = require('node:crypto');
 
 const cfg = load();
@@ -1213,6 +1214,37 @@ async function api(req, res, url) {
   // ---- Actualizaciones desde la propia web ---------------------------------
   // Que version corre y si GitHub tiene algo mas nuevo. No usa red: contesta
   // con lo que ya se trajo. Para preguntarle a GitHub esta /buscar.
+  // ---- Icono de la aplicacion ---------------------------------------------
+  // Devuelve la semilla actual y unas cuantas al azar para elegir. Las
+  // muestras no se dibujan aqui: la web las pide como imagenes normales.
+  if (p === '/api/iconos' && m === 'GET') {
+    const cuantas = Math.min(24, Math.max(3, Number(url.searchParams.get('n')) || 8));
+    const actual = cfg.iconoSemilla || 'masterchief';
+    return json(res, 200, {
+      actual,
+      receta: iconos.receta(actual),
+      opciones: [actual, ...iconos.opciones(cuantas - 1)]
+    });
+  }
+
+  if (p === '/api/iconos' && m === 'POST') {
+    const b = await readBody(req).catch(() => ({}));
+    const sem = String(b.semilla || '').trim();
+    // Solo letras y numeros: la semilla acaba dentro de una direccion y de un
+    // nombre de archivo.
+    if (!/^[0-9a-zA-Z_-]{3,32}$/.test(sem)) {
+      return json(res, 400, { error: 'semilla no valida' });
+    }
+    try {
+      guardar({ iconoSemilla: sem });
+      cfg.iconoSemilla = sem;
+      store.event('icono.cambiado', null, { semilla: sem, ...iconos.receta(sem) });
+      return json(res, 200, { ok: true, actual: sem, receta: iconos.receta(sem) });
+    } catch (e) {
+      return json(res, 500, { error: `no se pudo guardar: ${e.message}` });
+    }
+  }
+
   if (p === '/api/actualizacion' && m === 'GET') {
     try {
       return json(res, 200, await actualizar.estado(cfg, store));
@@ -1377,6 +1409,12 @@ function renderIndex() {
     html = html.replace(`"${recurso}"`, `"${recurso}?v=${v}"`);
   }
 
+  // El icono, con su semilla dentro de la direccion. Sin esto el navegador se
+  // queda con el de su cache y cambiarlo no se nota hasta vaciarla a mano.
+  const sem = cfg.iconoSemilla || 'masterchief';
+  html = html.replace('href="/icons/icon-192.png"', `href="/icons/icon-192-${sem}.png"`);
+  html = html.replace('href="/icons/apple-touch-icon.png"', `href="/icons/apple-touch-icon-${sem}.png"`);
+
   if (!cfg.requireAuth) {
     // Sin token no hay pantalla de acceso: se elimina del documento servido.
     // Se recorta entre marcas, no con un patron sobre <div>: el perezoso
@@ -1397,9 +1435,46 @@ function serveStatic(req, res, url) {
       const man = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'manifest.webmanifest'), 'utf8'));
       man.name = cfg.nombre || man.name;
       man.short_name = (cfg.nombre || man.short_name).slice(0, 12).trim();
+      // La semilla va en la direccion: sin eso el navegador conserva el icono
+      // viejo de su cache y el cambio no se ve al reinstalar.
+      const sem = cfg.iconoSemilla || 'masterchief';
+      man.icons = [
+        { src: `/icons/icon-192-${sem}.png`, sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: `/icons/icon-512-${sem}.png`, sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: `/icons/maskable-192-${sem}.png`, sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+        { src: `/icons/maskable-512-${sem}.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+      ];
       res.writeHead(200, { 'content-type': MIME['.webmanifest'], 'cache-control': 'no-store' });
       return res.end(JSON.stringify(man, null, 2));
     } catch { /* si falla, se sirve el archivo tal cual */ }
+  }
+
+  // Iconos dibujados al vuelo. Van ANTES del servido de archivos para que
+  // ganen a los .png que hay en disco, que quedan solo de respaldo.
+  //   /icons/icon-192.png            el elegido
+  //   /icons/muestra-<semilla>.png   una opcion que se esta enseñando
+  const mi = url.pathname.match(
+    /^\/icons\/(icon|maskable|apple-touch-icon|badge|muestra)-?(\d+)?(?:-([0-9a-f]{4,16}))?\.png$/);
+  if (mi) {
+    const [, tipo, tamTxt, semillaUrl] = mi;
+    const semilla = semillaUrl || cfg.iconoSemilla || 'masterchief';
+    const tam = Number(tamTxt) || (tipo === 'apple-touch-icon' ? 180 : tipo === 'badge' ? 96 : 512);
+    try {
+      const png = iconos.generar(semilla, Math.min(1024, tam), tipo === 'maskable');
+      res.writeHead(200, {
+        'content-type': 'image/png',
+        'content-length': png.length,
+        // Las muestras no cambian nunca (la semilla va en la direccion), asi
+        // que se cachean fuerte. El icono elegido lleva su semilla en la
+        // direccion tambien, pero si alguien pide la ruta pelada conviene que
+        // no se quede pegado al cambiarlo.
+        'cache-control': semillaUrl ? 'public, max-age=604800, immutable' : 'no-cache'
+      });
+      return res.end(png);
+    } catch (e) {
+      console.warn('[iconos] no se pudo dibujar:', e.message);
+      /* si falla, cae al archivo de disco */
+    }
   }
 
   if (url.pathname === '/' || url.pathname === '/index.html') {

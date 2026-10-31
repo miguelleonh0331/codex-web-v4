@@ -944,3 +944,33 @@ button.enlace:hover{color:var(--fg)}
 .act-progreso .p.listo{color:var(--accent2)}
 .act-progreso .p.error,.act-progreso .p.revertido{color:var(--err)}
 .act-progreso .p.aviso{color:var(--warn)}
+
+/* Cabecera compacta. El sitio de la barra lateral es para la lista de
+   especialistas: todo lo de arriba es transito. */
+.brand{align-items:flex-start}
+.brand .reloj{flex:0 0 auto;margin-top:.1rem;font-size:.72rem}
+#new-agent{padding:.45rem .6rem;font-size:.82rem}
+
+/* Cuatro acciones en una fila: icono arriba, palabra pequena debajo. Antes
+   eran dos filas de dos y en movil empujaban la lista fuera de la pantalla. */
+.fila-iconos{display:flex;gap:.3rem}
+.fila-iconos button{flex:1;display:flex;flex-direction:column;align-items:center;
+  gap:.1rem;padding:.35rem .15rem;font-size:.62rem;line-height:1.1;
+  background:transparent;border:1px solid var(--line);color:var(--muted);
+  min-width:0;overflow:hidden}
+.fila-iconos button span{font-size:.92rem;line-height:1}
+.fila-iconos button:hover{color:var(--fg);border-color:var(--accent);background:var(--bg3)}
+
+/* Elegir icono de la aplicacion. Se ven las opciones al tamano real al que
+   se usan, no en miniatura: un icono se juzga pequeno. */
+#icono-caja{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);
+  padding:.7rem .8rem;margin-bottom:1rem}
+#icono-caja .fila{display:flex;justify-content:space-between;gap:1rem}
+#icono-caja .fila .k{color:var(--muted)}
+.icono-rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));
+  gap:.45rem;margin:.5rem 0 .2rem}
+.icono-rejilla button{padding:0;border:2px solid transparent;border-radius:12px;
+  background:transparent;cursor:pointer;line-height:0;overflow:hidden}
+.icono-rejilla img{width:100%;aspect-ratio:1;display:block;border-radius:10px}
+.icono-rejilla button:hover{border-color:var(--line)}
+.icono-rejilla button.sel{border-color:var(--accent)}

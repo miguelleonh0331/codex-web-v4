@@ -35,6 +35,10 @@ const DEFAULTS = {
   // herramientas. false las quita.
   ahorroContexto: true,
   rtkBin: null,                 // autodeteccion si viene null; sin rtk se omite esa parte
+  // Semilla del icono de la aplicacion. Se dibuja al vuelo: con varias
+  // instalaciones, tres iconos identicos en la pantalla de inicio no se
+  // distinguen. Se cambia desde la web.
+  iconoSemilla: 'masterchief',
   // Compactar solo cuando el contexto pase de este porcentaje de la ventana.
   // 0 = nunca. Es el ahorro mayor: el coste de un turno sigue al contexto
   // arrastrado (correlacion medida 0,71), no a la dificultad de la tarea.

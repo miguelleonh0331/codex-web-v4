@@ -1424,6 +1424,67 @@ if ($('#codex-login')) {
 }
 
 // ---------------------------------------------------------------------------
+// Icono de la aplicacion. Se dibuja en el servidor a partir de una semilla,
+// asi que elegir es solo decidir que semilla se guarda.
+
+let iconoElegido = null;
+
+function pintarIconos(d) {
+  iconoElegido = d.actual;
+  const r = d.receta || {};
+  $('#icono-desc').textContent = r.forma ? `${r.forma}, ${r.nodos} nodos` : '';
+  $('#icono-opciones').innerHTML = d.opciones.map((s) => {
+    const sel = s === d.actual ? ' sel' : '';
+    return `<button type="button" class="op${sel}" data-semilla="${escapeHtml(s)}"
+      title="${s === d.actual ? 'el actual' : 'usar este'}">
+      <img src="/icons/icon-192-${encodeURIComponent(s)}.png" alt="" loading="lazy"></button>`;
+  }).join('');
+
+  for (const b of $('#icono-opciones').querySelectorAll('button')) {
+    b.onclick = async () => {
+      const semilla = b.dataset.semilla;
+      if (semilla === iconoElegido) return;
+      $('#icono-error').textContent = '';
+      $('#icono-estado').textContent = 'guardando…';
+      try {
+        const out = await api('/api/iconos', {
+          method: 'POST', body: JSON.stringify({ semilla })
+        });
+        iconoElegido = out.actual;
+        for (const o of $('#icono-opciones').querySelectorAll('button')) {
+          o.classList.toggle('sel', o.dataset.semilla === out.actual);
+        }
+        $('#icono-desc').textContent = `${out.receta.forma}, ${out.receta.nodos} nodos`;
+        // El icono de la pestana se cambia en caliente; el de la aplicacion
+        // instalada lo refresca el sistema cuando le toca.
+        const link = document.querySelector('link[rel="icon"]');
+        if (link) link.href = `/icons/icon-192-${encodeURIComponent(out.actual)}.png`;
+        $('#icono-estado').textContent = 'guardado. Si la tienes instalada, reinstalala para verlo ahi.';
+      } catch (e) {
+        $('#icono-error').textContent = e.message;
+        $('#icono-estado').textContent = '';
+      }
+    };
+  }
+}
+
+async function pintarIconosCaja(otras) {
+  if (!$('#icono-opciones')) return;
+  try {
+    pintarIconos(await api('/api/iconos?n=' + (otras ? 12 : 8)));
+  } catch (e) {
+    $('#icono-error').textContent = e.message;
+  }
+}
+
+if ($('#icono-otros')) {
+  $('#icono-otros').onclick = async () => {
+    $('#icono-estado').textContent = '';
+    await pintarIconosCaja(true);
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Actualizar desde la web. Lo unico que hace esta parte es mirar y pulsar: el
 // trabajo corre en el servidor, en un proceso que sobrevive al reinicio.
 
@@ -1591,6 +1652,7 @@ $('#btn-proveedor').onclick = async () => {
   $('#prov-codigo').value = '';
   $('#proveedor-dialog').showModal();
   await pintarProveedor();
+  await pintarIconosCaja();
   await refrescarActualizacion();
   await pintarGasto();
   await pintarClaveLilit();
