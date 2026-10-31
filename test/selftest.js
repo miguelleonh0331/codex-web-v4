@@ -2402,6 +2402,22 @@ function check(nombre, condicion, detalle) {
 
     check('no se guardan consolas de infinitos especialistas',
       cv.AGENTES > 0 && cv.AGENTES <= 50, String(cv.AGENTES));
+
+    // Visto en un turno real contra el servicio: el aviso de limite de uso
+    // se colaba como una linea de JSON en crudo entre la orden y su
+    // resultado. Ese dato ya esta en el indicador de uso del proveedor.
+    cv.olvidar(A); cv.empezar(A, 9);
+    const antes = cv.leer(A, 0).lineas.length;
+    cv.anotar(A, 9, { type: 'rate_limit_event', rate_limit_info: { status: 'allowed' } });
+    cv.anotar(A, 9, { type: 'tools_changed', tools: ['a', 'b'] });
+    check('el ruido conocido del CLI no ensucia la consola',
+      cv.leer(A, 0).lineas.length === antes,
+      JSON.stringify(cv.leer(A, 0).lineas.map((l) => l.texto)));
+    // Pero lo desconocido SI se enseña: un hueco en blanco es peor que una
+    // linea fea cuando lo que buscas es por que se paro.
+    cv.anotar(A, 9, { type: 'algo_nuevo_del_cli', dato: 42 });
+    check('un evento desconocido se enseña en crudo, no se traga',
+      cv.leer(A, 0).lineas.some((l) => /algo_nuevo_del_cli/.test(l.texto)));
     cv.olvidar(A);
 
     // El punto de acceso contesta y no inventa agentes.

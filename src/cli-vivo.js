@@ -18,6 +18,9 @@ const TOPE_DETALLE = 2000;   // por linea, en caracteres
 const TOPE_TEXTO = 600;      // lo que se ve sin desplegar
 const AGENTES = 20;          // anillos vivos a la vez
 
+/** Eventos que no se pintan: ya se ven en otro sitio de la interfaz. */
+const RUIDO = new Set(['rate_limit_event', 'tools_changed', 'stream_event']);
+
 /** agentId -> {turno, seq, lineas:[], ultimo, tocado} */
 const anillos = new Map();
 
@@ -153,6 +156,11 @@ function anotar(agentId, turnId, ev) {
       ev.is_error ? `terminado con error: ${ev.subtype || ''}` : '— fin del turno —');
     return;
   }
+
+  // Ruido conocido que ya se ve en otro sitio. Visto en un turno real: el
+  // aviso de limite de uso aparecia como una linea de JSON en crudo entre
+  // la orden y su resultado, y ese dato ya esta en el indicador de uso.
+  if (RUIDO.has(ev.type)) return;
 
   // Formato desconocido: en crudo antes que en blanco.
   if (ev.type) apuntar(agentId, turnId, 'otro', `${ev.type}: ${JSON.stringify(ev)}`);
