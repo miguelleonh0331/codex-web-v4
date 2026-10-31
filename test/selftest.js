@@ -247,8 +247,10 @@ function check(nombre, condicion, detalle) {
   check('la salida ya no pinta la hora',
     !/class="hora"[^`]*created_at[^`]*herr/.test(appAct) && /#tab-salida\.hora\{display:none\}/.test(cssSal));
 
+  // El color concreto ya no se fija aqui: lo pone el tema, y el contraste se
+  // mide mas abajo en las 17 combinaciones de cada uno.
   check('las pestanas inactivas se leen, no parecen desactivadas',
-    /\.tab\{color:#aab2c5/.test(cssSal), 'en gris apagado no se distinguian de un boton inhabilitado');
+    /\.tab\{color:var\(--tab-apagada\)/.test(cssSal), 'en gris apagado no se distinguian de un boton inhabilitado');
   check('la pestana activa se distingue por fondo, no solo por una linea fina',
     /\.tab\.active\{[^}]*background:var\(--bg3\)/.test(cssSal));
   check('las pestanas son faciles de tocar en el movil',
@@ -2099,15 +2101,55 @@ function check(nombre, condicion, detalle) {
     if (x === null || y === null) return null;
     return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
   };
+  // Todas las parejas que de verdad se ven en pantalla, no una muestra. La
+  // que importa de verdad es "al escribir": un fondo fijo casi negro con el
+  // texto del tema daba letras negras sobre negro en el tema claro.
+  const PAREJAS = [
+    ['fg', 'bg', 'texto'], ['muted', 'bg', 'texto secundario'],
+    ['sobre-acento', 'accent', 'texto sobre boton'],
+    ['dicho', 'chat-fondo', 'mensaje leido'],
+    ['dicho-mio', 'chat-fondo', 'lo que escribo yo'],
+    ['dicho-sistema', 'chat-fondo', 'avisos del sistema'],
+    ['dicho-par', 'chat-fondo', 'mensaje de otro agente'],
+    ['fg', 'campo-fondo', 'AL ESCRIBIR'],
+    ['bloque-texto', 'bloque-fondo', 'bloque de codigo'],
+    ['enlace', 'chat-fondo', 'enlaces'], ['ruta', 'chat-fondo', 'rutas'],
+    ['sep', 'chat-fondo', 'separadores'], ['hora', 'chat-fondo', 'la hora'],
+    ['tab-apagada', 'bg2', 'pestana inactiva'], ['mal', 'bg', 'avisos en rojo'],
+    ['inseguro-texto', 'inseguro-fondo', 'aviso de http'],
+    ['aviso-texto', 'sobre-aviso', 'boton del aviso de version']
+  ];
+  const temasDef = { oscuro: vRaiz };
   for (const t of ['claro', 'matrix']) {
-    const v = { ...vRaiz, ...leerVars(cssTema.match(new RegExp(`html\\[data-tema="${t}"\\]\\{([\\s\\S]*?)\\}`))[1]) };
-    for (const [a, b, etiq] of [['fg', 'bg', 'texto'], ['muted', 'bg', 'texto secundario'],
-      ['sobre-acento', 'accent', 'texto sobre el boton de accion']]) {
-      const r = contraste(v[a], v[b]);
-      check(`tema ${t}: ${etiq} se lee`, r !== null && r >= 4.5,
-        r === null ? 'color no comparable' : `${r.toFixed(2)}:1`);
-    }
+    temasDef[t] = { ...vRaiz, ...leerVars(cssTema.match(new RegExp(`html\\[data-tema="${t}"\\]\\{([\\s\\S]*?)\\n\\}`))[1]) };
   }
+  for (const [t, v] of Object.entries(temasDef)) {
+    const malos = [];
+    for (const [a, b, etiq] of PAREJAS) {
+      const r = contraste(v[a], v[b]);
+      if (r === null) malos.push(`${etiq}: ${v[a] ? '' : `falta --${a} `}${v[b] ? '' : `falta --${b}`}`);
+      else if (r < 4.5) malos.push(`${etiq} ${r.toFixed(2)}:1`);
+    }
+    check(`tema ${t}: las ${PAREJAS.length} combinaciones se leen`, malos.length === 0,
+      malos.join(' | '));
+  }
+
+  // Guardia estructural: un color escrito a pelo en una regla no sigue al
+  // tema. Asi aparecio el fondo negro del campo de escritura, que con el
+  // tema claro dejaba letras negras sobre negro.
+  const sinVars = cssTema
+    .replace(/:root\{[\s\S]*?\n\}/g, '')
+    .replace(/html\[data-tema="[a-z]+"\]\{[\s\S]*?\n\}/g, '');
+  const aPelo = sinVars.split('\n')
+    .filter((l) => /(background|[^-\w]color)\s*:[^;]*#[0-9a-fA-F]{3,6}/.test(l))
+    // Blanco sobre el rojo de error se lee en los tres temas: es la excepcion.
+    .filter((l) => !/background:var\(--err\);color:#fff/.test(l));
+  check('ninguna regla fija colores por su cuenta', aPelo.length === 0,
+    aPelo.map((l) => l.trim().slice(0, 60)).join(' | '));
+
+  check('los temas declaran su esquema al navegador',
+    (cssTema.match(/color-scheme:/g) || []).length >= 3,
+    'sin esto el navegador pinta barras y autorelleno a su aire');
 
   // --- economia de contexto: memoria, rtk y compactacion automatica --------
   const estado2 = await req('/api/state');
