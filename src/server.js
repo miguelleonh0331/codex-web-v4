@@ -18,6 +18,7 @@ const lilit = require('./lilit');
 const lilitGroq = require('./lilit-groq');
 const actualizar = require('./actualizar');
 const iconos = require('./iconos');
+const cliVivo = require('./cli-vivo');
 const crypto = require('node:crypto');
 
 const cfg = load();
@@ -967,6 +968,19 @@ async function api(req, res, url) {
     if (!store.getAgent(id)) return json(res, 404, { error: 'agente no encontrado' });
     const desde = Number(url.searchParams.get('desde') || 0);
     return json(res, 200, { actividad: store.listarActividad(id, desde) });
+  }
+
+  // La consola del CLI en vivo. No sale del registro en disco: ese se
+  // escribe entero cuando el turno acaba, justo cuando ya no sirve para ver
+  // donde se atasco. Sale del flujo de eventos en memoria, y solo trae el
+  // turno en curso.
+  mm = p.match(/^\/api\/agents\/([^/]+)\/cli$/);
+  if (mm && m === 'GET') {
+    const id = decodeURIComponent(mm[1]);
+    const a = store.getAgent(id);
+    if (!a) return json(res, 404, { error: 'agente no encontrado' });
+    const desde = Number(url.searchParams.get('desde') || 0);
+    return json(res, 200, { ...cliVivo.leer(id, desde), trabajando: a.status === 'working' });
   }
 
   mm = p.match(/^\/api\/agents\/([^/]+)\/compact$/);

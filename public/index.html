@@ -165,7 +165,16 @@ try {
       <button id="panel-ancho" class="expandir" title="Ver a pantalla completa" aria-label="Ver a pantalla completa">⛶</button>
     </div>
     <div id="tab-mailbox" class="tab-body"></div>
-    <div id="tab-salida" class="tab-body" hidden></div>
+    <!-- Consola del CLI en vivo. La cabecera no se desplaza con el texto:
+         el reloj de "sin novedad" es lo que dice si algo se atasco, y mirarlo
+         no puede depender de donde este el scroll. -->
+    <div id="tab-salida" class="tab-body" hidden>
+      <div class="cli-cab">
+        <span id="cli-turno" class="cli-turno"></span>
+        <span id="cli-quieto" class="cli-quieto"></span>
+      </div>
+      <div id="cli-lineas" class="cli-lineas"></div>
+    </div>
     <div id="tab-claims" class="tab-body" hidden></div>
     <div id="tab-vault" class="tab-body" hidden></div>
     <div id="tab-guardia" class="tab-body" hidden></div>

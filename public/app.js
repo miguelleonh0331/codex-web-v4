@@ -473,21 +473,67 @@ function pestanaActiva() {
 }
 
 // Dos ciclos solapados (el refresco cada 2,5 s y el clic en la pestana) pedian
-// la actividad con el mismo "desde" y cada uno pintaba el mismo bloque: la
-// salida salia duplicada. El candado impide el solape y el conjunto de ids
-// vistos impide repetir una linea aunque llegue dos veces.
+// lo mismo con el mismo "desde" y cada uno pintaba el mismo bloque: la salida
+// salia duplicada. El candado impide el solape y el conjunto de seq vistos
+// impide repetir una linea aunque llegue dos veces.
 let actividadEnVuelo = false;
 const actividadVistos = new Set();
 
+// Tope de lineas EN PANTALLA. El encargo fue explicito: ver lo ultimo que
+// esta ejecutando, no un scroll con todo el historial. El servidor ya solo
+// guarda el turno en curso; esto recorta ademas por arriba.
+const CLI_LINEAS = 100;
+let cliQuieto = null;      // ultimo dato de "cuanto lleva callado"
+let cliTrabajando = false;
+
+/** Reloj del aviso de atasco: se repinta cada segundo, sin pedir nada. */
+setInterval(() => {
+  const av = $('#cli-quieto');
+  if (!av || !cliQuieto) return;
+  const s = Math.round((Date.now() - cliQuieto.base) / 1000 + cliQuieto.ms / 1000);
+  av.textContent = cliTrabajando
+    ? (s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s sin novedad` : `${s} s sin novedad`)
+    : 'parado';
+  av.classList.toggle('alarma', cliTrabajando && s >= 60);
+}, 1000);
+
+function filaCli(l) {
+  const el = document.createElement('div');
+  el.className = `cli ${l.clase}`;
+  const hora = new Date(l.t).toLocaleTimeString('es', { hour12: false });
+  el.innerHTML = `<span class="hora">${escapeHtml(hora)}</span>`
+    + `<span class="que">${escapeHtml(l.texto)}</span>`;
+  if (l.detalle) {
+    const q = el.querySelector('.que');
+    q.classList.add('hay-mas');
+    q.title = 'pulsa para ver el detalle completo';
+    q.onclick = () => {
+      q.classList.toggle('abierto');
+      q.textContent = q.classList.contains('abierto') ? l.detalle : l.texto;
+    };
+  }
+  return el;
+}
+
+/**
+ * Consola del CLI en vivo.
+ *
+ * Sustituye al listado de herramientas que habia antes. Aquel solo mostraba
+ * la LLAMADA a cada herramienta, acumulada desde el primer turno: dos
+ * ordenes identicas se pintaban igual, no se veia lo que devolvian ni lo que
+ * el modelo estaba pensando, y no habia reloj. Con eso era imposible saber
+ * si algo estaba atascado, que era justo para lo que se miraba.
+ */
 async function refrescarActividad(reiniciar) {
   if (pestanaActiva() !== 'salida') return;
   if (actividadEnVuelo && !reiniciar) return;
-  const caja = $('#tab-salida');
+  const caja = $('#cli-lineas');
+  if (!caja) return;
   if (!selected) {
-    caja.innerHTML = '<p class="muted" style="font-size:.78rem">Elige un especialista para ver lo que ejecuta.</p>';
+    caja.innerHTML = '<div class="vacia">Elige un especialista para ver lo que ejecuta.</div>';
+    cliQuieto = null;
     return;
   }
-  // Al cambiar de especialista se empieza de cero, o se mezclarian salidas.
   if (reiniciar || agenteActividad !== selected) {
     actividadDesde = 0;
     agenteActividad = selected;
@@ -496,31 +542,35 @@ async function refrescarActividad(reiniciar) {
   }
   actividadEnVuelo = true;
   try {
-    const { actividad } = await api(`/api/agents/${selected}/activity?desde=${actividadDesde}`);
-    if (!actividad.length) {
-      if (!caja.children.length) {
-        caja.innerHTML = '<div class="vacia">Sin salida todavia. Aparecera aqui en cuanto el especialista use una herramienta.</div>';
-      }
+    const d = await api(`/api/agents/${selected}/cli?desde=${actividadDesde}`);
+    // Si se cambio de especialista mientras llegaba, se descarta: pintarlo
+    // mezclaria la consola de uno con la de otro.
+    if (selected !== agenteActividad) return;
+
+    cliTrabajando = !!d.trabajando;
+    cliQuieto = { ms: d.quietoMs || 0, base: Date.now() };
+    const turno = $('#cli-turno');
+    if (turno) {
+      turno.textContent = d.turno ? `turno ${d.turno}` : '';
+    }
+
+    if (d.vacio && !caja.children.length) {
+      caja.innerHTML = '<div class="vacia">Sin salida todavia. Aparecera aqui en cuanto arranque un turno.</div>';
       return;
     }
+    if (!d.lineas.length) return;
     const vacia = caja.querySelector('.vacia');
     if (vacia) vacia.remove();
-    const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 40;
-    for (const a of actividad) {
-      actividadDesde = Math.max(actividadDesde, a.id);
-      if (actividadVistos.has(a.id)) continue;
-      actividadVistos.add(a.id);
-      const el = document.createElement('div');
-      el.className = 'act';
-      el.innerHTML = `<span class="herr">${escapeHtml(a.herramienta || a.tipo)}</span>
-        <span class="res" title="pulsa para ver el detalle">${escapeHtml(a.resumen || '')}</span>`;
-      const res = el.querySelector('.res');
-      res.onclick = () => {
-        res.classList.toggle('abierto');
-        res.textContent = res.classList.contains('abierto') ? (a.detalle || a.resumen || '') : (a.resumen || '');
-      };
-      caja.appendChild(el);
+
+    const abajo = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 60;
+    for (const l of d.lineas) {
+      actividadDesde = Math.max(actividadDesde, l.seq);
+      if (actividadVistos.has(l.seq)) continue;
+      actividadVistos.add(l.seq);
+      caja.appendChild(filaCli(l));
     }
+    // Se tira lo de arriba: en pantalla nunca hay mas de CLI_LINEAS.
+    while (caja.children.length > CLI_LINEAS) caja.removeChild(caja.firstChild);
     if (abajo) caja.scrollTop = caja.scrollHeight;
   } catch { /* se reintenta en el siguiente ciclo */ }
   finally { actividadEnVuelo = false; }

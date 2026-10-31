@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const { runTurn } = require('./runner');
 const { uid } = require('./db');
 const { cuandoVuelve } = require('./cuota');
+const cliVivo = require('./cli-vivo');
 const proveedores = require('./proveedores');
 const guardia = require('./guardia');
 const sesion = require('./session');
@@ -331,6 +332,10 @@ class Orchestrator {
 
   /** Cada evento del CLI segun llega: limites, herramientas y contexto. */
   alVuelo(agent, turn, ev) {
+    // Lo primero y aparte de todo lo demas: la consola en vivo tiene que ver
+    // el evento aunque luego este se descarte por ser un aviso de limite.
+    try { cliVivo.anotar(agent.id, turn.id, ev); } catch { /* nunca tumba el turno */ }
+
     // Cada proveedor avisa de los limites de uso a su manera.
     const limite = proveedores.paraAgente(agent, this.cfg).limiteDe(ev);
     if (limite) return this.store.guardarLimite(limite);
@@ -434,6 +439,8 @@ class Orchestrator {
     this.store.markTurnRunning(turn.id);
     this.store.updateAgent(agent.id, { status: 'working' });
     this.store.event('turn.started', agent.id, { turn_id: turn.id, origin: turn.origin });
+    // La consola en vivo se vacia: solo se mira lo que esta pasando ahora.
+    cliVivo.empezar(agent.id, turn.id);
 
     const log = path.join(this.cfg.logsDir, `${agent.id}.log`);
 

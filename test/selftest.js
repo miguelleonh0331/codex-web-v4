@@ -204,16 +204,16 @@ function check(nombre, condicion, detalle) {
   check('solo corre un ciclo de refresco a la vez',
     /let refrescando = false/.test(appAct) && /if \(refrescando\) return/.test(appAct),
     'dos ciclos solapados pintaban el mismo bloque de salida dos veces');
-  check('la salida no repite una linea aunque llegue dos veces',
-    /actividadVistos\.has\(a\.id\)/.test(appAct) && /actividadVistos\.add\(a\.id\)/.test(appAct));
+  check('la consola no repite una linea aunque llegue dos veces',
+    /actividadVistos\.has\(l\.seq\)/.test(appAct) && /actividadVistos\.add\(l\.seq\)/.test(appAct));
   check('el candado de la actividad se suelta pase lo que pase',
     /finally \{ actividadEnVuelo = false; \}/.test(appAct),
     'sin finally, un error dejaba la salida congelada para siempre');
   const cssSal = cssCrudo.replace(/\s+/g, '');
-  const resSalida = [...cssSal.matchAll(/#tab-salida\.res\{([^}]*)\}/g)].map((m) => m[1]);
+  const resSalida = [...cssSal.matchAll(/\.cli\.que\{([^}]*)\}/g)].map((m) => m[1]);
   // Manda la ultima regla que declare white-space, no la ultima a secas.
   const conWS = resSalida.filter((r) => /white-space:/.test(r));
-  check('la salida se reparte en varias lineas, no en una sola recortada',
+  check('la consola se reparte en varias lineas, no en una sola recortada',
     conWS.length > 0 && /white-space:pre-wrap/.test(conWS[conWS.length - 1]),
     `gana "${conWS[conWS.length - 1] || 'ninguna'}": si acaba en nowrap, vuelve a verse cortada`);
   check('el texto largo parte por donde sea antes que desbordar',
@@ -244,8 +244,13 @@ function check(nombre, condicion, detalle) {
     check('sin token, la pantalla de acceso no se sirve',
       !/id="login"/.test(idxPanel) && !/id="token-input"/.test(idxPanel));
   }
-  check('la salida ya no pinta la hora',
-    !/class="hora"[^`]*created_at[^`]*herr/.test(appAct) && /#tab-salida\.hora\{display:none\}/.test(cssSal));
+  // Esta prueba decia lo contrario: "la salida ya no pinta la hora", porque
+  // la lista iba en orden y la hora solo robaba ancho. Con la consola en vivo
+  // la hora pasa a ser el dato principal: saber si la ultima linea llego hace
+  // dos segundos o hace cuatro minutos es toda la diferencia entre "trabaja"
+  // y "se colgo", que es justo para lo que se mira esta pestana.
+  check('la consola pinta la hora de cada linea',
+    /class="hora"/.test(appAct) && !/\.cli\.hora\{display:none\}/.test(cssSal));
 
   // El color concreto ya no se fija aqui: lo pone el tema, y el contraste se
   // mide mas abajo en las 17 combinaciones de cada uno.
@@ -2314,6 +2319,105 @@ function check(nombre, condicion, detalle) {
     const dicha = fr.frase(t, { quien: 'Prueba', n: 2 });
     check(`la frase de ${t} se renderiza sin huecos`,
       !!dicha && !/\{/.test(dicha), dicha);
+  }
+
+  // --- la consola del CLI en vivo ------------------------------------------
+  {
+    const cv = require(`${__dirname}/../src/cli-vivo`);
+    const A = 'agente-prueba-cli';
+    cv.olvidar(A);
+
+    // Por que no se lee del fichero: runner.js lo escribe de una vez en el
+    // evento close, o sea cuando el turno YA termino. Si alguien lo cambia
+    // para tirar del fichero, la consola dejaria de ser en vivo sin avisar.
+    const runnerSrc = fs.readFileSync(`${__dirname}/../src/runner.js`, 'utf8');
+    check('el registro en disco solo se escribe al acabar el turno',
+      /child\.on\('close'[\s\S]{0,900}appendFileSync\(rutaLog/.test(runnerSrc),
+      'si esto cambia, se podria tirar del fichero; mientras tanto, no');
+    const orqSrc = fs.readFileSync(`${__dirname}/../src/orchestrator.js`, 'utf8');
+    check('la consola se alimenta del flujo en vivo, no del fichero',
+      /cliVivo\.anotar\(agent\.id, turn\.id, ev\)/.test(orqSrc));
+    check('cada turno nuevo vacia la consola',
+      /cliVivo\.empezar\(agent\.id, turn\.id\)/.test(orqSrc));
+
+    cv.empezar(A, 7);
+    cv.anotar(A, 7, { type: 'system', subtype: 'init', model: 'sonnet', cwd: '/tmp/x' });
+    cv.anotar(A, 7, { type: 'assistant', message: { content: [
+      { type: 'thinking', thinking: 'voy a mirar el fichero' },
+      { type: 'tool_use', name: 'Bash', input: { command: 'rm -rf /srv/www/importante' } }
+    ] } });
+    cv.anotar(A, 7, { type: 'user', message: { content: [
+      { type: 'tool_result', content: 'borrado', is_error: false }
+    ] } });
+
+    const v = cv.leer(A, 0);
+    const texto = v.lineas.map((l) => l.texto).join('\n');
+    check('la consola muestra lo que el modelo piensa',
+      v.lineas.some((l) => l.clase === 'pensando'), texto);
+    // Lo que pidio el usuario con todas las letras: ver el CLI porque el
+    // agente a veces hace cosas que no le ha pedido. Un comando resumido o
+    // recortado por el principio no sirve para eso.
+    check('el comando se ve ENTERO, no resumido',
+      /rm -rf \/srv\/www\/importante/.test(texto), texto);
+    check('la consola muestra lo que devuelven las herramientas',
+      v.lineas.some((l) => l.clase === 'resultado'), texto);
+    check('cada linea trae su hora', v.lineas.every((l) => typeof l.t === 'number'));
+    check('la consola dice cuanto lleva callada', typeof v.quietoMs === 'number');
+    check('un error de herramienta se marca como error',
+      (() => {
+        cv.anotar(A, 7, { type: 'user', message: { content: [
+          { type: 'tool_result', content: 'no such file', is_error: true }] } });
+        return cv.leer(A, 0).lineas.some((l) => l.clase === 'error');
+      })());
+
+    // Turno nuevo: fuera lo anterior. Era el encargo literal, "no quiero un
+    // scroll para ver tooodo el historial".
+    cv.empezar(A, 8);
+    const v2 = cv.leer(A, 0);
+    check('al empezar otro turno no queda nada del anterior',
+      !v2.lineas.some((l) => /rm -rf/.test(l.texto)), JSON.stringify(v2.lineas.map((l) => l.texto)));
+    check('la consola dice de que turno es', v2.turno === 8, String(v2.turno));
+    // Si seq volviera a empezar en 1, el navegador pide "lo posterior a 12"
+    // y se perderia el turno entero sin que nadie lo note.
+    check('la numeracion no reinicia al cambiar de turno',
+      v2.lineas[0].seq > v.lineas[v.lineas.length - 1].seq,
+      `${v2.lineas[0].seq} tiene que ser mayor que ${v.lineas[v.lineas.length - 1].seq}`);
+
+    // Techos de memoria: esto vive en RAM mientras el servicio este vivo.
+    for (let i = 0; i < 400; i++) cv.apuntar(A, 8, 'otro', `linea ${i}`);
+    const v3 = cv.leer(A, 0, 100);
+    check('la consola no crece sin limite', cv.leer(A, 0, 10000).lineas.length <= cv.LINEAS,
+      String(cv.leer(A, 0, 10000).lineas.length));
+    check('se sirven como mucho 100 lineas', v3.lineas.length <= 100, String(v3.lineas.length));
+    const gordo = 'x'.repeat(50000);
+    cv.apuntar(A, 8, 'resultado', gordo, gordo);
+    const ult = cv.leer(A, 0, 10000).lineas.slice(-1)[0];
+    check('una salida enorme se recorta antes de guardarse',
+      ult.texto.length <= cv.TOPE_TEXTO + 60 && (ult.detalle || '').length <= cv.TOPE_DETALLE + 60,
+      `${ult.texto.length} / ${(ult.detalle || '').length}`);
+    // Recortar solo por el principio esconde el final, que es donde suele
+    // estar el error de un comando largo.
+    check('al recortar se conservan principio y final',
+      /\[…/.test(ult.detalle || ''), (ult.detalle || '').slice(0, 80));
+
+    check('no se guardan consolas de infinitos especialistas',
+      cv.AGENTES > 0 && cv.AGENTES <= 50, String(cv.AGENTES));
+    cv.olvidar(A);
+
+    // El punto de acceso contesta y no inventa agentes.
+    const cli404 = await req('/api/agents/no-existe/cli');
+    check('la consola de un agente inexistente da 404', cli404.status === 404, String(cli404.status));
+
+    const cssCli = fs.readFileSync(`${__dirname}/../public/style.css`, 'utf8');
+    check('la cabecera de la consola no se va con el scroll',
+      /\.cli-cab\{[^}]*flex:0 0 auto/.test(cssCli) && /\.cli-lineas\{[^}]*overflow-y:auto/.test(cssCli));
+    const appCli = fs.readFileSync(`${__dirname}/../public/app.js`, 'utf8');
+    check('en pantalla nunca hay mas de 100 lineas',
+      /while \(caja\.children\.length > CLI_LINEAS\)/.test(appCli));
+    check('el reloj de "sin novedad" corre solo, sin pedir nada al servidor',
+      /cli-quieto[\s\S]{0,400}sin novedad/.test(appCli));
+    check('cambiar de especialista no mezcla dos consolas',
+      /if \(selected !== agenteActividad\) return;/.test(appCli));
   }
 
   // --- el cuadro de escribir se aparta mientras trabaja --------------------

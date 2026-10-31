@@ -37,6 +37,7 @@
   --borde-mio:#2bd4a0;
   --borde-suyo:#3d6ea8;
   --cita-fondo:#070910;
+  --linea-tenue:rgba(255,255,255,.06);
   --tab-apagada:#aab2c5;
   --mal:#ff8080;
   --inseguro-fondo:#2a2113; --inseguro-borde:#5a4a1e; --inseguro-texto:#e8d9a8;
@@ -586,16 +587,42 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 #app-nombre-edit{font:inherit;font-weight:700;padding:.1rem .3rem;width:100%}
 
 /* la salida vive ahora en el panel derecho */
+/* ---------------------------------------- la consola del CLI, en vivo ----
+   El scroll es de la lista, no de la pestana: la cabecera con el reloj de
+   "sin novedad" tiene que quedarse a la vista, porque es lo que dice si algo
+   se atasco y leerlo no puede depender de donde este el scroll. */
 #tab-salida{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.74rem;
-  background:var(--panel-hondo);gap:0}
-#tab-salida .act{display:flex;gap:.45rem;padding:.2rem 0;align-items:baseline;
-  border-bottom:1px solid rgba(255,255,255,.04)}
-#tab-salida .hora{color:var(--muted);font-size:.66rem;flex:0 0 auto}
-#tab-salida .herr{color:var(--accent2);flex:0 0 auto}
-#tab-salida .res{color:var(--fg);opacity:.85;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap;flex:1;cursor:pointer}
-#tab-salida .res.abierto{white-space:pre-wrap;opacity:1}
-#tab-salida .vacia{color:var(--muted);padding:.4rem 0}
+  background:var(--panel-hondo);gap:0;overflow:hidden}
+.cli-cab{display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+  padding:0 0 .4rem;border-bottom:1px solid var(--line);flex:0 0 auto}
+.cli-turno{color:var(--muted);font-size:.7rem}
+.cli-quieto{color:var(--muted);font-size:.7rem;font-variant-numeric:tabular-nums}
+.cli-quieto.alarma{color:var(--warn)}
+.cli-lineas{flex:1;overflow-y:auto;padding-top:.3rem}
+.cli-lineas .vacia{color:var(--muted);padding:.4rem 0}
+
+.cli{display:flex;gap:.5rem;padding:.22rem 0;align-items:flex-start;
+  border-bottom:1px solid var(--linea-tenue)}
+.cli .hora{color:var(--muted);font-size:.66rem;flex:0 0 auto;padding-top:.12rem;
+  font-variant-numeric:tabular-nums}
+.cli .que{flex:1;min-width:0;line-height:1.45;
+  white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.cli .que.hay-mas{cursor:pointer}
+.cli .que.abierto{display:block;-webkit-line-clamp:unset;overflow:visible;
+  background:var(--cita-fondo);border-left:2px solid var(--accent2);
+  padding:.35rem .5rem;margin:.15rem 0}
+/* Un color por tipo: de un vistazo se distingue lo que PIDE de lo que
+   RECIBE, que es lo que se viene a mirar aqui. */
+.cli.herramienta .que{color:var(--accent2)}
+.cli.resultado .que{color:var(--fg);opacity:.75}
+.cli.pensando .que{color:var(--muted);font-style:italic}
+.cli.dice .que{color:var(--fg)}
+.cli.sistema .que{color:var(--accent)}
+.cli.error .que{color:var(--err)}
+.cli.otro .que{color:var(--muted)}
+/* A pantalla completa sobra sitio: se enseñan muchas mas lineas de golpe. */
+body.panel-ancho .cli .que{-webkit-line-clamp:16;line-height:1.5}
 
 .fila-botones{display:flex;gap:.4rem}
 .fila-botones button{flex:1;font-size:.76rem;padding:.4rem .3rem}
@@ -786,32 +813,16 @@ body.panel-ancho .item .body{max-height:none}
   .expandir{display:none}
 }
 
-/* ===================================== la salida, legible de una vez ======
-   Antes cada linea era una sola fila con puntos suspensivos: en una pestana
-   dedicada eso esconde justamente lo que se quiere leer. Ahora el texto se
-   reparte en varias lineas y solo se recorta si es muy largo; al pulsar se
-   abre entero. La hora y la herramienta quedan arriba, sin empujar al texto. */
-#tab-salida .act{align-items:flex-start;padding:.3rem 0;gap:.5rem}
-#tab-salida .res{
-  white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;
-  text-overflow:clip;min-width:0;line-height:1.45;
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
-#tab-salida .res.abierto{display:block;-webkit-line-clamp:unset;overflow:visible;
-  background:var(--cita-fondo);border-left:2px solid var(--accent2);padding:.35rem .5rem;margin:.15rem 0}
-#tab-salida .hora{padding-top:.1rem}
-/* A pantalla completa sobra sitio: se enseñan muchas mas lineas de golpe. */
-body.panel-ancho #tab-salida .res{-webkit-line-clamp:16;line-height:1.5}
-
 @media (max-width:900px){
-  /* En un movil la hora y la herramienta se comen el ancho: van encima. */
-  #tab-salida .act{flex-wrap:wrap}
-  #tab-salida .res{flex:1 1 100%;-webkit-line-clamp:6}
+  /* En un movil la hora se come el ancho del texto: se pone encima. */
+  .cli{flex-wrap:wrap;gap:.2rem}
+  .cli .que{flex:1 1 100%;-webkit-line-clamp:4}
 }
 
-/* La salida va en orden cronologico, asi que la hora solo robaba ancho al
-   texto, que es lo que se quiere leer. Se retira de #tab-salida; en los
-   mensajes del chat si se conserva. */
-#tab-salida .hora{display:none}
+/* Ojo: la hora NO se esconde aqui. Antes si, porque la lista iba en orden y
+   solo robaba ancho. Ahora es el dato principal: saber si la ultima linea
+   llego hace dos segundos o hace cuatro minutos es toda la diferencia entre
+   "va trabajando" y "se quedo colgado". */
 
 /* ============================== pestanas legibles y chat con estado =======
    En gris apagado las pestanas inactivas parecian desactivadas, sobre todo
@@ -1096,6 +1107,7 @@ html[data-tema="matrix"]{
   --enlace:#7bff9e; --ruta:#9effc4; --ruta-borde:#1d5c35;
   --borde-mio:#2bd4a0; --borde-suyo:#1d7a52;
   --cita-fondo:#010a05; --tab-apagada:#4f9c70; --mal:#ff7a7a;
+  --linea-tenue:rgba(120,255,170,.10);
   --inseguro-fondo:#141a00; --inseguro-borde:#3d4a0a; --inseguro-texto:#e9ffa8;
   color-scheme: dark;
 }
@@ -1119,6 +1131,7 @@ html[data-tema="claro"]{
   --enlace:#0a7f5c; --ruta:#0a6b4e; --ruta-borde:#9ed3c0;
   --borde-mio:#0f9d76; --borde-suyo:#1f6feb;
   --cita-fondo:#f0f3f7; --tab-apagada:#5d6676; --mal:#c62828;
+  --linea-tenue:rgba(0,0,0,.09);
   --inseguro-fondo:#fff6e0; --inseguro-borde:#e3c67a; --inseguro-texto:#5a4300;
   color-scheme: light;
 }
