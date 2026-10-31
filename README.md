@@ -86,6 +86,19 @@ Despues se cambia **desde la propia web**: pulsa el nombre en la barra lateral, 
 el nuevo y Enter. Surte efecto al momento, sin reiniciar el servicio, y se guarda
 conservando el resto de la configuracion.
 
+## Actualizar
+
+**Proveedor → Buscar actualizacion → Instalar.** Sin entrar al servidor.
+
+Antes de reiniciar copia la base de datos y revisa la sintaxis del codigo
+nuevo. Si tras el reinicio nadie contesta en 90 segundos, **vuelve sola a la
+version anterior**: el trabajo corre en un proceso suelto, fuera del
+servicio, precisamente para sobrevivir al reinicio y poder deshacer.
+
+Se niega a actualizar si hay archivos editados a mano en el servidor, y avisa
+por nombre si hay especialistas trabajando, porque el reinicio les corta el
+turno. Detalles y marcha atras manual en [docs/ACTUALIZAR.md](docs/ACTUALIZAR.md).
+
 ## Proveedor y sesion
 
 La barra lateral tiene un boton **Proveedor** que muestra el estado real: cuenta,
