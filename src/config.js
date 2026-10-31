@@ -30,6 +30,15 @@ const DEFAULTS = {
   // LILIT puede redactar sus avisos con un modelo externo. Opcional: sin
   // clave usa su diccionario propio y funciona igual.
   groqKeyFile: null,            // por defecto: <dataDir>/secretos/groq.key
+  // Reglas de economia de contexto en el prompt de los especialistas: usar
+  // rtk para reconocer, mantener su memoria de trabajo y reutilizar sus
+  // herramientas. false las quita.
+  ahorroContexto: true,
+  rtkBin: null,                 // autodeteccion si viene null; sin rtk se omite esa parte
+  // Compactar solo cuando el contexto pase de este porcentaje de la ventana.
+  // 0 = nunca. Es el ahorro mayor: el coste de un turno sigue al contexto
+  // arrastrado (correlacion medida 0,71), no a la dificultad de la tarea.
+  compactarAlPorcentaje: 70,
   maxHops: 6,
   maxAgents: 24,              // tope de especialistas que el propio equipo puede crear
   maxUploadMb: 50,            // tope por archivo adjunto
@@ -52,6 +61,22 @@ const CLAUDE_CANDIDATES = [
   '/usr/local/bin/claude',
   '/usr/bin/claude'
 ];
+
+// rtk recorta las salidas de ls/git/lecturas antes de que lleguen al contexto.
+// Es un binario autonomo: el primer candidato es la copia estable, y los
+// siguientes estan por si esta instalacion todavia no la tiene.
+const RTK_CANDIDATES = [
+  '/usr/local/bin/rtk',
+  '/opt/codex-web/.venv-zynertools/bin/rtk',
+  '/usr/bin/rtk'
+];
+
+function detectRtk() {
+  for (const c of RTK_CANDIDATES) {
+    try { fs.accessSync(c, fs.constants.X_OK); return c; } catch { /* siguiente */ }
+  }
+  return null;
+}
 
 function detectClaude() {
   for (const c of CLAUDE_CANDIDATES) {
@@ -81,6 +106,7 @@ function load() {
   cfg.dbPath = cfg.dbPath || path.join(cfg.dataDir, 'v4.db');
   cfg.logsDir = path.join(cfg.dataDir, 'logs');
   cfg.claudeBin = cfg.claudeBin || detectClaude();
+  cfg.rtkBin = cfg.rtkBin || detectRtk();
 
   // Variables de entorno para despliegues donde el archivo no manda.
   if (process.env.V4_PORT) cfg.port = Number(process.env.V4_PORT);
@@ -122,4 +148,4 @@ function guardar(cambios) {
   return nuevo;
 }
 
-module.exports = { load, guardar, CONFIG_PATH, detectClaude, DEFAULTS };
+module.exports = { load, guardar, CONFIG_PATH, detectClaude, detectRtk, DEFAULTS };

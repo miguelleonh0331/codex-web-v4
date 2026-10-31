@@ -2,6 +2,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const { runTurn } = require('./runner');
+const { uid } = require('./db');
 const proveedores = require('./proveedores');
 const guardia = require('./guardia');
 const sesion = require('./session');
@@ -70,6 +71,10 @@ class Orchestrator {
     this.active = new Map();   // turnId -> agentId
     this.reintentados = new Set();   // turnos que ya se reintentaron tras recuperar la sesion
     this.procesos = new Map();       // turnId -> proceso en marcha, para poder pararlo
+    // agentId -> valor de ctx_visto cuando se compacto por umbral. Impide
+    // compactar en bucle: /compact no deja medida nueva, asi que ctx_usado
+    // sigue alto hasta que el agente hace un turno de verdad.
+    this.compactados = new Map();
     this.cancelados = new Set();     // turnos parados a mano: su error no es un fallo
     this.stopping = false;
   }
@@ -182,9 +187,78 @@ class Orchestrator {
         continue;
       }
 
+      // Si arrastra demasiado contexto, compactar ANTES de este turno. El
+      // turno pendiente no se pierde: espera al siguiente reparto. Esto es lo
+      // que evita los turnos de 15 dolares que solo releen conversacion vieja.
+      const compactado = this.compactarSiHaceFalta(turn, agent);
+      if (compactado) { lanzados += 1; continue; }
+
       this.execute(turn, agent);
       lanzados += 1;
     }
+  }
+
+  /**
+   * Compacta la conversacion de un agente antes de gastarle un turno caro.
+   *
+   * Por que importa: el coste de un turno sigue al contexto que arrastra
+   * (correlacion medida 0,71 sobre los turnos reales de este servidor), no a
+   * la dificultad de la tarea. Un turno tardio puede releer 11 millones de
+   * tokens para hacer nueve pasos.
+   *
+   * Devuelve true si lanzo una compactacion, y entonces el turno original
+   * espera al siguiente reparto.
+   */
+  compactarSiHaceFalta(turn, agent) {
+    const umbral = Number(this.cfg.compactarAlPorcentaje);
+    if (!(umbral > 0)) return false;                 // 0 = desactivado
+    if (turn.origin === 'compactar') return false;   // no compactar la compactacion
+    if (!agent.session_id) return false;             // sin hilo no hay nada que compactar
+    if (!agent.ctx_ventana || !agent.ctx_usado) return false;  // sin medida, no adivinamos
+
+    // Un turno que vuelve de esperar cuota merece mas margen: va a releer todo
+    // el contexto otra vez, y ya lleva media hora parado, asi que compactar
+    // antes no le cuesta tiempo a nadie. Uno de tus turnos acumulo 13,45 $ con
+    // seis reintentos de este tipo.
+    const reintentado = (turn.reintentos || 0) > 0;
+    const umbralEfectivo = reintentado ? Math.max(40, umbral - 20) : umbral;
+
+    const pct = (agent.ctx_usado / agent.ctx_ventana) * 100;
+    if (pct < umbralEfectivo) return false;
+
+    // Trampa importante: /compact no consume contexto, asi que no deja medida
+    // nueva y ctx_usado sigue alto despues de compactar. Sin esta guarda,
+    // compactariamos en bucle a cada reparto y el agente no trabajaria nunca.
+    // Esperamos a que llegue una medida NUEVA (ctx_visto cambia) para volver a
+    // considerarlo.
+    if (this.compactados.get(agent.id) === agent.ctx_visto) return false;
+
+    // Y si ya hay una compactacion esperando para este agente, no apilar otra.
+    const yaHay = this.store.db.prepare(
+      `SELECT 1 FROM turns WHERE agent_id = ? AND origin = 'compactar'
+        AND status IN ('pending','running','esperando_cuota') LIMIT 1`).get(agent.id);
+    if (yaHay) return false;
+
+    const id = this.store.enqueueTurn({
+      agentId: agent.id, prompt: '/compact', origin: 'compactar',
+      chainId: uid('chain'), hop: 0
+    });
+    const tc = this.store.getTurn(id);
+    if (!tc) return false;
+
+    this.compactados.set(agent.id, agent.ctx_visto);
+    this.store.event('contexto.compactar_auto', agent.id, {
+      pct: Math.round(pct), umbral: umbralEfectivo, reintentado,
+      usado: agent.ctx_usado, ventana: agent.ctx_ventana, turno_aplazado: turn.id
+    });
+    this.store.addMessage(agent.id, 'system',
+      `Contexto al ${Math.round(pct)}% de su ventana: se compacta antes de seguir. `
+      + 'El trabajo pendiente sigue en cola y sale en cuanto termine.',
+      { turn_id: tc.id });
+    console.log(`[orq] ${agent.name} al ${Math.round(pct)}% de contexto: compacto antes del turno ${turn.id}`);
+
+    this.execute(tc, agent);
+    return true;
   }
 
   /** Cada evento del CLI segun llega: limites, herramientas y contexto. */

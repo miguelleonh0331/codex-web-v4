@@ -86,6 +86,23 @@ Despues se cambia **desde la propia web**: pulsa el nombre en la barra lateral, 
 el nuevo y Enter. Surte efecto al momento, sin reiniciar el servicio, y se guarda
 conservando el resto de la configuracion.
 
+## Gastar menos
+
+El coste de un turno lo pone sobre todo **el contexto que arrastra**, no lo
+dificil que sea la tarea: medido sobre los turnos reales de este servidor, la
+correlacion es de 0,71. Por eso el sistema:
+
+- **compacta solo** cuando un especialista pasa del 70% de su ventana (y 20
+  puntos antes si el turno viene de esperar cuota), ajustable desde la web;
+- le da a cada uno una **memoria de trabajo** que su propio motor lee solo
+  (`CLAUDE.md` en Claude, `AGENTS.md` en Codex) con rutas, comandos que
+  funcionan y errores ya cometidos;
+- les pide reconocer el terreno con **rtk**, que recorta los listados un 76% y
+  las lecturas estructurales un 95% antes de que entren al contexto;
+- les da una **caja de herramientas** propia para no reescribir lo mismo.
+
+Detalles, cifras y lo que se descarto en [docs/AHORRO.md](docs/AHORRO.md).
+
 ## Actualizar
 
 **Proveedor → Buscar actualizacion → Instalar.** Sin entrar al servidor.

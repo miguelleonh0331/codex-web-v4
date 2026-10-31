@@ -138,6 +138,29 @@ const FRASES = {
     'Hay {n} {especialista|especialistas} con la memoria casi llena.'
   ],
 
+  // ------------------------------------------- compacto el sistema, no usted
+  // Informativo: no hay nada que hacer. Importa saberlo porque el especialista
+  // conserva un resumen y no el detalle de lo viejo.
+  compactado: [
+    'Resumi la conversacion de {quien} para que no le saliera caro seguir.',
+    'A {quien} le compacte la memoria sola, señor. Conserva el resumen.',
+    '{quien} llego al umbral y le libere contexto antes de seguir trabajando.',
+    'Compacte a {quien} {n} {vez|veces}: arrastraba demasiada conversacion.',
+    'Le ahorre a {quien} releer todo lo anterior; tiene el resumen de lo hablado.',
+    'La memoria de {quien} estaba cargada y la resumi antes del siguiente trabajo.',
+    'Hubo {n} {compactacion|compactaciones} automaticas, señor. Nada que atender.'
+  ],
+
+  // ----------------------------- sigue lleno aunque el sistema ya compacto
+  // Esto si merece su atencion: compactar no fue suficiente.
+  contexto_pese_a_todo: [
+    '{quien} sigue al {n} por ciento aunque ya compacte, señor.',
+    'A {quien} no le alcanzo con la compactacion: va por el {n} por ciento.',
+    'Compacte a {quien} y sigue cargado al {n} por ciento. Quiza convenga empezar conversacion nueva.',
+    'La memoria de {quien} no baja del {n} por ciento ni compactando.',
+    'Hay {n} {especialista|especialistas} que siguen llenos despues de compactar.'
+  ],
+
   // ------------------------------------------------------------ gasto
   gasto: [
     'Llegamos al tope de gasto del dia.',

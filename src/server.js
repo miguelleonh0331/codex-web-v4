@@ -632,6 +632,21 @@ async function api(req, res, url) {
       cambios.topeGastoDiario = t;
     }
 
+    if (body.compactarAlPorcentaje !== undefined) {
+      const v = Number(body.compactarAlPorcentaje);
+      if (!Number.isFinite(v) || v < 0 || v > 100) {
+        return json(res, 400, { error: 'el porcentaje debe estar entre 0 y 100 (0 = no compactar solo)' });
+      }
+      // Por debajo del 30% compactaria casi en cada turno y el equipo perderia
+      // mas en resumir de lo que ahorra en contexto.
+      if (v > 0 && v < 30) {
+        return json(res, 400, { error: 'por debajo del 30% compactaria constantemente: usa 30 o mas, o 0 para desactivarlo' });
+      }
+      cambios.compactarAlPorcentaje = Math.round(v);
+    }
+
+    if (body.ahorroContexto !== undefined) cambios.ahorroContexto = !!body.ahorroContexto;
+
     if (!Object.keys(cambios).length) return json(res, 400, { error: 'nada que cambiar' });
 
     try {
@@ -691,6 +706,11 @@ async function api(req, res, url) {
         reintentos: t.reintentos || 0,
         desde: t.espera_desde
       })),
+      ajustes: {
+        compactarAlPorcentaje: Number(cfg.compactarAlPorcentaje) || 0,
+        ahorroContexto: cfg.ahorroContexto !== false,
+        rtk: !!cfg.rtkBin
+      },
       opciones: { modelos: MODELOS_SUGERIDOS, esfuerzos: ESFUERZOS, modeloPorDefecto: cfg.model, esfuerzoPorDefecto: cfg.effort }
     });
   }

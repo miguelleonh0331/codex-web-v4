@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const proveedores = require('./proveedores');
+const memoria = require('./memoria');
 
 const COLABORACION = `
 PROTOCOLO DE COLABORACION (obligatorio)
@@ -76,6 +77,58 @@ Reglas:
    Si algo te bloquea (permiso, dependencia, respuesta que no llega), dilo con precision.
 `.trim();
 
+// Por que esto esta aqui: todo lo que entra en el contexto se vuelve a leer en
+// CADA paso interno del turno. Un listado de 1.200 caracteres leido veinte
+// veces son 24.000. Medido en este servidor, el coste de un turno sigue al
+// contexto arrastrado con una correlacion de 0,71: pesa mas lo que acumulas
+// que lo que piensas. De ahi estas tres reglas.
+const AHORRO_RTK = `
+A. RECONOCE CON FILTRO, LEE ENTERO SOLO LO QUE VAS A TOCAR.
+   Tienes "rtk" instalado, que recorta salidas antes de que lleguen a tu
+   contexto. Medido sobre este codigo:
+     rtk ls <dir>              en vez de ls -la      -> 76% menos
+     rtk git status            en vez de git status  -> 51% menos
+     rtk read -m 80 <archivo>  vista estructural     -> 95% menos
+     rtk read -l aggressive <archivo>  firmas sin cuerpos -> 89% menos
+   Uso correcto: rtk para ORIENTARTE (que hay, donde esta, que forma tiene).
+   Cuando ya sabes que archivo vas a editar, leelo entero con tu herramienta
+   normal: para editar necesitas el texto exacto.
+   Aviso: "rtk read" sin banderas NO filtra nada, es un paso a traves. El
+   ahorro esta en -m y en -l aggressive.
+`.trim();
+
+const AHORRO_SIN_RTK = `
+A. RECONOCE ANTES DE LEER ENTERO.
+   Para orientarte usa busquedas y listados acotados, no volcados completos:
+   grep con contexto corto, listados sin -l, lecturas por rango de lineas.
+   Lee un archivo entero solo cuando ya sabes que vas a editarlo.
+`.trim();
+
+const AHORRO = `
+ECONOMIA DEL CONTEXTO (obligatorio)
+
+Todo lo que metes en el contexto se relee en cada paso del turno. Reconocer
+el terreno con herramientas crudas es lo que encarece el trabajo.
+
+%RECONOCIMIENTO%
+
+B. TU MEMORIA DE TRABAJO.
+   En tu espacio de trabajo tienes un archivo de memoria que tu motor lee solo
+   al empezar cada turno, con secciones de rutas, comandos que funcionan,
+   errores ya cometidos y decisiones tomadas.
+   Al TERMINAR cada tarea, actualizalo: anota lo que te habria ahorrado tiempo
+   al empezarla, y corrige lo que resulto equivocado. Es la diferencia entre
+   empezar sabiendo donde esta todo y volver a averiguarlo cada vez.
+   Mantenlo breve: se lee en cada turno, asi que si crece sin control encarece
+   todos los siguientes. Rutas y hechos, no diario de actividad.
+
+C. NO REHAGAS TU PROPIO TRABAJO.
+   Tienes una carpeta "herramientas" en tu espacio. La segunda vez que hagas
+   la misma comprobacion, dejala ahi como script con argumentos y apuntala en
+   tu memoria. A la tercera ya te sale gratis.
+   Antes de escribir un script, mira si ya lo tienes.
+`.trim();
+
 function buildSystemPrompt(agent, cfg) {
   const partes = [];
   partes.push(`Eres "${agent.name}", especialista de ${agent.area || 'area no definida'} dentro del equipo codex-web-v4.`);
@@ -89,8 +142,14 @@ function buildSystemPrompt(agent, cfg) {
     partes.push(p.join('\n'));
   }
 
-  partes.push(`Tu espacio de trabajo propio es ${agent.workspace}. Usalo para notas y borradores.`);
+  const prov = proveedores.paraAgente(agent, cfg);
+  const archivoMemoria = memoria.ARCHIVO_POR_PROVEEDOR[prov.nombre] || 'CLAUDE.md';
+  partes.push(`Tu espacio de trabajo propio es ${agent.workspace}. Usalo para notas y borradores.`
+    + `\nTu memoria de trabajo es ${archivoMemoria} (ahi mismo), y tu caja de herramientas, ./herramientas/.`);
   partes.push(COLABORACION);
+  if (cfg.ahorroContexto !== false) {
+    partes.push(AHORRO.replace('%RECONOCIMIENTO%', cfg.rtkBin ? AHORRO_RTK : AHORRO_SIN_RTK));
+  }
   return partes.join('\n\n');
 }
 
@@ -107,11 +166,26 @@ function runTurn(cfg, agent, turn, log, onEvento, onProceso) {
     fs.mkdirSync(agent.home, { recursive: true });
     fs.mkdirSync(agent.workspace, { recursive: true });
 
+    // Memoria y caja de herramientas. Se siembra aqui, al empezar el turno, y
+    // no al crear el especialista, para que los que ya existian la tengan sin
+    // tener que recrearlos. Es idempotente: nunca pisa lo que el ya escribio.
+    const sembrado = memoria.preparar(agent, prov.nombre);
+    if (sembrado.length && log) log(`memoria preparada: ${sembrado.join(', ')}`);
+
     let plan;
     try {
       plan = prov.preparar(cfg, agent, turn, buildSystemPrompt(agent, cfg));
     } catch (e) {
       return resolve({ ok: false, error: `No se pudo preparar el turno (${prov.nombre}): ${e.message}` });
+    }
+
+    // El PATH del servicio es /usr/sbin:/usr/bin:/sbin:/bin, sin /usr/local/bin.
+    // Sin esto, pedirle al especialista que use rtk seria pedirle un comando
+    // que no puede encontrar.
+    if (cfg.rtkBin) {
+      const dir = path.dirname(cfg.rtkBin);
+      const actual = plan.env.PATH || process.env.PATH || '';
+      if (!actual.split(':').includes(dir)) plan.env.PATH = `${dir}:${actual}`;
     }
 
     const child = spawn(bin, plan.args, { cwd: plan.cwd, env: plan.env, stdio: ['ignore', 'pipe', 'pipe'] });

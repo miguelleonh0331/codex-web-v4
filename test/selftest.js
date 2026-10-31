@@ -1803,6 +1803,73 @@ function check(nombre, condicion, detalle) {
   check('los avatares estan animados', /@keyframes parpadeo/.test(css) && /@keyframes hablar/.test(css) &&
     /@keyframes pensar/.test(css) && /prefers-reduced-motion/.test(css));
 
+  // --- economia de contexto: memoria, rtk y compactacion automatica --------
+  const estado2 = await req('/api/state');
+  const ajustes = estado2.data.ajustes || {};
+  check('la web conoce el umbral de compactacion',
+    typeof ajustes.compactarAlPorcentaje === 'number');
+  check('la web sabe si rtk esta disponible', typeof ajustes.rtk === 'boolean');
+
+  // El umbral tiene que rechazar valores que harian compactar sin parar.
+  const malUmbral = await req('/api/app', { method: 'PATCH', body: { compactarAlPorcentaje: 10 } });
+  check('rechaza un umbral que compactaria constantemente',
+    malUmbral.status === 400, `status ${malUmbral.status}`);
+  const fueraRango = await req('/api/app', { method: 'PATCH', body: { compactarAlPorcentaje: 150 } });
+  check('rechaza un umbral fuera de 0-100', fueraRango.status === 400);
+
+  const orqSrc2 = fs.readFileSync(`${__dirname}/../src/orchestrator.js`, 'utf8');
+  // La guarda del bucle es lo unico que impide que un agente con el contexto
+  // lleno se quede compactando para siempre sin trabajar nunca: /compact no
+  // deja medida nueva, asi que ctx_usado sigue alto despues de compactar.
+  check('la compactacion automatica no puede entrar en bucle',
+    /this\.compactados\.get\(agent\.id\) === agent\.ctx_visto/.test(orqSrc2),
+    'sin esta guarda, un agente lleno nunca volveria a trabajar');
+  check('no compacta la propia compactacion',
+    /turn\.origin === 'compactar'\) return false/.test(orqSrc2));
+  check('no apila compactaciones para el mismo agente',
+    /origin = 'compactar'[\s\S]{0,120}status IN \('pending','running','esperando_cuota'\)/.test(orqSrc2));
+  check('un turno que vuelve de esperar cuota compacta antes',
+    /umbralEfectivo = reintentado/.test(orqSrc2));
+  check('el turno aplazado no se pierde al compactar',
+    /turno_aplazado: turn\.id/.test(orqSrc2));
+
+  const memSrc = fs.readFileSync(`${__dirname}/../src/memoria.js`, 'utf8');
+  check('la memoria usa el archivo que lee cada motor solo',
+    /claude: 'CLAUDE\.md'/.test(memSrc) && /codex: 'AGENTS\.md'/.test(memSrc));
+  check('la memoria del especialista nunca se sobreescribe',
+    /if \(!fs\.existsSync\(memoria\)\)/.test(memSrc),
+    'pisar lo que el agente aprendio seria peor que no tener memoria');
+
+  const runSrc = fs.readFileSync(`${__dirname}/../src/runner.js`, 'utf8');
+  check('rtk llega al PATH del especialista',
+    /plan\.env\.PATH = `\$\{dir\}:\$\{actual\}`/.test(runSrc),
+    'el PATH del servicio no trae /usr/local/bin: sin esto rtk no se encuentra');
+  check('las banderas de rtk que si ahorran estan en el prompt',
+    /rtk read -m 80/.test(runSrc) && /-l aggressive/.test(runSrc));
+  check('el prompt avisa de que rtk sin banderas no filtra',
+    /NO filtra nada/.test(runSrc), 'rtk read pelado devuelve el archivo igual');
+  check('sin rtk instalado el prompt no lo menciona',
+    /AHORRO_SIN_RTK/.test(runSrc) && /cfg\.rtkBin \? AHORRO_RTK : AHORRO_SIN_RTK/.test(runSrc),
+    'pedir un comando que no existe en otro servidor');
+  check('la memoria se siembra al empezar el turno, no al crear el agente',
+    /memoria\.preparar\(agent, prov\.nombre\)/.test(runSrc),
+    'asi la tienen los especialistas que ya existian');
+
+  // LILIT decia "conviene que compacte a X" cuando compactar ya no es trabajo
+  // del usuario. Avisar de algo que el sistema ya hizo entrena a ignorarla.
+  const fr = require(`${__dirname}/../src/lilit-frases`);
+  check('LILIT sabe decir que compacto ella sola', fr.FRASES.compactado.length >= 5);
+  check('LILIT distingue "sigue lleno pese a compactar"',
+    fr.FRASES.contexto_pese_a_todo.length >= 4);
+  const lilSrc = fs.readFileSync(`${__dirname}/../src/lilit.js`, 'utf8');
+  check('con compactacion automatica LILIT no le pide compactar a mano',
+    /autoCompacta \? 'contexto_pese_a_todo' : 'contexto'/.test(lilSrc));
+  for (const t of ['compactado', 'contexto_pese_a_todo']) {
+    const dicha = fr.frase(t, { quien: 'Prueba', n: 2 });
+    check(`la frase de ${t} se renderiza sin huecos`,
+      !!dicha && !/\{/.test(dicha), dicha);
+  }
+
   // --- actualizar desde la web ---------------------------------------------
   const estAct = await req('/api/actualizacion');
   check('el estado de actualizacion contesta', act.status === 200);

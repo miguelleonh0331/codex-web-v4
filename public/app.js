@@ -1123,9 +1123,38 @@ async function pintarGasto() {
     el.className = g.frenado ? 'mal' : '';
     if (document.activeElement !== $('#tope-gasto')) $('#tope-gasto').value = tope || 0;
     if (g.frenado) $('#tope-estado').textContent = 'alcanzado: no se lanzan turnos nuevos';
+
+    // Umbral de compactacion automatica. Comparte pantalla con el tope porque
+    // los dos son frenos de gasto, solo que uno corta y el otro abarata.
+    const aj = st.ajustes || {};
+    const campo = $('#compactar-pct');
+    if (campo && document.activeElement !== campo) campo.value = aj.compactarAlPorcentaje || 0;
+    if ($('#compactar-estado') && !$('#compactar-estado').textContent) {
+      $('#compactar-estado').textContent = aj.compactarAlPorcentaje
+        ? (aj.rtk ? 'rtk disponible' : 'sin rtk: los especialistas reconocen sin filtro')
+        : 'desactivado';
+    }
   } catch (e) {
     el.textContent = `no se pudo consultar: ${e.message}`;
   }
+}
+
+if ($('#compactar-guardar')) {
+  $('#compactar-guardar').onclick = async () => {
+    const v = Number($('#compactar-pct').value);
+    $('#compactar-estado').textContent = 'guardando…';
+    try {
+      await api('/api/app', {
+        method: 'PATCH', body: JSON.stringify({ compactarAlPorcentaje: v })
+      });
+      $('#compactar-estado').textContent = v
+        ? `guardado: se compacta al ${Math.round(v)}%`
+        : 'guardado: no se compacta solo';
+      await pintarGasto();
+    } catch (e) {
+      $('#compactar-estado').textContent = e.message;
+    }
+  };
 }
 
 if ($('#tope-guardar')) {

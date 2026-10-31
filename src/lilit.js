@@ -145,10 +145,34 @@ function auditar(store, cfg, extra = {}) {
   }
 
   // --- memoria llenandose ---
+  // Si el sistema compacta solo, pedirle al usuario que compacte seria pedirle
+  // algo que ya no le toca. En ese caso solo se avisa cuando queda por encima
+  // del umbral automatico, que significa que la compactacion no bastó.
+  const autoCompacta = Number(cfg.compactarAlPorcentaje) > 0;
   const llenos = agentes.filter((a) => a.ctx_ventana > 0 && (a.ctx_usado / a.ctx_ventana) * 100 > CONTEXTO_ALTO);
   for (const a of llenos) {
-    hallazgos.push({ clave: `ctx:${a.id}`, tipo: 'contexto', nivel: 'bajo',
-      quien: a.name, agente: a.id, n: Math.round((a.ctx_usado / a.ctx_ventana) * 100) });
+    hallazgos.push({
+      clave: `ctx:${a.id}`,
+      tipo: autoCompacta ? 'contexto_pese_a_todo' : 'contexto',
+      nivel: 'bajo',
+      quien: a.name, agente: a.id, n: Math.round((a.ctx_usado / a.ctx_ventana) * 100)
+    });
+  }
+
+  // --- compactaciones que hizo el sistema por su cuenta ---
+  // Que se entere: el especialista perdio el detalle de la conversacion vieja
+  // y conserva un resumen. Si le pregunta por algo de hace veinte turnos,
+  // conviene que sepa por que no lo recuerda igual.
+  const autos = sql(
+    `SELECT agent_id, COUNT(*) c FROM events
+      WHERE kind = 'contexto.compactar_auto' AND created_at > ?
+      GROUP BY agent_id`,
+    new Date(ahora - 6 * 60 * 60 * 1000).toISOString());
+  for (const r of autos) {
+    const a = agentes.find((x) => x.id === r.agent_id);
+    if (!a) continue;
+    hallazgos.push({ clave: `compactado:${r.agent_id}:${r.c}`, tipo: 'compactado',
+      nivel: 'bajo', quien: a.name, agente: r.agent_id, n: r.c });
   }
 
   // --- presupuesto ---

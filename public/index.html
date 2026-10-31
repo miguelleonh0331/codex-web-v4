@@ -222,6 +222,20 @@
         <button type="button" id="tope-guardar" class="primary">Guardar tope</button>
         <span id="tope-estado" class="muted" style="font-size:.76rem"></span>
       </menu>
+
+      <label style="margin-top:.8rem">Compactar al llegar a este % de contexto (0 = nunca)
+        <input id="compactar-pct" type="number" min="0" max="100" step="5" inputmode="numeric">
+      </label>
+      <p class="muted" style="font-size:.74rem;margin:.1rem 0 .5rem">
+        El coste de un turno lo pone sobre todo el contexto que arrastra, no la
+        dificultad. Al pasar de este porcentaje el especialista resume su
+        conversacion antes de seguir, y el trabajo pendiente sale despues. Si
+        viene de esperar cuota, se compacta 20 puntos antes.
+      </p>
+      <menu style="justify-content:flex-start">
+        <button type="button" id="compactar-guardar" class="primary">Guardar</button>
+        <span id="compactar-estado" class="muted" style="font-size:.76rem"></span>
+      </menu>
     </div>
 
     <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0">
