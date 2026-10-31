@@ -75,6 +75,12 @@ class Orchestrator {
     // compactar en bucle: /compact no deja medida nueva, asi que ctx_usado
     // sigue alto hasta que el agente hace un turno de verdad.
     this.compactados = new Map();
+    // agentId -> ultimo contexto visto EN VIVO. Evita escribir en la base en
+    // cada respuesta del modelo: en un turno real medido hubo 879.
+    this.ctxVivo = new Map();
+    // A quien ya se le aviso de contexto alto. Sin esto, un turno largo
+    // mandaria un aviso por respuesta y acabarias silenciandolos todos.
+    this.avisadosCtx = new Set();
     this.cancelados = new Set();     // turnos parados a mano: su error no es un fallo
     this.stopping = false;
   }
@@ -261,11 +267,82 @@ class Orchestrator {
     return true;
   }
 
+  /**
+   * Sigue el contexto mientras el turno corre.
+   *
+   * El evento no trae el tamaño de la ventana (eso solo llega al final), pero
+   * si trae el modelo y cuanto se leyo. La ventana la sabemos de antes: por
+   * eso esto empieza a funcionar en el segundo turno de cada especialista, no
+   * en el primero. Preferible a inventarse un tamaño por nombre de modelo y
+   * enseñar un porcentaje falso.
+   */
+  contextoEnVivo(agent, turn, mensaje) {
+    const u = mensaje.usage || {};
+    const usado = (u.input_tokens || 0)
+      + (u.cache_read_input_tokens || 0)
+      + (u.cache_creation_input_tokens || 0);
+    if (usado <= 0) return;
+
+    const ventana = agent.ctx_ventana || 0;
+    if (!ventana) return;   // todavia no sabemos su ventana: no adivinamos
+
+    // Escribir en cada respuesta serian cientos de escrituras por turno (879
+    // en un turno real medido). Solo se guarda cuando el porcentaje cambia de
+    // verdad, que es lo unico que se ve.
+    const pct = (usado / ventana) * 100;
+    const previo = this.ctxVivo.get(agent.id);
+    // Solo cuando el porcentaje se mueve un punto entero, que es lo unico que
+    // se ve en pantalla. Ojo: aqui habia un "&& usado <= previo.usado" que
+    // anulaba el filtro, porque el contexto siempre crece y esa parte nunca
+    // se cumplia: escribia en las 300 respuestas de un turno.
+    if (previo && Math.abs(pct - previo.pct) < 1) return;
+    this.ctxVivo.set(agent.id, { pct, usado });
+
+    this.store.guardarContexto(agent.id, {
+      usado, ventana, modelo: mensaje.model || agent.ctx_modelo || null,
+      turnId: turn ? turn.id : null
+    });
+
+    this.avisarContexto(agent, pct, turn);
+  }
+
+  /**
+   * Avisa al movil al cruzar el umbral, una sola vez por subida.
+   *
+   * Sin el control de cruce, un turno largo mandaria un aviso por cada
+   * respuesta pasado el umbral: treinta avisos seguidos se silencian y
+   * entonces no sirve ninguno.
+   */
+  avisarContexto(agent, pct, turn) {
+    const umbral = Number(this.cfg.avisoContextoPorcentaje);
+    if (!(umbral > 0) || pct < umbral) {
+      // Al bajar (tras compactar) se rearma para el proximo aviso.
+      if (pct < umbral - 5) this.avisadosCtx.delete(agent.id);
+      return;
+    }
+    if (this.avisadosCtx.has(agent.id)) return;
+    this.avisadosCtx.add(agent.id);
+
+    const redondo = Math.round(pct);
+    this.store.event('contexto.aviso', agent.id, { pct: redondo, umbral });
+    this.notificar('contexto.alto', agent, { pct: redondo, turno: turn ? turn.id : null });
+  }
+
   /** Cada evento del CLI segun llega: limites, herramientas y contexto. */
   alVuelo(agent, turn, ev) {
     // Cada proveedor avisa de los limites de uso a su manera.
     const limite = proveedores.paraAgente(agent, this.cfg).limiteDe(ev);
     if (limite) return this.store.guardarLimite(limite);
+
+    // Contexto EN VIVO, sin esperar a que termine el turno.
+    //
+    // Antes solo se medía en el evento final, asi que un turno largo podia ir
+    // del 50% al 95% y uno se enteraba cuando ya habia pasado. Cada respuesta
+    // del modelo trae su propio uso, y el tamaño de la ventana ya lo sabemos
+    // de turnos anteriores: con eso se puede ir siguiendo mientras trabaja.
+    if (ev.type === 'assistant' && ev.message && ev.message.usage) {
+      this.contextoEnVivo(agent, turn, ev.message);
+    }
 
     if (ev.type === 'assistant' && ev.message && Array.isArray(ev.message.content)) {
       for (const bloque of ev.message.content) {
@@ -303,7 +380,9 @@ class Orchestrator {
       // Un turno que no consume contexto (como /compact) no mide nada: guardar
       // un cero borraria la ultima medida buena y mostraria 0% falso.
       if (usado > 0) {
-        this.store.guardarContexto(agent.id, { usado, ventana: principal[1].contextWindow, modelo: principal[0] });
+        this.store.guardarContexto(agent.id, {
+          usado, ventana: principal[1].contextWindow, modelo: principal[0], turnId: turn.id
+        });
       }
     }
   }

@@ -53,6 +53,45 @@ cuando se compacto, y no se vuelve a considerar hasta que llegue una medida
 **nueva**. Esta cubierta por el autodiagnostico, porque romperla deja a un
 especialista inservible en silencio.
 
+## 1-bis. Enterarse a tiempo, no despues
+
+El contexto se media **solo al terminar el turno**. Un turno largo podia ir
+del 50% al 95% y uno se enteraba cuando ya habia pasado.
+
+Resulta que el CLI si lo dice durante: en un turno real habia 879 eventos
+`assistant` con su propio `usage`. El tamaño de la ventana no viene ahi, pero
+ya lo sabemos de turnos anteriores, asi que el porcentaje se sigue en vivo.
+Consecuencia: **empieza a funcionar en el segundo turno** de cada
+especialista. Antes que inventar un tamaño por el nombre del modelo y enseñar
+un porcentaje falso, no se enseña nada.
+
+Tres detalles que costaron:
+
+- **No se escribe en la base en cada respuesta.** Solo cuando el porcentaje
+  se mueve un punto entero: en una prueba de 600 respuestas, 60 escrituras en
+  vez de 600. El filtro llevaba un `&& usado <= previo.usado` que lo anulaba,
+  porque el contexto siempre crece y esa parte nunca se cumplia.
+- **Un aviso por subida, no por respuesta.** Treinta avisos seguidos se
+  silencian, y entonces no sirve ninguno. Se rearma solo cuando baja.
+- **El aviso tiene etiqueta propia** (`contexto-<agente>`), para no pisar al
+  de "termino", que es el que mas se espera.
+
+El aviso va al movil con lo accionable: el porcentaje, cuantos turnos quedan
+a ese ritmo y a que porcentaje se compactara solo. Se ajusta en **Proveedor**
+y tiene que ser menor que el umbral de compactacion: avisar por encima no
+diria nada nuevo, porque para entonces ya se habria compactado.
+
+### Cuantos turnos quedan
+
+Mas util que un porcentaje. Se calcula con la **mediana** de las subidas de
+los ultimos doce turnos —no la media, para que un turno que leyo un archivo
+enorme no decida la prevision— y **las bajadas no cuentan**: una compactacion
+hundiria la media y diria que quedan muchos mas turnos de los que quedan.
+
+Si no hay historico suficiente devuelve `null` y no se enseña nada. Esto
+empezo a grabarse con esta version, asi que en una instalacion que venga de
+antes tarda unos turnos en tener algo que decir.
+
 ## 2. Memoria de trabajo por especialista
 
 Los primeros turnos de un especialista quemaban 35-43 pasos internos

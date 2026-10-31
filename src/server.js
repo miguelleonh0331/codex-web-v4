@@ -74,7 +74,11 @@ function agentPublic(a) {
       ventana: a.ctx_ventana,
       pct: Math.min(100, Math.round(((a.ctx_usado || 0) / a.ctx_ventana) * 100)),
       modelo: a.ctx_modelo || null,
-      visto: a.ctx_visto || null
+      visto: a.ctx_visto || null,
+      // Cuantos turnos le quedan al ritmo que lleva. null mientras no haya
+      // historico suficiente: antes de inventar una cifra, no se dice nada.
+      ritmo: store.ritmoContexto(a.id),
+      compactaAl: Number(cfg.compactarAlPorcentaje) || 0
     } : null,
     created_at: a.created_at, updated_at: a.updated_at,
     has_session: !!a.session_id,
@@ -217,6 +221,24 @@ orq.alAvisar = async (tipo, agent, extra = {}) => {
       cuerpo: (extra.error || 'Error en el turno').slice(0, 160),
       agente: agent.id, insignia: extra.sinRevisar ?? sinRevisar,
       etiqueta: `agente-${agent.id}`, urgente: true
+    });
+  } else if (tipo === 'contexto.alto') {
+    // Llega MIENTRAS trabaja, no al terminar: para eso se sigue el contexto
+    // en vivo. Asi da tiempo a decidir antes de que se llene.
+    const r = store.ritmoContexto(agent.id);
+    const queda = r && r.turnosRestantes !== null
+      ? ` A este ritmo le quedan unos ${r.turnosRestantes} ${r.turnosRestantes === 1 ? 'turno' : 'turnos'}.`
+      : '';
+    const auto = Number(cfg.compactarAlPorcentaje) > 0
+      ? ` Se compactara solo al ${cfg.compactarAlPorcentaje}%.`
+      : ' No hay compactacion automatica puesta.';
+    await avisar({
+      titulo: `${agent.name} va por el ${extra.pct}% de contexto`,
+      cuerpo: `${queda}${auto}`.trim(),
+      agente: agent.id, insignia: sinRevisar,
+      // Una etiqueta propia por agente: el aviso de contexto no debe pisar
+      // al de "termino", que es el que mas se espera.
+      etiqueta: `contexto-${agent.id}`
     });
   }
 };
@@ -646,6 +668,22 @@ async function api(req, res, url) {
       cambios.compactarAlPorcentaje = Math.round(v);
     }
 
+    if (body.avisoContextoPorcentaje !== undefined) {
+      const v = Number(body.avisoContextoPorcentaje);
+      if (!Number.isFinite(v) || v < 0 || v > 100) {
+        return json(res, 400, { error: 'el porcentaje debe estar entre 0 y 100 (0 = sin aviso)' });
+      }
+      // Avisar por encima del umbral de compactacion no sirve de nada: para
+      // entonces el sistema ya habria compactado solo.
+      const comp = Number(cambios.compactarAlPorcentaje ?? cfg.compactarAlPorcentaje) || 0;
+      if (v > 0 && comp > 0 && v >= comp) {
+        return json(res, 400, {
+          error: `avisa antes del ${comp}%, que es cuando se compacta solo; por encima no te enterarias de nada nuevo`
+        });
+      }
+      cambios.avisoContextoPorcentaje = Math.round(v);
+    }
+
     if (body.ahorroContexto !== undefined) cambios.ahorroContexto = !!body.ahorroContexto;
 
     if (!Object.keys(cambios).length) return json(res, 400, { error: 'nada que cambiar' });
@@ -709,6 +747,7 @@ async function api(req, res, url) {
       })),
       ajustes: {
         compactarAlPorcentaje: Number(cfg.compactarAlPorcentaje) || 0,
+        avisoContextoPorcentaje: Number(cfg.avisoContextoPorcentaje) || 0,
         ahorroContexto: cfg.ahorroContexto !== false,
         rtk: !!cfg.rtkBin
       },

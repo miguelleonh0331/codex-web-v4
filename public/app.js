@@ -177,6 +177,36 @@ async function refreshAllInterno() {
  * con sus propias palabras clave pasando. Son las suyas, no relleno: salen del
  * campo "area" del agente.
  */
+/**
+ * Barra de contexto con el dato A LA VISTA.
+ *
+ * Antes era solo una linea de tres pixeles y el numero vivia en el tooltip,
+ * que en el movil no existe. Enterarse tarde de que un especialista se queda
+ * sin contexto venia de ahi tanto como de medirlo tarde.
+ */
+function barraContexto(c) {
+  const nivel = c.pct >= 90 ? 'alto' : c.pct >= 70 ? 'medio' : '';
+  const turnos = c.ritmo && c.ritmo.turnosRestantes !== null ? c.ritmo.turnosRestantes : null;
+
+  // Lo que se dice al lado del numero, por orden de utilidad: cuantos turnos
+  // le quedan (lo accionable) y, si no se sabe aun, cuando se compactara solo.
+  let nota = '';
+  if (turnos !== null && c.pct >= 40) {
+    nota = turnos === 0 ? 'se llena ya' : `~${turnos} ${turnos === 1 ? 'turno' : 'turnos'}`;
+  } else if (c.compactaAl && c.pct >= c.compactaAl) {
+    nota = 'compacta ya';
+  }
+
+  const detalle = `contexto ${c.usado.toLocaleString()} / ${c.ventana.toLocaleString()} (${c.pct}%)`
+    + (turnos !== null ? ` · le quedan unos ${turnos} turnos a este ritmo` : '')
+    + (c.compactaAl ? ` · se compacta solo al ${c.compactaAl}%` : '');
+
+  return `<span class="ctx-caja ${nivel}" title="${escapeHtml(detalle)}">
+      <span class="ctx"><i style="width:${c.pct}%"></i></span>
+      <span class="ctx-num">${c.pct}%${nota ? ` <em>${escapeHtml(nota)}</em>` : ''}</span>
+    </span>`;
+}
+
 function cintaTrabajando(a) {
   const palabras = String(a.area || '')
     .split(/[,;·]+/).map((x) => x.trim()).filter(Boolean);
@@ -311,8 +341,7 @@ function renderAgents() {
         ${a.status === 'working'
           ? cintaTrabajando(a)
           : `<span class="a">${escapeHtml(a.area || 'sin area')}</span>`}
-        ${a.contexto ? `<span class="ctx ${a.contexto.pct >= 90 ? 'alto' : a.contexto.pct >= 70 ? 'medio' : ''}"
-             title="contexto ${a.contexto.usado.toLocaleString()} / ${a.contexto.ventana.toLocaleString()} (${a.contexto.pct}%)"><i style="width:${a.contexto.pct}%"></i></span>` : ''}
+        ${a.contexto ? barraContexto(a.contexto) : ''}
         ${(a.model || a.effort) ? `<span class="meta">
            ${a.model ? `<span class="tag">${escapeHtml(a.model)}</span>` : ''}
            ${a.effort ? `<span class="tag">${escapeHtml(a.effort)}</span>` : ''}</span>` : ''}
@@ -1142,13 +1171,15 @@ async function pintarGasto() {
 if ($('#compactar-guardar')) {
   $('#compactar-guardar').onclick = async () => {
     const v = Number($('#compactar-pct').value);
+    const av = Number($('#aviso-ctx-pct').value);
     $('#compactar-estado').textContent = 'guardando…';
     try {
       await api('/api/app', {
-        method: 'PATCH', body: JSON.stringify({ compactarAlPorcentaje: v })
+        method: 'PATCH',
+        body: JSON.stringify({ compactarAlPorcentaje: v, avisoContextoPorcentaje: av })
       });
       $('#compactar-estado').textContent = v
-        ? `guardado: se compacta al ${Math.round(v)}%`
+        ? `guardado: aviso al ${Math.round(av)}%, compacta al ${Math.round(v)}%`
         : 'guardado: no se compacta solo';
       await pintarGasto();
     } catch (e) {

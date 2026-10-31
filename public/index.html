@@ -249,6 +249,13 @@
         conversacion antes de seguir, y el trabajo pendiente sale despues. Si
         viene de esperar cuota, se compacta 20 puntos antes.
       </p>
+      <label style="margin-top:.6rem">Avisarme al movil a este % de contexto (0 = nunca)
+        <input id="aviso-ctx-pct" type="number" min="0" max="100" step="5" inputmode="numeric">
+      </label>
+      <p class="muted" style="font-size:.74rem;margin:.1rem 0 .5rem">
+        Se mide mientras el especialista trabaja, no al terminar, asi que el
+        aviso llega a tiempo de decidir. Tiene que ser menor que el de arriba.
+      </p>
       <menu style="justify-content:flex-start">
         <button type="button" id="compactar-guardar" class="primary">Guardar</button>
         <span id="compactar-estado" class="muted" style="font-size:.76rem"></span>

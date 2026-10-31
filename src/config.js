@@ -43,6 +43,9 @@ const DEFAULTS = {
   // 0 = nunca. Es el ahorro mayor: el coste de un turno sigue al contexto
   // arrastrado (correlacion medida 0,71), no a la dificultad de la tarea.
   compactarAlPorcentaje: 70,
+  // Avisar al movil al cruzar este porcentaje de contexto, una sola vez por
+  // subida. Se mide EN VIVO, sin esperar a que el turno acabe. 0 = sin aviso.
+  avisoContextoPorcentaje: 55,
   maxHops: 6,
   maxAgents: 24,              // tope de especialistas que el propio equipo puede crear
   maxUploadMb: 50,            // tope por archivo adjunto

@@ -1810,6 +1810,60 @@ function check(nombre, condicion, detalle) {
   check('los avatares estan animados', /@keyframes parpadeo/.test(css) && /@keyframes hablar/.test(css) &&
     /@keyframes pensar/.test(css) && /prefers-reduced-motion/.test(css));
 
+  // --- contexto en vivo y aviso a tiempo -----------------------------------
+  const orqCtx = fs.readFileSync(`${__dirname}/../src/orchestrator.js`, 'utf8');
+  check('el contexto se mide durante el turno, no solo al final',
+    /contextoEnVivo\(agent, turn, ev\.message\)/.test(orqCtx),
+    'medirlo solo al terminar es enterarse cuando ya paso');
+  // El filtro de escritura tenia un "&& usado <= previo.usado" que lo anulaba:
+  // como el contexto siempre crece, esa parte nunca se cumplia y escribia en
+  // las 300 respuestas de un turno.
+  check('no escribe en la base en cada respuesta del modelo',
+    /Math\.abs\(pct - previo\.pct\) < 1\) return;/.test(orqCtx),
+    'un turno real trae cientos de respuestas');
+  check('el aviso de contexto sale una sola vez por subida',
+    /this\.avisadosCtx\.has\(agent\.id\)\) return;/.test(orqCtx) &&
+    /pct < umbral - 5\) this\.avisadosCtx\.delete/.test(orqCtx),
+    'un aviso por respuesta acabaria silenciado');
+  check('no inventa la ventana si aun no la conoce',
+    /if \(!ventana\) return;/.test(orqCtx));
+
+  const ctxEstado = await req('/api/state');
+  const unAgente = (await req('/api/agents')).data.agents.find((a) => a.contexto);
+  if (unAgente) {
+    check('la web recibe el ritmo de contexto',
+      Object.prototype.hasOwnProperty.call(unAgente.contexto, 'ritmo'));
+    check('la web sabe a que porcentaje se compacta solo',
+      typeof unAgente.contexto.compactaAl === 'number');
+  }
+
+  const appCtx = await (await fetch((await base()) + '/app.js')).text();
+  check('el porcentaje de contexto se ve, no solo en el tooltip',
+    /ctx-num/.test(appCtx) && /function barraContexto/.test(appCtx),
+    'en el movil no hay tooltip: un dato que solo vive ahi no existe');
+  check('se dice cuantos turnos quedan cuando se sabe',
+    /turnosRestantes/.test(appCtx));
+
+  const srvCtx = fs.readFileSync(`${__dirname}/../src/server.js`, 'utf8');
+  check('hay aviso al movil por contexto alto',
+    /tipo === 'contexto\.alto'/.test(srvCtx));
+  check('el aviso de contexto no pisa al de trabajo terminado',
+    /etiqueta: `contexto-\$\{agent\.id\}`/.test(srvCtx),
+    'compartir etiqueta borraria el aviso que mas se espera');
+
+  // Prediccion: mejor callar que inventarse una cifra.
+  const dbCtx = fs.readFileSync(`${__dirname}/../src/db.js`, 'utf8');
+  check('sin historico suficiente no se predice nada',
+    /if \(filas\.length < minimo\) return null;/.test(dbCtx));
+  check('las bajadas por compactar no cuentan como crecimiento',
+    /if \(d > 0\) saltos\.push\(d\);/.test(dbCtx),
+    'una compactacion hundiria la media y diria que quedan muchos turnos');
+  check('el historico de contexto se guarda por turno',
+    /UPDATE turns SET ctx_usado = \?, ctx_ventana = \? WHERE id = \?/.test(dbCtx));
+  check('la consulta del historico usa indice, no barrido',
+    /idx_turns_agente ON turns\(agent_id, id\)/.test(dbCtx),
+    'se consulta por cada agente en cada sondeo de la web');
+
   // --- icono de la aplicacion ----------------------------------------------
   const ico = await req('/api/iconos?n=5');
   check('ofrece iconos para elegir',

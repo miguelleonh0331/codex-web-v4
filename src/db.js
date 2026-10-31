@@ -68,6 +68,10 @@ CREATE TABLE IF NOT EXISTS turns (
   ended_at   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_turns_status ON turns(status, id);
+-- El historico de contexto se consulta por agente en cada sondeo de la web.
+-- Sin este indice era un barrido de la tabla entera, catorce veces cada dos
+-- segundos y medio: con cien turnos no se nota, con diez mil si.
+CREATE INDEX IF NOT EXISTS idx_turns_agente ON turns(agent_id, id);
 
 CREATE TABLE IF NOT EXISTS claims (
   path       TEXT PRIMARY KEY,
@@ -154,6 +158,8 @@ const COLUMNAS_NUEVAS = [
   ['agents', 'avatar_seed', 'TEXT'],
   ['agents', 'effort', 'TEXT'],
   ['agents', 'avatar_color', 'TEXT'],
+  ['turns', 'ctx_usado', 'INTEGER'],      // historico: cuanto contexto dejo el turno
+  ['turns', 'ctx_ventana', 'INTEGER'],
   ['agents', 'ctx_usado', 'INTEGER'],
   ['agents', 'ctx_ventana', 'INTEGER'],
   ['agents', 'ctx_modelo', 'TEXT'],
@@ -411,9 +417,54 @@ class Store {
   }
 
   /** Contexto consumido en el ultimo turno, con la ventana real de su modelo. */
-  guardarContexto(agentId, { usado, ventana, modelo }) {
+  guardarContexto(agentId, { usado, ventana, modelo, turnId = null }) {
     this.db.prepare('UPDATE agents SET ctx_usado = ?, ctx_ventana = ?, ctx_modelo = ?, ctx_visto = ? WHERE id = ?')
       .run(usado || null, ventana || null, modelo || null, now(), agentId);
+
+    // Historico por turno. El valor de agents se pisa en cada medida, asi que
+    // sin esto no hay forma de saber cuanto crece el contexto turno a turno,
+    // que es lo que permite decir "le quedan tres turnos" en vez de un
+    // porcentaje suelto.
+    if (turnId) {
+      this.db.prepare('UPDATE turns SET ctx_usado = ?, ctx_ventana = ? WHERE id = ?')
+        .run(usado || null, ventana || null, turnId);
+    }
+  }
+
+  /**
+   * Cuanto crece el contexto de un agente por turno, y cuantos turnos le
+   * quedan a ese ritmo. Devuelve null si aun no hay historico suficiente:
+   * mas vale no decir nada que dar una cifra inventada.
+   */
+  ritmoContexto(agentId, { minimo = 3 } = {}) {
+    const filas = this.db.prepare(
+      `SELECT ctx_usado u FROM turns
+        WHERE agent_id = ? AND ctx_usado > 0
+        ORDER BY id DESC LIMIT 12`).all(agentId).reverse();
+    if (filas.length < minimo) return null;
+
+    // Solo las subidas: una compactacion deja un salto hacia abajo que no es
+    // crecimiento y hundiria la media.
+    const saltos = [];
+    for (let i = 1; i < filas.length; i++) {
+      const d = filas[i].u - filas[i - 1].u;
+      if (d > 0) saltos.push(d);
+    }
+    if (!saltos.length) return null;
+
+    // Mediana, no media: un turno que leyo un archivo enorme no debe decidir
+    // la prevision de los demas.
+    saltos.sort((a, b) => a - b);
+    const porTurno = saltos[Math.floor(saltos.length / 2)];
+    const a = this.getAgent(agentId);
+    if (!a || !a.ctx_ventana || !a.ctx_usado) return null;
+
+    const libre = Math.max(0, a.ctx_ventana - a.ctx_usado);
+    return {
+      porTurno,
+      muestras: saltos.length,
+      turnosRestantes: porTurno > 0 ? Math.floor(libre / porTurno) : null
+    };
   }
 
   // ---------- limites de uso del proveedor ----------

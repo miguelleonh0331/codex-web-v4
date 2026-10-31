@@ -974,3 +974,13 @@ button.enlace:hover{color:var(--fg)}
 .icono-rejilla img{width:100%;aspect-ratio:1;display:block;border-radius:10px}
 .icono-rejilla button:hover{border-color:var(--line)}
 .icono-rejilla button.sel{border-color:var(--accent)}
+
+/* Contexto: el numero a la vista, no escondido en el tooltip. En el movil no
+   hay tooltip, asi que un dato que solo vive ahi es un dato que no existe. */
+.ctx-caja{display:flex;align-items:center;gap:.4rem;margin-top:.3rem}
+.ctx-caja .ctx{flex:1;margin-top:0}
+.ctx-num{flex:0 0 auto;font-size:.66rem;color:var(--muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.ctx-num em{font-style:normal;opacity:.75}
+.ctx-caja.medio .ctx-num{color:var(--warn)}
+.ctx-caja.alto .ctx-num{color:var(--err)}
