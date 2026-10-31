@@ -2757,10 +2757,14 @@ function formatearCuerpo(texto) {
       const codigo = lineas.join('\n')
         .replace(/^(?:[ \t]*\n)+/, '')
         .replace(/(?:\n[ \t]*)+$/, '');
-      return `<div class="bloque">
-        <div class="bloque-cab">${escapeHtml(idioma || 'texto')}
-          <button type="button" class="copiar">Copiar codigo</button></div>
-        <pre><code>${escapeHtml(codigo)}</code></pre></div>`;
+      // OJO: sin saltos ni sangria ENTRE etiquetas. El texto se pinta con
+      // white-space:pre-wrap, asi que un salto de linea en la plantilla se
+      // ve como un hueco real dentro de la caja. Escribir el HTML "bonito"
+      // aqui dejaba el bloque medio vacio con el codigo pegado al fondo.
+      return `<div class="bloque">`
+        + `<div class="bloque-cab">${escapeHtml(idioma || 'texto')}`
+        + `<button type="button" class="copiar">Copiar codigo</button></div>`
+        + `<pre><code>${escapeHtml(codigo)}</code></pre></div>`;
     }
     // Las tablas se extraen ANTES de tocar los saltos de linea: una tabla
     // ES su estructura de lineas, y el compactado de abajo la destruiria.
@@ -2855,15 +2859,34 @@ function enriquecer(seguro) {
     seguro = seguro.replace(new RegExp(`@${esc}\\b`, 'gi'),
       (hit) => `<span class="mencion">${hit}</span>`);
   }
+  // El codigo en linea se aparta ANTES de nada y vuelve al final.
+  //
+  // Si se convirtiera aqui mismo en etiquetas, la negrita ya no podria
+  // cruzarlo: "** `costo` del paquete**" es negrita que CONTIENE codigo, y
+  // una regla de negrita que evite < y > -como debe, para no partir el
+  // HTML- se quedaria a medias y dejaria los asteriscos a la vista.
+  const apartados = [];
+  seguro = seguro.replace(/`([^`\n]{1,200})`/g, (_, c) => {
+    apartados.push(`<code class="copiable" title="pulsa para copiar">${c}</code>`);
+    return `\u0000${apartados.length - 1}\u0000`;
+  });
+
   return seguro
-    // `codigo en linea` -> copiable de un clic
-    .replace(/`([^`\n]{1,200})`/g, (_, c) => `<code class="copiable" title="pulsa para copiar">${c}</code>`)
+    // Titulos de markdown. Van en un elemento EN LINEA a proposito: el texto
+    // se pinta con white-space:pre-wrap, asi que el salto de la propia linea
+    // ya separa. Con un elemento de bloque saldria el hueco por duplicado.
+    .replace(/^(#{1,4})\s+([^\n]+)/gm, (_, almohadillas, t) =>
+      `<span class="tit-md n${almohadillas.length}">${t}</span>`)
+    // Negrita. Se excluyen < y > para no cruzar las etiquetas generadas.
+    .replace(/\*\*([^*<>\n]{1,200})\*\*/g, '<strong>$1</strong>')
     // enlaces
     .replace(/\bhttps?:\/\/[^\s<>"')]+/g, (u) =>
       `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`)
     // rutas absolutas del servidor
     .replace(/(^|[\s(])(\/(?:opt|srv|etc|var|usr|home|tmp)\/[^\s<>"'`),;]{2,})/g,
-      (_, pre, ruta) => `${pre}<span class="ruta copiable" title="pulsa para copiar">${ruta}</span>`);
+      (_, pre, ruta) => `${pre}<span class="ruta copiable" title="pulsa para copiar">${ruta}</span>`)
+    // y vuelve el codigo que apartamos al principio
+    .replace(/\u0000(\d+)\u0000/g, (_, n) => apartados[Number(n)] ?? '');
 }
 
 /** Copia respetando los navegadores sin portapapeles moderno (HTTP plano). */

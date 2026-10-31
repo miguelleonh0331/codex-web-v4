@@ -1837,6 +1837,25 @@ function check(nombre, condicion, detalle) {
   check('la tabla se desplaza si no cabe de ancho',
     /\.tabla-caja\{[^}]*overflow-x:auto/.test(cssTab.replace(/\s+/g, '')));
 
+  // La causa REAL del hueco: el cuerpo del mensaje se pinta con
+  // white-space:pre-wrap, asi que un salto de linea escrito entre etiquetas
+  // de la plantilla se ve como un hueco de verdad dentro de la caja.
+  check('el html del bloque no lleva saltos entre etiquetas',
+    !/`<div class="bloque">\s*\n/.test(appTab),
+    'con pre-wrap, la sangria de la plantilla se ve en pantalla');
+  check('titulos y negrita de markdown se interpretan',
+    /tit-md n\$\{/.test(appTab) && /<strong>\$1<\/strong>/.test(appTab),
+    'salian como ## y ** en crudo');
+  // Negrita que CONTIENE codigo: "** `costo` del paquete**". Si el codigo se
+  // convierte antes, la negrita ya no puede cruzarlo y deja los asteriscos.
+  check('el codigo en linea se aparta antes de aplicar negrita',
+    /const apartados = \[\]/.test(appTab)
+    && appTab.indexOf('const apartados') < appTab.indexOf('<strong>$1</strong>'),
+    'negrita que contiene codigo dejaria los asteriscos a la vista');
+  check('el marcador interno no puede aparecer en texto normal',
+    /\\u0000\$\{apartados\.length/.test(appTab),
+    'con un caracter corriente, "tengo 3 paquetes" se corromperia');
+
   // --- contexto en vivo y aviso a tiempo -----------------------------------
   const orqCtx = fs.readFileSync(`${__dirname}/../src/orchestrator.js`, 'utf8');
   check('el contexto se mide durante el turno, no solo al final',

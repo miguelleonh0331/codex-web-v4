@@ -1109,3 +1109,13 @@ html[data-tema="claro"] dialog{box-shadow:0 10px 40px rgba(16,24,40,.18)}
 .tabla tbody tr:nth-child(even){background:color-mix(in srgb,var(--fg) 4%,transparent)}
 .tabla tbody tr:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .tabla td{color:var(--dicho)}
+
+/* Titulos y negrita del markdown. En linea, no en bloque: el texto va con
+   white-space:pre-wrap y el salto de la propia linea ya separa; un bloque
+   anadiria el hueco por duplicado. */
+.messages .tit-md{display:inline-block;font-weight:700;color:var(--fg);
+  letter-spacing:.01em;margin-top:.15rem}
+.messages .tit-md.n1{font-size:1.06em}
+.messages .tit-md.n2{font-size:1.0em}
+.messages .tit-md.n3,.messages .tit-md.n4{font-size:.94em;color:var(--accent)}
+.messages .msg strong{font-weight:700;color:var(--fg)}
