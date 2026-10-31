@@ -165,6 +165,11 @@ async function refreshAllInterno() {
         $('#chat-face').innerHTML = avatar(act, 42);
         $('#chat-area').textContent = resumenAgente(act);
         $('#parar').hidden = act.status !== 'working';
+        // Aqui y no solo al pintar mensajes: el especialista puede ponerse a
+        // trabajar o terminar sin que llegue ni un mensaje nuevo, y entonces
+        // pintarMensajes sale antes de tiempo y no se enteraria nadie.
+        ajustarCompositor();
+        pintarTrabajando();
       }
       await renderMessages();
     }
@@ -364,13 +369,15 @@ async function selectAgent(id) {
   $('#chat-name').textContent = a ? a.name : '';
   $('#chat-area').textContent = a ? resumenAgente(a) : '';
   $('#chat-face').innerHTML = a ? avatar(a, 42) : '';
-  $('#send-form').hidden = false;
   $('#edit-agent').hidden = false;
   $('#reset-session').hidden = false;
   $('#compactar').hidden = false;
   $('#notas').hidden = false;
   marcarBotonNotas(a);
   $('#parar').hidden = !a || a.status !== 'working';
+  // Otro especialista, otra situacion: el cuadro se decide de nuevo.
+  composerForzado = false;
+  ajustarCompositor();
   ultimoMsgId = 0;          // conversacion nueva: se pinta de cero
   await refrescarActividad(true);
   marcarVisto(id);
@@ -378,6 +385,72 @@ async function selectAgent(id) {
   setView('chat');
   setTimeout(() => MATRIZ.remedir(), 50);   // el lienzo cambia de tamano al abrir el chat
   await renderMessages(true);
+}
+
+// ------------------------------------------------- trabajando / compositor
+
+// El usuario pidio ver el cuadro de escribir aunque el especialista trabaje.
+// Se olvida en cuanto termina: es una excepcion para este rato, no un ajuste.
+let composerForzado = false;
+
+/**
+ * Mientras trabaja, el cuadro de escribir estorba: ocupa un tercio de la
+ * pantalla para algo que no se puede hacer aun. Se esconde y su sitio lo
+ * ocupa el aviso de que esta trabajando, que es la informacion que falta.
+ *
+ * Con una excepcion que manda sobre todo lo demas: si hay algo escrito sin
+ * enviar, no se esconde. Tapar lo que alguien acaba de teclear es perderlo
+ * de vista sin avisar, y eso no lo arregla ningun boton.
+ */
+function ajustarCompositor() {
+  const a = agents.find((x) => x.id === selected);
+  const trabajando = !!a && a.status === 'working';
+  if (!trabajando) composerForzado = false;
+
+  const campo = $('#send-text');
+  const borrador = !!campo && campo.value.trim().length > 0;
+  const conAdjuntos = Array.isArray(adjuntos) && adjuntos.length > 0;
+
+  $('#send-form').hidden = !a || (trabajando && !composerForzado && !borrador && !conAdjuntos);
+
+  const btn = $('#ver-compositor');
+  if (btn) {
+    // Solo aparece mientras trabaja: el resto del tiempo no esconde nada.
+    btn.hidden = !trabajando;
+    const abierto = !$('#send-form').hidden;
+    btn.classList.toggle('activo', abierto);
+    const txt = abierto ? 'Ocultar el cuadro de escribir' : 'Escribir mientras trabaja';
+    btn.title = txt;
+    btn.setAttribute('aria-label', txt);
+  }
+}
+
+/**
+ * Aviso de "esta trabajando" debajo del ultimo mensaje.
+ *
+ * Se reubica al final en cada pintada en vez de crearse una sola vez: los
+ * mensajes se anaden por abajo, y si no se moviera quedaria enterrado entre
+ * la conversacion.
+ */
+function pintarTrabajando() {
+  const box = $('#messages');
+  if (!box) return;
+  const a = agents.find((x) => x.id === selected);
+  const activo = !!a && a.status === 'working';
+  let el = box.querySelector('.trabajando');
+
+  if (!activo) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'trabajando';
+    el.setAttribute('role', 'status');      // los lectores de pantalla lo anuncian
+    el.innerHTML = '<span class="puntos"><i></i><i></i><i></i></span><span class="quien"></span>';
+    box.appendChild(el);
+  } else if (el !== box.lastElementChild) {
+    box.appendChild(el);
+  }
+  // textContent y no innerHTML: el nombre lo pone el usuario.
+  el.querySelector('.quien').textContent = `${a.name} esta trabajando…`;
 }
 
 function resumenAgente(a) {
@@ -526,6 +599,9 @@ async function pintarMensajes(force) {
     box.appendChild(filaMensaje(m, actual));
     if (m.id > ultimoMsgId) ultimoMsgId = m.id;
   }
+  // Antes de bajar del todo: el aviso tiene alto propio y colocarlo despues
+  // dejaria el scroll justo por encima de el.
+  pintarTrabajando();
   if (force || atBottom) box.scrollTop = box.scrollHeight;
 }
 
@@ -1002,7 +1078,25 @@ $('#send-form').addEventListener('submit', async (e) => {
     method: 'POST',
     body: JSON.stringify({ text, attachments: listos.map((f) => ({ nombre: f.nombre, ruta: f.ruta, url: f.url, bytes: f.bytes })) })
   });
+  // Enviado y sin borrador: ya puede esconderse si el especialista arranca.
+  composerForzado = false;
+  ajustarCompositor();
   await renderMessages(true);
+});
+
+// Trae de vuelta el cuadro de escribir mientras trabaja, para dejar la
+// siguiente tarea en cola sin esperar. El mismo boton lo vuelve a esconder.
+$('#ver-compositor').onclick = () => {
+  composerForzado = !composerForzado;
+  ajustarCompositor();
+  if (composerForzado) $('#send-text').focus();
+};
+
+// Si escribes con el cuadro abierto a mano, deja de ser una excepcion: ya
+// hay un borrador y esconderlo seria perderlo de vista.
+$('#send-text').addEventListener('input', () => {
+  const btn = $('#ver-compositor');
+  if (btn && !btn.hidden) ajustarCompositor();
 });
 
 /**
@@ -2042,7 +2136,8 @@ $('#eliminar').onclick = async () => {
       $('#chat-name').textContent = 'Selecciona un especialista';
       $('#chat-area').textContent = '';
       $('#chat-face').innerHTML = '';
-      ['send-form', 'edit-agent', 'reset-session', 'compactar', 'parar', 'notas']
+      ['send-form', 'edit-agent', 'reset-session', 'compactar', 'parar', 'notas',
+        'ver-compositor']
         .forEach((id) => { const el = $(`#${id}`); if (el) el.hidden = true; });
     }
     editing = null;

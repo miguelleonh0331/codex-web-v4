@@ -2316,6 +2316,86 @@ function check(nombre, condicion, detalle) {
       !!dicha && !/\{/.test(dicha), dicha);
   }
 
+  // --- el cuadro de escribir se aparta mientras trabaja --------------------
+  {
+    const htmlBtn = fs.readFileSync(`${__dirname}/../public/index.html`, 'utf8');
+    const cssBtn = fs.readFileSync(`${__dirname}/../public/style.css`, 'utf8');
+    const jsBtn = fs.readFileSync(`${__dirname}/../public/app.js`, 'utf8');
+
+    // Botones de icono: ni una palabra suelta dentro del boton, pero el
+    // nombre tiene que seguir estando en algun sitio o el boton es un
+    // jeroglifico para el raton y no existe para un lector de pantalla.
+    const acciones = (htmlBtn.match(/<div class="chat-actions">[\s\S]*?<\/div>/) || [''])[0];
+    const botones = [...acciones.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
+    check('la cabecera del chat tiene sus seis botones', botones.length === 6, String(botones.length));
+    for (const [, attrs, dentro] of botones) {
+      const id = (attrs.match(/id="([\w-]+)"/) || [])[1] || '?';
+      const texto = dentro.replace(/<[^>]*>/g, '').trim();
+      check(`el boton ${id} no lleva texto dentro`, texto === '', JSON.stringify(texto));
+      check(`el boton ${id} dice su nombre al raton y al lector`,
+        /\stitle="[^"]{3,}"/.test(attrs) && /\saria-label="[^"]{3,}"/.test(attrs), attrs);
+      check(`el boton ${id} lleva un trazo dibujado`, /<svg[\s\S]*<\/svg>/.test(dentro));
+    }
+    check('los iconos de la cabecera heredan el color del boton',
+      /\.chat-actions \.ico svg\{[^}]*stroke:currentColor/.test(cssBtn),
+      'con un color fijo, .peligro y los tres temas necesitarian una regla cada uno');
+
+    // La decision de esconder el cuadro se ejecuta de verdad, no se lee.
+    const casos = require('node:child_process').execFileSync(process.execPath, ['-e',
+      'const fs=require("fs");const src=fs.readFileSync("' + __dirname + '/../public/app.js","utf8");' +
+      'const i=src.indexOf("function ajustarCompositor");' +
+      'const f=src.indexOf("/**",i);' +
+      'let estado={};' +
+      'global.$=(s)=>estado[s];' +
+      'eval(src.slice(i,f));' +
+      'function probar(o){' +
+      '  composerForzado=o.forzado;' +
+      '  global.selected="a1";' +
+      '  global.agents=[{id:"a1",status:o.trabajando?"working":"idle"}];' +
+      '  global.adjuntos=o.adjuntos?[{}]:[];' +
+      '  estado={"#send-text":{value:o.borrador?"a medio escribir":"",focus(){}},' +
+      '          "#send-form":{hidden:false},' +
+      '          "#ver-compositor":{hidden:true,classList:{toggle(){}},' +
+      '            title:"",setAttribute(){}}};' +
+      '  ajustarCompositor();' +
+      '  return {oculto:estado["#send-form"].hidden,boton:!estado["#ver-compositor"].hidden};' +
+      '}' +
+      'process.stdout.write(JSON.stringify({' +
+      ' parado:probar({trabajando:false}),' +
+      ' trabajando:probar({trabajando:true}),' +
+      ' forzado:probar({trabajando:true,forzado:true}),' +
+      ' borrador:probar({trabajando:true,borrador:true}),' +
+      ' adjunto:probar({trabajando:true,adjuntos:true})}))'], { encoding: 'utf8' });
+    const c = JSON.parse(casos);
+    check('parado: el cuadro de escribir esta a la vista', c.parado.oculto === false, casos);
+    check('parado: no se ofrece un boton para mostrar lo que ya se ve',
+      c.parado.boton === false, casos);
+    check('trabajando: el cuadro de escribir se aparta', c.trabajando.oculto === true, casos);
+    check('trabajando: aparece el boton para traerlo de vuelta',
+      c.trabajando.boton === true, casos);
+    check('trabajando: el boton lo trae de vuelta', c.forzado.oculto === false, casos);
+    // Lo importante de todo esto: esconder el cuadro no puede tapar algo
+    // que el usuario acaba de teclear y todavia no ha enviado.
+    check('nunca se esconde un texto a medio escribir', c.borrador.oculto === false, casos);
+    check('nunca se esconde un archivo ya adjuntado', c.adjunto.oculto === false, casos);
+
+    // El aviso de trabajo va al final del todo: los mensajes se anaden por
+    // abajo y si no se recolocara quedaria enterrado en la conversacion.
+    check('el aviso de "esta trabajando" se recoloca al final',
+      /el !== box\.lastElementChild/.test(jsBtn));
+    check('el aviso se pinta antes de bajar el scroll',
+      jsBtn.indexOf('pintarTrabajando();\n  if (force || atBottom)') > 0,
+      'colocarlo despues dejaria el scroll justo por encima');
+    check('el aviso de trabajo se actualiza aunque no llegue ningun mensaje',
+      /ajustarCompositor\(\);\s*\n\s*pintarTrabajando\(\);/.test(jsBtn),
+      'pintarMensajes sale antes de tiempo si no hay mensajes nuevos');
+    check('el nombre del especialista no se inyecta como html',
+      /\.quien'\)\.textContent = /.test(jsBtn));
+    check('la animacion se respeta a quien pide no verla',
+      /prefers-reduced-motion:reduce\)\{\s*\.trabajando/.test(cssBtn.replace(/\n/g, '')),
+      'tres puntos saltando sin parar marean a quien lo pide por accesibilidad');
+  }
+
   // --- cuando vuelve la cuota ----------------------------------------------
   // El aviso del CLI trae la hora de vuelta y antes se tiraba: se esperaba
   // media hora fija. Un aviso recibido a las 4:24 que dice "resets 4:30am"
