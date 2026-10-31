@@ -125,6 +125,45 @@ function linea(l, x0, y0, x1, y1, grosor, color) {
   }
 }
 
+/**
+ * Arco grueso: un anillo recortado entre dos angulos.
+ * Es la pieza de los auriculares y de las ondas de voz.
+ */
+function arco(l, cx, cy, rad, grosor, desde, hasta, color) {
+  const fuera = rad + grosor / 2 + 1;
+  for (let y = Math.floor(cy - fuera); y < Math.ceil(cy + fuera); y++) {
+    for (let x = Math.floor(cx - fuera); x < Math.ceil(cx + fuera); x++) {
+      const dx = x - cx, dy = y - cy;
+      let a = Math.atan2(dy, dx);
+      if (a < 0) a += Math.PI * 2;
+      // Normalizamos el angulo al tramo pedido, que puede cruzar el cero.
+      let d = a - desde;
+      while (d < 0) d += Math.PI * 2;
+      while (d > Math.PI * 2) d -= Math.PI * 2;
+      if (d > hasta - desde) continue;
+      mezclar(l, x, y, color, suave(Math.abs(Math.hypot(dx, dy) - rad) - grosor / 2));
+    }
+  }
+}
+
+/** Barra vertical con las puntas redondeadas: es una linea gruesa. */
+function barra(l, x, yBase, alto, grosor, color) {
+  linea(l, x, yBase, x, yBase - alto, grosor, color);
+}
+
+/** Triangulo relleno, por el signo del area respecto a cada lado. */
+function triangulo(l, p1, p2, p3, color) {
+  const xs = [p1[0], p2[0], p3[0]], ys = [p1[1], p2[1], p3[1]];
+  const lado = (p, a, b) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+  for (let y = Math.floor(Math.min(...ys)); y < Math.ceil(Math.max(...ys)); y++) {
+    for (let x = Math.floor(Math.min(...xs)); x < Math.ceil(Math.max(...xs)); x++) {
+      const p = [x + 0.5, y + 0.5];
+      const a = lado(p, p1, p2), b = lado(p, p2, p3), c = lado(p, p3, p1);
+      if ((a >= 0 && b >= 0 && c >= 0) || (a <= 0 && b <= 0 && c <= 0)) mezclar(l, x, y, color, 1);
+    }
+  }
+}
+
 // ------------------------------------------------------------------ estilo
 
 function hsl(h, s, l) {
@@ -149,22 +188,150 @@ function azar(semilla) {
   };
 }
 
-const FORMAS = ['triada', 'anillo', 'estrella', 'cadena', 'cumulo', 'rejilla'];
+// Formas de empresa: lo que se reconoce de un vistazo a 48 pixeles en una
+// pestaña. Pensadas para un centro de llamadas.
+const FORMAS_EMPRESA = [
+  'auricular',   // atencion telefonica
+  'burbujas',    // conversacion
+  'ondas',       // voz en linea
+  'barras',      // metricas del panel
+  'embudo',      // leads y campanas
+  'escudo',      // seguridad y cumplimiento
+  'diana',       // objetivos y acuerdos de servicio
+  'traspaso'     // pasar la llamada a otro agente
+];
+
+// Las de antes. Se conservan porque dos de ellas leen bien como "equipo
+// conectado", que es lo que el sistema hace.
+const FORMAS_ABSTRACTAS = ['triada', 'rejilla', 'anillo', 'estrella', 'cadena', 'cumulo'];
+
+const FORMAS = [...FORMAS_EMPRESA, ...FORMAS_ABSTRACTAS];
+
+// Paletas sobrias, de dos colores. El arcoiris de puntos no pasa por el
+// logotipo de una empresa: un color de marca y un neutro claro, y ya.
+const PALETAS = [
+  { nombre: 'azul corporativo', h: 214, s: 72, l: 54, fondo: '#0b1220' },
+  { nombre: 'verde azulado',    h: 176, s: 62, l: 42, fondo: '#071614' },
+  { nombre: 'indigo',           h: 248, s: 60, l: 60, fondo: '#0d0f1c' },
+  { nombre: 'grafito y ambar',  h: 38,  s: 88, l: 55, fondo: '#111214' },
+  { nombre: 'borgona',          h: 348, s: 58, l: 50, fondo: '#17090e' },
+  { nombre: 'acero',            h: 205, s: 28, l: 62, fondo: '#0f1317' },
+  { nombre: 'verde empresa',    h: 148, s: 52, l: 44, fondo: '#08140e' },
+  { nombre: 'purpura sobrio',   h: 272, s: 44, l: 58, fondo: '#120d1a' }
+];
+
 const FONDOS = ['#080a0d', '#0d1117', '#101418', '#0a0f14'];
 
 /** Como queda un icono, sin dibujarlo. Sirve para describirlo en la web. */
 function receta(semilla) {
   const r = azar(semilla);
   const forma = FORMAS[Math.floor(r() * FORMAS.length)];
-  const tono = Math.floor(r() * 360);
-  const separacion = 60 + Math.floor(r() * 90);   // entre los colores
-  const fondo = FONDOS[Math.floor(r() * FONDOS.length)];
+  const empresa = FORMAS_EMPRESA.includes(forma);
+
+  // Las de empresa van con paleta de marca: un color y un neutro. Las
+  // abstractas conservan el arcoiris de antes, que para un equipo de
+  // especialistas tiene sentido: cada punto es uno.
+  const paleta = PALETAS[Math.floor(r() * PALETAS.length)];
+  const tono = empresa ? paleta.h : Math.floor(r() * 360);
+  const separacion = 60 + Math.floor(r() * 90);
+  const fondo = empresa ? paleta.fondo : FONDOS[Math.floor(r() * FONDOS.length)];
+
   const nodos = forma === 'triada' ? 3
     : forma === 'cadena' ? 4
     : forma === 'rejilla' ? 4
     : 3 + Math.floor(r() * 4);
   const giro = r() * Math.PI * 2;
-  return { forma, tono, separacion, fondo, nodos, giro };
+
+  return {
+    forma, empresa, tono, separacion, fondo, nodos, giro,
+    paleta: empresa ? paleta.nombre : null,
+    sat: paleta.s, luz: paleta.l
+  };
+}
+
+/**
+ * Dibuja una forma de empresa.
+ *
+ * Dos colores y nada mas: el de marca y un neutro claro. Lo que hace que un
+ * icono parezca corporativo no es el dibujo, es la contencion.
+ */
+function dibujarEmpresa(l, forma, cx, cy, R, marca, claro, apagado) {
+  const g = R * 0.22;   // grosor base de los trazos
+
+  if (forma === 'auricular') {
+    // Diadema y dos cascos. El microfono es lo que lo hace inconfundible.
+    arco(l, cx, cy + R * 0.08, R * 0.74, g * 0.85, Math.PI, Math.PI * 2, marca);
+    const yc = cy + R * 0.12;
+    rectRedondo(l, cx - R * 0.95, yc, cx - R * 0.5, yc + R * 0.72, R * 0.2, marca);
+    rectRedondo(l, cx + R * 0.5, yc, cx + R * 0.95, yc + R * 0.72, R * 0.2, marca);
+    // Brazo del microfono, saliendo del casco derecho.
+    arco(l, cx + R * 0.22, cy + R * 0.5, R * 0.52, g * 0.5, Math.PI * 0.08, Math.PI * 0.6, claro);
+    circulo(l, cx + R * 0.1, cy + R * 1.02, R * 0.17, claro);
+    return;
+  }
+
+  if (forma === 'burbujas') {
+    // Dos burbujas: la de atras apagada, la de delante en color. Una
+    // conversacion, no un mensaje suelto.
+    rectRedondo(l, cx - R * 0.9, cy - R * 0.85, cx + R * 0.35, cy + R * 0.1, R * 0.26, apagado);
+    rectRedondo(l, cx - R * 0.35, cy - R * 0.25, cx + R * 0.9, cy + R * 0.7, R * 0.26, marca);
+    // El rabito, que es lo que la convierte en burbuja y no en rectangulo.
+    triangulo(l, [cx + R * 0.3, cy + R * 0.6], [cx + R * 0.3, cy + R * 1.0], [cx - R * 0.02, cy + R * 0.66], marca);
+    return;
+  }
+
+  if (forma === 'ondas') {
+    // Origen a la izquierda y tres arcos que se alejan: voz en linea.
+    circulo(l, cx - R * 0.62, cy, R * 0.26, marca);
+    [0.45, 0.78, 1.1].forEach((f, i) => {
+      arco(l, cx - R * 0.62, cy, R * f, g * 0.55,
+        -Math.PI * 0.33, Math.PI * 0.33, i === 2 ? apagado : (i === 1 ? claro : marca));
+    });
+    return;
+  }
+
+  if (forma === 'barras') {
+    // Cuatro barras crecientes: el panel de metricas de cualquier operacion.
+    const base = cy + R * 0.82;
+    const alturas = [0.5, 0.82, 0.62, 1.15];
+    alturas.forEach((h, i) => {
+      barra(l, cx + (i - 1.5) * R * 0.5, base, R * h, R * 0.26,
+        i === 3 ? marca : (i % 2 ? claro : apagado));
+    });
+    return;
+  }
+
+  if (forma === 'embudo') {
+    // Embudo de leads: boca ancha, salida estrecha y una gota debajo.
+    triangulo(l, [cx - R * 0.78, cy - R * 0.85], [cx + R * 0.78, cy - R * 0.85], [cx, cy + R * 0.42], marca);
+    rectRedondo(l, cx - R * 0.13, cy + R * 0.3, cx + R * 0.13, cy + R * 0.82, R * 0.11, claro);
+    circulo(l, cx, cy + R * 1.0, R * 0.15, apagado);
+    return;
+  }
+
+  if (forma === 'escudo') {
+    // Hombros rectos arriba y punta abajo.
+    rectRedondo(l, cx - R * 0.78, cy - R * 0.88, cx + R * 0.78, cy + R * 0.12, R * 0.22, marca);
+    triangulo(l, [cx - R * 0.78, cy - R * 0.1], [cx + R * 0.78, cy - R * 0.1], [cx, cy + R * 0.98], marca);
+    // Marca de validacion, en hueco.
+    linea(l, cx - R * 0.3, cy - R * 0.22, cx - R * 0.06, cy + R * 0.04, g * 0.62, claro);
+    linea(l, cx - R * 0.06, cy + R * 0.04, cx + R * 0.38, cy - R * 0.46, g * 0.62, claro);
+    return;
+  }
+
+  if (forma === 'diana') {
+    // Anillos concentricos: objetivos y acuerdos de servicio.
+    arco(l, cx, cy, R * 0.88, g * 0.6, 0, Math.PI * 2, apagado);
+    arco(l, cx, cy, R * 0.55, g * 0.6, 0, Math.PI * 2, claro);
+    circulo(l, cx, cy, R * 0.24, marca);
+    return;
+  }
+
+  // traspaso: dos puestos y una llamada que salta de uno a otro.
+  circulo(l, cx - R * 0.68, cy + R * 0.38, R * 0.3, marca);
+  circulo(l, cx + R * 0.68, cy + R * 0.38, R * 0.3, claro);
+  arco(l, cx, cy + R * 0.38, R * 0.68, g * 0.5, Math.PI, Math.PI * 2, apagado);
+  circulo(l, cx, cy - R * 0.3, R * 0.16, marca);
 }
 
 /**
@@ -175,7 +342,7 @@ function receta(semilla) {
  *                            comeria los bordes del dibujo
  */
 function generar(semilla, tam = 512, maskable = false) {
-  const { forma, tono, separacion, fondo, nodos, giro } = receta(semilla);
+  const { forma, empresa, tono, separacion, fondo, nodos, giro, sat, luz } = receta(semilla);
   const l = lienzo(tam, tam);
 
   const rgbFondo = [
@@ -199,6 +366,15 @@ function generar(semilla, tam = 512, maskable = false) {
   const margen = maskable ? tam * 0.14 : tam * 0.21;
   const radio = (tam - margen * 2) / 2;
   const cx = tam / 2, cy = tam / 2;
+
+  // Las de empresa se dibujan aparte: otro lenguaje y otra paleta.
+  if (empresa) {
+    dibujarEmpresa(l, forma, cx, cy, radio,
+      hsl(tono, sat, luz),              // color de marca
+      hsl(tono, Math.max(8, sat - 45), 92),  // neutro claro, casi blanco
+      hsl(tono, Math.max(6, sat - 50), 38)); // apagado, para lo secundario
+    return aPng(l.px, tam, tam);
+  }
   const rNodo = radio * (forma === 'cumulo' ? 0.3 : forma === 'rejilla' ? 0.26 : 0.27);
   const grosor = Math.max(2, radio * 0.085);
   const gris = [0x2a, 0x31, 0x3c];

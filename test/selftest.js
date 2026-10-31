@@ -1923,6 +1923,79 @@ function check(nombre, condicion, detalle) {
   check('hay donde elegir el icono en la web',
     /id="icono-opciones"/.test(idxIco) && /id="icono-otros"/.test(idxIco));
 
+  // La que faltaba y dejo el icono roto en pantalla: comprobar que el enlace
+  // esta en el HTML no sirve de nada si la direccion devuelve 404. La regla
+  // del GET solo admitia hexadecimal y la semilla por defecto, "masterchief",
+  // tiene letras fuera de ese alfabeto.
+  const hrefIco = (idxIco.match(/href="(\/icons\/icon-192[^"]*)"/) || [])[1];
+  const rIco = await fetch((await base()) + hrefIco);
+  const bytesIco = Buffer.from(await rIco.arrayBuffer());
+  check('el icono que enlaza la pagina SE SIRVE de verdad',
+    rIco.status === 200 && bytesIco.slice(1, 4).toString() === 'PNG',
+    `${hrefIco} -> HTTP ${rIco.status}`);
+  check('las semillas con letras funcionan, no solo las hexadecimales',
+    (await icoBajar('/icons/icon-192-masterchief.png')).slice(1, 4).toString() === 'PNG');
+
+  // Formas de empresa: el motivo por el que existen es que se reconozcan.
+  const icoSrc = fs.readFileSync(`${__dirname}/../src/iconos.js`, 'utf8');
+  for (const f of ['auricular', 'burbujas', 'ondas', 'barras', 'embudo', 'escudo', 'diana', 'traspaso']) {
+    check(`existe la forma de empresa "${f}"`, new RegExp(`'${f}'`).test(icoSrc));
+  }
+  check('las formas de empresa usan paleta sobria, no arcoiris',
+    /const PALETAS = \[/.test(icoSrc) && /empresa \? paleta\.h/.test(icoSrc),
+    'el arcoiris de puntos no pasa por el logotipo de una empresa');
+
+  // --- temas ---------------------------------------------------------------
+  const cssTema = await (await fetch((await base()) + '/style.css')).text();
+  for (const t of ['matrix', 'claro']) {
+    check(`existe el tema ${t}`, new RegExp(`html\\[data-tema="${t}"\\]`).test(cssTema));
+  }
+  check('el tema se aplica antes de pintar, sin fogonazo',
+    /localStorage\.getItem\('v4-tema'\)/.test(idxIco) &&
+    idxIco.indexOf("getItem('v4-tema')") < idxIco.indexOf('<body'),
+    'aplicarlo en app.js daria un fogonazo oscuro al entrar en el claro');
+  check('la lluvia de caracteres sigue al tema',
+    /getPropertyValue\('--matrix'\)/.test(appCtx),
+    'en claro, verde fosforo sobre blanco no se ve');
+  check('el color de la barra del navegador sigue al tema',
+    /meta\[name="theme-color"\]/.test(appCtx),
+    'en claro quedaria una franja negra arriba');
+  check('el tema claro no deja texto oscuro sobre fondo de color',
+    /html\[data-tema="claro"\][\s\S]{0,400}--sobre-acento:#ffffff/.test(cssTema),
+    'los botones de accion quedarian ilegibles');
+  check('hay donde elegir el tema', /id="temas"/.test(idxIco));
+
+  // Contraste real de cada tema. Un tema claro mal medido se ve "bonito" en
+  // una captura y es ilegible a pleno sol en el movil, que es justo donde se
+  // usa. Se mide, no se opina.
+  const leerVars = (bloque) => {
+    const o = {};
+    for (const m of bloque.matchAll(/--([a-z0-9-]+):\s*([^;]+);/g)) o[m[1]] = m[2].trim();
+    return o;
+  };
+  const vRaiz = leerVars(cssTema.match(/:root\{([\s\S]*?)\}/)[1]);
+  const luminancia = (h) => {
+    const m = /^#([0-9a-f]{6})$/i.exec(String(h).trim());
+    if (!m) return null;
+    const v = [0, 2, 4].map((i) => parseInt(m[1].substr(i, 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  };
+  const contraste = (a, b) => {
+    const x = luminancia(a); const y = luminancia(b);
+    if (x === null || y === null) return null;
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  for (const t of ['claro', 'matrix']) {
+    const v = { ...vRaiz, ...leerVars(cssTema.match(new RegExp(`html\\[data-tema="${t}"\\]\\{([\\s\\S]*?)\\}`))[1]) };
+    for (const [a, b, etiq] of [['fg', 'bg', 'texto'], ['muted', 'bg', 'texto secundario'],
+      ['sobre-acento', 'accent', 'texto sobre el boton de accion']]) {
+      const r = contraste(v[a], v[b]);
+      check(`tema ${t}: ${etiq} se lee`, r !== null && r >= 4.5,
+        r === null ? 'color no comparable' : `${r.toFixed(2)}:1`);
+    }
+  }
+
   // --- economia de contexto: memoria, rtk y compactacion automatica --------
   const estado2 = await req('/api/state');
   const ajustes = estado2.data.ajustes || {};

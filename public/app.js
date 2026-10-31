@@ -1455,6 +1455,54 @@ if ($('#codex-login')) {
 }
 
 // ---------------------------------------------------------------------------
+// Temas. Un tema es un juego de variables CSS; aqui solo se elige cual.
+// Se guarda en el navegador, no en el servidor: es como TU ves el sistema, y
+// en el movil querras uno distinto que en el escritorio.
+
+const TEMAS = [
+  { id: 'oscuro', nombre: 'Oscuro', colores: ['#0f1115', '#1c2029', '#5b9dff', '#e6e9ef'] },
+  { id: 'claro',  nombre: 'Claro',  colores: ['#ffffff', '#e9edf3', '#1f6feb', '#1a1f29'] },
+  { id: 'matrix', nombre: 'Matrix', colores: ['#000500', '#07200f', '#2bd4a0', '#8cffb9'] }
+];
+
+// Al arrancar: deja la etiqueta de color del navegador acorde al tema que
+// el script de la cabecera ya aplico.
+function temaActual() {
+  try { return localStorage.getItem('v4-tema') || 'oscuro'; } catch { return 'oscuro'; }
+}
+
+function aplicarTema(id) {
+  if (id === 'oscuro') delete document.documentElement.dataset.tema;
+  else document.documentElement.dataset.tema = id;
+  try { localStorage.setItem('v4-tema', id); } catch { /* sin almacenamiento */ }
+
+  // El color de la barra del navegador y del movil sale de esta etiqueta: sin
+  // actualizarla, en claro quedaria una franja negra arriba.
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    meta.content = getComputedStyle(document.documentElement)
+      .getPropertyValue('--bg').trim() || '#080a0d';
+  }
+  const t = TEMAS.find((x) => x.id === id);
+  if ($('#tema-nombre')) $('#tema-nombre').textContent = t ? t.nombre : id;
+  pintarTemas();
+}
+
+function pintarTemas() {
+  const caja = $('#temas');
+  if (!caja) return;
+  const actual = temaActual();
+  caja.innerHTML = TEMAS.map((t) => `
+    <button type="button" data-tema="${t.id}" class="${t.id === actual ? 'sel' : ''}">
+      <span class="muestra">${t.colores.map((c) => `<i style="background:${c}"></i>`).join('')}</span>
+      ${escapeHtml(t.nombre)}
+    </button>`).join('');
+  for (const b of caja.querySelectorAll('button')) {
+    b.onclick = () => aplicarTema(b.dataset.tema);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Icono de la aplicacion. Se dibuja en el servidor a partir de una semilla,
 // asi que elegir es solo decidir que semilla se guarda.
 
@@ -1683,6 +1731,7 @@ $('#btn-proveedor').onclick = async () => {
   $('#prov-codigo').value = '';
   $('#proveedor-dialog').showModal();
   await pintarProveedor();
+  pintarTemas();
   await pintarIconosCaja();
   await refrescarActualizacion();
   await pintarGasto();
@@ -1799,14 +1848,20 @@ const MATRIZ = (() => {
 
   function pintar() {
     if (!ctx) return;
-    // Un velo oscuro en vez de borrar: deja la estela que da la sensacion de caida.
-    ctx.fillStyle = 'rgba(8,10,13,0.08)';
+    // Los colores salen del tema, no del codigo: en claro la lluvia tiene que
+    // ser gris azulada sobre blanco o no se ve nada.
+    const css = getComputedStyle(document.documentElement);
+    const estela = css.getPropertyValue('--matrix-estela').trim() || 'rgba(8,10,13,0.08)';
+    const normal = css.getPropertyValue('--matrix').trim() || '#2bd4a0';
+    const brillo = css.getPropertyValue('--matrix-brillo').trim() || '#9ff5cf';
+    // Un velo en vez de borrar: deja la estela que da la sensacion de caida.
+    ctx.fillStyle = estela;
     ctx.fillRect(0, 0, ancho, alto);
     ctx.font = '13px ui-monospace, monospace';
     for (let i = 0; i < cols.length; i++) {
       const x = i * 16;
       const y = cols[i];
-      ctx.fillStyle = Math.random() < 0.015 ? '#9ff5cf' : '#2bd4a0';
+      ctx.fillStyle = Math.random() < 0.015 ? brillo : normal;
       ctx.fillText(letras[Math.floor(Math.random() * letras.length)], x, y);
       cols[i] = y > alto + Math.random() * 400 ? 0 : y + 16;
     }

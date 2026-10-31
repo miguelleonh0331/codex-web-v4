@@ -1271,7 +1271,7 @@ async function api(req, res, url) {
     const sem = String(b.semilla || '').trim();
     // Solo letras y numeros: la semilla acaba dentro de una direccion y de un
     // nombre de archivo.
-    if (!/^[0-9a-zA-Z_-]{3,32}$/.test(sem)) {
+    if (!/^[0-9a-zA-Z_]{3,32}$/.test(sem)) {
       return json(res, 400, { error: 'semilla no valida' });
     }
     try {
@@ -1493,7 +1493,7 @@ function serveStatic(req, res, url) {
   //   /icons/icon-192.png            el elegido
   //   /icons/muestra-<semilla>.png   una opcion que se esta enseñando
   const mi = url.pathname.match(
-    /^\/icons\/(icon|maskable|apple-touch-icon|badge|muestra)-?(\d+)?(?:-([0-9a-f]{4,16}))?\.png$/);
+    /^\/icons\/(icon|maskable|apple-touch-icon|badge|muestra)-?(\d+)?(?:-([0-9a-zA-Z_]{3,32}))?\.png$/);
   if (mi) {
     const [, tipo, tamTxt, semillaUrl] = mi;
     const semilla = semillaUrl || cfg.iconoSemilla || 'masterchief';

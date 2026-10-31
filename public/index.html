@@ -14,6 +14,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="v4">
 <link rel="stylesheet" href="/style.css">
+<script>
+// El tema se aplica ANTES de pintar nada. Si esperase a app.js, al entrar en
+// el tema claro veriamos un fogonazo oscuro en cada carga.
+try {
+  var t = localStorage.getItem('v4-tema');
+  if (t && t !== 'oscuro') document.documentElement.dataset.tema = t;
+} catch (e) { /* sin almacenamiento: tema por defecto */ }
+</script>
 </head>
 <body>
 <!-- login:inicio -->
@@ -170,6 +178,17 @@
 <dialog id="proveedor-dialog">
   <form method="dialog" id="proveedor-form">
     <h3>Proveedor de modelo</h3>
+
+    <div id="tema-caja">
+      <div class="fila"><span class="k">Tema</span>
+        <span id="tema-nombre" class="muted" style="font-size:.76rem">—</span></div>
+      <p class="muted" style="font-size:.74rem;margin:.2rem 0 .3rem">
+        Es tuyo y de este dispositivo: no cambia lo que ven los demas.
+      </p>
+      <div class="temas" id="temas"></div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--line);margin:1.1rem 0">
 
     <div id="icono-caja">
       <div class="fila"><span class="k">Icono de la aplicacion</span>

@@ -3,13 +3,28 @@
   --fg:#e6e9ef; --muted:#8b93a7; --accent:#5b9dff; --accent2:#2bd4a0;
   --warn:#ffb020; --err:#ff6b6b; --peer:#b98cff;
   --radius:10px; --font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  /* Texto sobre un fondo de color: en oscuro va tinta, en claro va papel. */
+  --sobre-acento:#06101f;
+  --sobre-aviso:#241a05;
+  --aviso-texto:#ffd79a;
+  /* Superficies que antes iban con el color escrito a mano. */
+  --panel-hondo:#0c0e13;
+  --linea-chat:var(--linea-chat);
+  --vidrio:rgba(10,13,17,.92);
+  --vidrio-fuerte:rgba(10,13,17,.94);
+  --bloque:rgba(0,0,0,.55);
+  /* Lluvia de caracteres del fondo. */
+  --matrix:#2bd4a0;
+  --matrix-brillo:#9ff5cf;
+  --matrix-estela:rgba(8,10,13,0.08);
+  --borde-sel:#fff;
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font);background:var(--bg);color:var(--fg);height:100vh;overflow:hidden}
 button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--fg);
   padding:.5rem .8rem;border-radius:var(--radius)}
 button:hover{border-color:var(--accent)}
-button.primary{background:var(--accent);border-color:var(--accent);color:#06101f;font-weight:600}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--sobre-acento);font-weight:600}
 input,textarea{font:inherit;background:var(--bg);color:var(--fg);border:1px solid var(--line);
   border-radius:var(--radius);padding:.55rem .7rem;width:100%}
 input:focus,textarea:focus{outline:none;border-color:var(--accent)}
@@ -257,7 +272,7 @@ select:focus{outline:none;border-color:var(--accent)}
 
 .colores{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;margin-top:.3rem}
 .colores button{width:24px;height:24px;border-radius:50%;padding:0;border:2px solid transparent}
-.colores button.sel{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
+.colores button.sel{border-color:var(--borde-sel);box-shadow:0 0 0 2px var(--accent)}
 .colores input[type=color]{width:34px;height:26px;padding:0;border-radius:6px;cursor:pointer;background:var(--bg)}
 .colores .quitar{width:auto;height:26px;border-radius:13px;padding:0 .6rem;font-size:.72rem;border:1px solid var(--line);color:var(--muted)}
 
@@ -423,7 +438,7 @@ select:focus{outline:none;border-color:var(--accent)}
   cursor:pointer;user-select:none;white-space:nowrap}
 .check input{width:auto;margin:0;accent-color:var(--accent)}
 
-.actividad{max-height:34vh;overflow-y:auto;border-top:1px solid var(--line);background:#0c0e13;
+.actividad{max-height:34vh;overflow-y:auto;border-top:1px solid var(--line);background:var(--panel-hondo);
   padding:.5rem .9rem;font-size:.76rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .actividad .act{display:flex;gap:.5rem;padding:.18rem 0;align-items:baseline;border-bottom:1px solid rgba(255,255,255,.03)}
 .actividad .hora{color:var(--muted);font-size:.68rem;flex:0 0 auto}
@@ -483,10 +498,10 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 #sonido-caja{font-size:.72rem}
 @media (prefers-reduced-motion:reduce){.agent .aviso{animation:none}}
 
-.aviso-version{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--warn);color:#241a05;
+.aviso-version{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--warn);color:var(--sobre-aviso);
   font-size:.82rem;font-weight:600;padding:.5rem .9rem;display:flex;gap:.7rem;align-items:center;
   justify-content:center}
-.aviso-version button{background:#241a05;color:#ffd79a;border-color:#241a05;font-size:.76rem;padding:.25rem .7rem}
+.aviso-version button{background:var(--sobre-aviso);color:var(--aviso-texto);border-color:var(--sobre-aviso);font-size:.76rem;padding:.25rem .7rem}
 
 .menu-editar{flex-wrap:wrap;align-items:center;gap:.6rem}
 .menu-editar .separa{flex:1}
@@ -510,7 +525,7 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 
 /* la salida vive ahora en el panel derecho */
 #tab-salida{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.74rem;
-  background:#0c0e13;gap:0}
+  background:var(--panel-hondo);gap:0}
 #tab-salida .act{display:flex;gap:.45rem;padding:.2rem 0;align-items:baseline;
   border-bottom:1px solid rgba(255,255,255,.04)}
 #tab-salida .hora{color:var(--muted);font-size:.66rem;flex:0 0 auto}
@@ -528,7 +543,7 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 .matrix{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:.14}
 .chat-head,.messages,.composer{position:relative;z-index:1}
 
-.chat-head{background:rgba(10,13,17,.92);border-bottom:1px solid #1d2a22}
+.chat-head{background:var(--vidrio);border-bottom:1px solid var(--linea-chat)}
 .messages{font-family:ui-monospace,SFMono-Regular,Menlo,"Cascadia Mono",monospace;
   background:transparent;gap:.55rem}
 
@@ -540,13 +555,13 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
 .messages .msg.system{align-self:stretch;border-left-color:var(--warn);background:rgba(255,176,32,.05)}
 
 .messages .msg a{color:#6fe3b0}
-.messages .msg .bloque{background:rgba(0,0,0,.55);border-color:#1d2a22}
+.messages .msg .bloque{background:var(--bloque);border-color:var(--linea-chat)}
 .messages .msg .ruta{color:#8fd6b4;border-bottom-color:#3b5e4e}
 
 /* el cuadro de escritura, como una linea de comandos */
-.composer{background:rgba(10,13,17,.94);border-top:1px solid #1d2a22}
+.composer{background:var(--vidrio-fuerte);border-top:1px solid var(--linea-chat)}
 .composer textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#05070a;
-  border-color:#1d2a22;border-radius:4px}
+  border-color:var(--linea-chat);border-radius:4px}
 .composer textarea:focus{border-color:#2bd4a0;box-shadow:0 0 0 1px rgba(43,212,160,.25)}
 .composer button[type=submit]{border-radius:4px}
 
@@ -640,7 +655,7 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
   /* font-size:0 esconde la palabra pero la deja como nombre accesible del
      boton, que es lo que lee un lector de pantalla. */
   .composer-acciones button[type=submit]{font-size:0;background:var(--accent);
-    color:#06101f;border-color:transparent}
+    color:var(--sobre-acento);border-color:transparent}
   .composer-acciones button[type=submit]::after{content:"➤";font-size:1.05rem}
   .composer-acciones button[type=submit]:disabled{opacity:.45}
   .adj{max-width:100%}
@@ -984,3 +999,52 @@ button.enlace:hover{color:var(--fg)}
 .ctx-num em{font-style:normal;opacity:.75}
 .ctx-caja.medio .ctx-num{color:var(--warn)}
 .ctx-caja.alto .ctx-num{color:var(--err)}
+
+/* ---------------------------------------------------------------- temas
+   Un tema es solo otro juego de variables. El atributo va en <html> y lo
+   pone un script en la cabecera ANTES de pintar: ponerlo al cargar app.js
+   daria un parpadeo de tema oscuro al entrar en el claro. */
+
+/* Matrix: verde fosforo sobre negro. El fondo es mas negro que el oscuro
+   normal para que la lluvia de caracteres destaque, que es su gracia. */
+html[data-tema="matrix"]{
+  --bg:#000500; --bg2:#031007; --bg3:#07200f; --line:#0d3a1c;
+  --fg:#8cffb9; --muted:#3f8f63; --accent:#2bd4a0; --accent2:#7bff9e;
+  --warn:#d7ff4a; --err:#ff5f5f; --peer:#4affd0;
+  --sobre-acento:#001a0c; --sobre-aviso:#141a00; --aviso-texto:#e9ffa8;
+  --panel-hondo:#010a04; --linea-chat:#0d3a1c;
+  --vidrio:rgba(0,8,3,.92); --vidrio-fuerte:rgba(0,8,3,.95);
+  --bloque:rgba(0,0,0,.6);
+  --matrix:#2bd4a0; --matrix-brillo:#d8ffe9; --matrix-estela:rgba(0,5,0,0.07);
+  --borde-sel:#8cffb9;
+  --font:ui-monospace,SFMono-Regular,Menlo,"Cascadia Mono",monospace;
+}
+
+/* Claro: papel. Lo dificil aqui no son los fondos, son los textos sobre
+   color: lo que en oscuro era tinta oscura ahora tiene que ser papel. */
+html[data-tema="claro"]{
+  --bg:#ffffff; --bg2:#f4f6f9; --bg3:#e9edf3; --line:#d4dae3;
+  --fg:#1a1f29; --muted:#5d6676; --accent:#1f6feb; --accent2:#0f9d76;
+  --warn:#b26a00; --err:#c62828; --peer:#7044c7;
+  --sobre-acento:#ffffff; --sobre-aviso:#ffffff; --aviso-texto:#fff4d6;
+  --panel-hondo:#f0f3f7; --linea-chat:#d4dae3;
+  --vidrio:rgba(255,255,255,.92); --vidrio-fuerte:rgba(255,255,255,.95);
+  --bloque:rgba(0,0,0,.05);
+  --matrix:#9fb4cc; --matrix-brillo:#6b89ad; --matrix-estela:rgba(255,255,255,0.10);
+  --borde-sel:#1a1f29;
+}
+
+/* En claro, un bloque de codigo sobre fondo casi transparente no se separa
+   del texto: necesita su propio borde. */
+html[data-tema="claro"] .messages .msg .bloque{border:1px solid var(--line)}
+/* Y la sombra de los dialogos, que en oscuro no se veia, aqui si hace falta. */
+html[data-tema="claro"] dialog{box-shadow:0 10px 40px rgba(16,24,40,.18)}
+
+/* Selector de tema: se ve el tema, no su nombre. */
+.temas{display:flex;gap:.4rem;margin:.5rem 0 .2rem}
+.temas button{flex:1;display:flex;flex-direction:column;align-items:center;gap:.3rem;
+  padding:.5rem .3rem;font-size:.7rem;background:transparent;border:2px solid var(--line)}
+.temas button.sel{border-color:var(--accent)}
+.temas .muestra{width:100%;height:26px;border-radius:6px;display:flex;overflow:hidden;
+  border:1px solid rgba(128,128,128,.25)}
+.temas .muestra i{flex:1;display:block}
