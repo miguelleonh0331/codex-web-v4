@@ -220,6 +220,12 @@ const PALETAS = [
 
 const FONDOS = ['#080a0d', '#0d1117', '#101418', '#0a0f14'];
 
+// Cuanto mas grande va el dibujo dentro del cuadro. En el cuadrado
+// redondeado el tope esta en los lados, no en las diagonales, y antes de
+// esto el dibujo ocupaba solo el 40% del ancho util: cabia de sobra.
+// El recortable NO usa esto: alli manda la zona segura circular.
+const AMPLIACION = 1.5;
+
 /** Como queda un icono, sin dibujarlo. Sirve para describirlo en la web. */
 function receta(semilla) {
   const r = azar(semilla);
@@ -254,6 +260,39 @@ function receta(semilla) {
  * polilineas y pintarlas con segmentos redondeados: el grosor se escala
  * igual que el dibujo, o un icono grande saldria con el trazo de alfiler.
  */
+/**
+ * Cuanto se aleja del centro el dibujo de un icono, contando el grosor del
+ * trazo, en unidades de la mitad de su lienzo.
+ *
+ * Hace falta para el recortable: Android recorta en CIRCULO, asi que ahi el
+ * limite es radial y las esquinas del dibujo son lo que se pierde. Varia
+ * bastante entre iconos (de 0,92 a 1,24), asi que aplicar el mismo tamaño a
+ * todos deja unos cortados y otros diminutos.
+ *
+ * Se calcula una vez por icono y se guarda: son veinte y no cambian.
+ */
+const radialCache = new Map();
+function extensionRadial(ico, nombre) {
+  if (radialCache.has(nombre)) return radialCache.get(nombre);
+  const [vx, vy, vw, vh] = ico.caja;
+  const cx = vx + vw / 2; const cy = vy + vh / 2;
+  let max = 0;
+  const mirar = (x, y) => { max = Math.max(max, Math.hypot(x - cx, y - cy)); };
+  for (const fig of ico.figuras) {
+    if (fig.tipo === 'circulo') {
+      mirar(fig.cx + fig.r, fig.cy); mirar(fig.cx - fig.r, fig.cy);
+      mirar(fig.cx, fig.cy + fig.r); mirar(fig.cx, fig.cy - fig.r);
+      continue;
+    }
+    for (const t of aPolilineas(fig.d, { pasos: 8 })) {
+      for (const p of t.pts) mirar(p[0], p[1]);
+    }
+  }
+  const v = (max + ico.grosor / 2) / (Math.max(vw, vh) / 2);
+  radialCache.set(nombre, v);
+  return v;
+}
+
 function dibujarLucide(l, nombre, cx, cy, R, color) {
   const ico = LUCIDE[nombre];
   if (!ico) return false;
@@ -316,9 +355,24 @@ function generar(semilla, tam = 512, maskable = false) {
   // Las de empresa se dibujan aparte: otro lenguaje y otra paleta.
   if (empresa) {
     const marca = hsl(tono, sat, luz);
+    const ico = LUCIDE[forma];
+
+    // El tamaño se decide distinto segun la variante, porque el recorte es
+    // distinto. En el cuadrado redondeado el limite esta en los lados; en el
+    // recortable es un circulo y manda la esquina del dibujo.
+    let R;
+    if (maskable) {
+      // Tan grande como quepa en la zona segura (circulo del 80% central),
+      // con un pelin de respiro. Por icono, no a ojo.
+      const rad = ico ? extensionRadial(ico, forma) : 1.24;
+      R = (tam * 0.38) / rad;
+    } else {
+      R = radio * 0.92 * AMPLIACION;
+    }
+
     // Un trazo de un solo color, como se usan estos iconos. Mezclar dos en un
     // icono de linea lo ensucia: pierde la limpieza que es su razon de ser.
-    dibujarLucide(l, forma, cx, cy, radio * 0.92, marca);
+    dibujarLucide(l, forma, cx, cy, R, marca);
     return aPng(l.px, tam, tam);
   }
   const rNodo = radio * (forma === 'cumulo' ? 0.3 : forma === 'rejilla' ? 0.26 : 0.27);

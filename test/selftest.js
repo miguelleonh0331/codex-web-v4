@@ -1996,6 +1996,60 @@ function check(nombre, condicion, detalle) {
   check('todos los iconos dibujan algo reconocible', flojos.length === 0,
     flojos.join(', ') || 'ok');
 
+  // Tamaño del dibujo dentro del cuadro. Dos limites distintos: en el
+  // cuadrado redondeado manda el lado; en el recortable, que Android corta
+  // en circulo, manda la distancia al centro.
+  const bordeYancho = (png) => {
+    let o = 8; let dat = Buffer.alloc(0); let w = 0; let h = 0;
+    while (o < png.length) {
+      const ln = png.readUInt32BE(o); const t = png.slice(o + 4, o + 8).toString();
+      if (t === 'IHDR') { w = png.readUInt32BE(o + 8); h = png.readUInt32BE(o + 12); }
+      if (t === 'IDAT') dat = Buffer.concat([dat, png.slice(o + 8, o + 8 + ln)]);
+      o += 12 + ln;
+    }
+    const raw = zlibIco.inflateSync(dat); const st = w * 4 + 1;
+    const o0 = (h >> 1) * st + 1 + 2 * 4;
+    const bg = [raw[o0], raw[o0 + 1], raw[o0 + 2]];
+    // Solo pixeles OPACOS. El borde suavizado de la placa redondeada no es
+    // dibujo, y contarlo daba un falso "esta cortado" en 15 de 20 iconos.
+    const esTinta = (x, y) => {
+      const i = y * st + 1 + x * 4;
+      if (raw[i + 3] !== 255) return false;
+      return Math.abs(raw[i] - bg[0]) + Math.abs(raw[i + 1] - bg[1])
+        + Math.abs(raw[i + 2] - bg[2]) > 40;
+    };
+    let tocaBorde = 0; let minx = w; let maxx = 0; let rad = 0;
+    for (let x = 0; x < w; x++) { if (esTinta(x, 0)) tocaBorde += 1; if (esTinta(x, h - 1)) tocaBorde += 1; }
+    for (let y = 0; y < h; y++) { if (esTinta(0, y)) tocaBorde += 1; if (esTinta(w - 1, y)) tocaBorde += 1; }
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (!esTinta(x, y)) continue;
+        minx = Math.min(minx, x); maxx = Math.max(maxx, x);
+        rad = Math.max(rad, Math.hypot(x - w / 2, y - h / 2) / w);
+      }
+    }
+    return { tocaBorde, ancho: (maxx - minx) / w, radial: rad };
+  };
+
+  const cortados = [];
+  const fuera = [];
+  let masAncho = 0;
+  for (const nombre of Object.keys(datosIco)) {
+    const s = semillaDe(nombre);
+    if (!s) continue;
+    const n = bordeYancho(genIco(s, 192));
+    const mk = bordeYancho(genIco(s, 192, true));
+    if (n.tocaBorde > 0) cortados.push(nombre);
+    // Zona segura de un icono recortable: circulo del 80% central.
+    if (mk.radial > 0.40) fuera.push(`${nombre} ${(mk.radial * 100).toFixed(0)}%`);
+    masAncho = Math.max(masAncho, n.ancho);
+  }
+  check('ningun icono queda cortado por el borde', cortados.length === 0, cortados.join(', '));
+  check('ningun icono recortable se sale de la zona segura', fuera.length === 0,
+    `${fuera.join(', ')} — Android recorta en circulo`);
+  check('el dibujo llena el cuadro, no queda diminuto', masAncho > 0.6,
+    `el mas ancho ocupa el ${(masAncho * 100).toFixed(0)}% del lado`);
+
   const trazoSrc = fs.readFileSync(`${__dirname}/../src/trazo.js`, 'utf8');
   check('el lector de SVG entiende rectangulos',
     /<rect\[\^>\]\*>/.test(trazoSrc) || /matchAll\(\/<rect/.test(trazoSrc),
