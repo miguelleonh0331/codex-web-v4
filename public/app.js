@@ -2750,18 +2750,101 @@ function formatearCuerpo(texto) {
       const idioma = (!parte.startsWith('\n') && /^[a-z0-9_+-]{1,15}$/i.test((lineas[0] || '').trim()))
         ? lineas.shift().trim()
         : (lineas.shift(), '');
-      const codigo = lineas.join('\n').replace(/\n+$/, '');
+      // Se quitan las lineas en blanco de ARRIBA y de abajo. Antes solo se
+      // quitaban las de abajo, y un bloque que empezaba con varios saltos
+      // dejaba un hueco enorme con el codigo pegado al fondo de la caja.
+      // Solo lineas vacias: la sangria de la primera linea real se respeta.
+      const codigo = lineas.join('\n')
+        .replace(/^(?:[ \t]*\n)+/, '')
+        .replace(/(?:\n[ \t]*)+$/, '');
       return `<div class="bloque">
         <div class="bloque-cab">${escapeHtml(idioma || 'texto')}
           <button type="button" class="copiar">Copiar codigo</button></div>
         <pre><code>${escapeHtml(codigo)}</code></pre></div>`;
     }
-    // Fuera de los bloques de codigo, dos o mas saltos seguidos se quedan en
-    // uno: el modelo separa parrafos con lineas en blanco y eso, en una
-    // conversacion compacta, deja huecos que parecen mensajes distintos.
-    const compacto = parte.replace(/[ \t]*\n[ \t]*(?:\n[ \t]*)+/g, '\n');
-    return enriquecer(escapeHtml(compacto));
+    // Las tablas se extraen ANTES de tocar los saltos de linea: una tabla
+    // ES su estructura de lineas, y el compactado de abajo la destruiria.
+    return conTablas(parte, (suelto) => {
+      // Fuera de los bloques de codigo, dos o mas saltos seguidos se quedan en
+      // uno: el modelo separa parrafos con lineas en blanco y eso, en una
+      // conversacion compacta, deja huecos que parecen mensajes distintos.
+      const compacto = suelto.replace(/[ \t]*\n[ \t]*(?:\n[ \t]*)+/g, '\n');
+      return enriquecer(escapeHtml(compacto));
+    });
   }).join('');
+}
+
+/**
+ * Convierte las tablas de markdown en tablas de verdad.
+ *
+ * Llegaban como texto crudo —"| Paquete | Precio |" y su fila de guiones—,
+ * que es justo donde peor se lee un dato: columnas desalineadas en cuanto
+ * un valor es mas largo que otro.
+ *
+ * Una tabla son dos lineas como minimo: la cabecera y una fila de guiones
+ * (|---|---|). Esa segunda linea es la unica señal fiable de que lo de
+ * arriba era una cabecera y no un parrafo que empieza por barra.
+ *
+ * @param texto  el trozo sin bloques de codigo
+ * @param resto  como formatear lo que NO es tabla
+ */
+function conTablas(texto, resto) {
+  const lineas = String(texto).split('\n');
+  const esFila = (l) => /^\s*\|.*\|\s*$/.test(l);
+  const esGuiones = (l) => /^\s*\|(?:\s*:?-{2,}:?\s*\|)+\s*$/.test(l);
+
+  const fuera = [];
+  let sueltas = [];
+  const volcar = () => {
+    if (sueltas.length) { fuera.push(resto(sueltas.join('\n'))); sueltas = []; }
+  };
+
+  for (let i = 0; i < lineas.length; i++) {
+    if (esFila(lineas[i]) && esGuiones(lineas[i + 1] || '')) {
+      volcar();
+      const cabecera = celdas(lineas[i]);
+      // La fila de guiones dice como se alinea cada columna.
+      const alineos = celdas(lineas[i + 1]).map((c) => (
+        /^:-+:$/.test(c.trim()) ? 'center' : /-+:$/.test(c.trim()) ? 'right' : 'left'));
+      i += 2;
+      const filas = [];
+      while (i < lineas.length && esFila(lineas[i])) { filas.push(celdas(lineas[i])); i += 1; }
+      i -= 1;
+      fuera.push(pintarTabla(cabecera, filas, alineos));
+    } else {
+      sueltas.push(lineas[i]);
+    }
+  }
+  volcar();
+  return fuera.join('');
+}
+
+/** Parte una fila por las barras, respetando las barras escapadas (\|). */
+function celdas(linea) {
+  return String(linea).trim()
+    .replace(/^\|/, '').replace(/\|$/, '')
+    .split(/(?<!\\)\|/)
+    .map((c) => c.replace(/\\\|/g, '|').trim());
+}
+
+function pintarTabla(cabecera, filas, alineos) {
+  const al = (i) => alineos[i] || 'left';
+  // Una celda puede traer `codigo`, rutas o menciones: pasa por lo mismo
+  // que el resto del texto.
+  const celda = (c) => enriquecer(escapeHtml(c));
+  const th = cabecera.map((c, i) => `<th style="text-align:${al(i)}">${celda(c)}</th>`).join('');
+  const tr = filas.map((f) => {
+    // Una fila corta no debe descuadrar la tabla: se rellena.
+    const completa = cabecera.map((_, i) => f[i] === undefined ? '' : f[i]);
+    return `<tr>${completa.map((c, i) => {
+      // Las cifras se alinean a la derecha aunque la tabla no lo pida: una
+      // columna de numeros desalineada no se puede comparar de un vistazo.
+      const nIza = al(i) === 'left' && /^[-+]?[\d.,%$€ ]+$/.test(c) && /\d/.test(c);
+      return `<td style="text-align:${nIza ? 'right' : al(i)}">${celda(c)}</td>`;
+    }).join('')}</tr>`;
+  }).join('');
+  return `<div class="tabla-caja"><table class="tabla">`
+    + `<thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
 }
 
 /** Sobre texto YA escapado: enlaces, codigo en linea y rutas copiables. */

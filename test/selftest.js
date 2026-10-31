@@ -1812,6 +1812,31 @@ function check(nombre, condicion, detalle) {
   check('los avatares estan animados', /@keyframes parpadeo/.test(css) && /@keyframes hablar/.test(css) &&
     /@keyframes pensar/.test(css) && /prefers-reduced-motion/.test(css));
 
+  // --- tablas y bloques de codigo en la conversacion -----------------------
+  const appTab = await (await fetch((await base()) + '/app.js')).text();
+  check('las tablas de markdown se pintan como tablas',
+    /function conTablas/.test(appTab) && /<table class="tabla">/.test(appTab),
+    'llegaban como texto con barras y las columnas se desalineaban');
+  check('las tablas se extraen antes de compactar los saltos',
+    appTab.indexOf('function conTablas') > 0 &&
+    /conTablas\(parte, \(suelto\) =>/.test(appTab),
+    'una tabla ES su estructura de lineas: compactar primero la destruye');
+  check('las columnas de cifras se alinean a la derecha',
+    /nIza = al\(i\) === 'left'/.test(appTab),
+    'una columna de numeros desalineada no se compara de un vistazo');
+  check('una fila corta no descuadra la tabla',
+    /f\[i\] === undefined \? '' : f\[i\]/.test(appTab));
+  // El hueco que se veia en pantalla: se recortaban los saltos del final
+  // pero no los del principio, y el codigo quedaba pegado al fondo.
+  check('el bloque de codigo no deja hueco al principio',
+    /replace\(\/\^\(\?:\[ \\t\]\*\\n\)\+\/, ''\)/.test(appTab),
+    'un bloque con saltos delante salia con la caja medio vacia');
+  const cssTab = await (await fetch((await base()) + '/style.css')).text();
+  check('un bloque de codigo enorme no empuja la conversacion',
+    /\.msg \.bloque pre\{[^}]*max-height/.test(cssTab.replace(/\s+/g, ' ')));
+  check('la tabla se desplaza si no cabe de ancho',
+    /\.tabla-caja\{[^}]*overflow-x:auto/.test(cssTab.replace(/\s+/g, '')));
+
   // --- contexto en vivo y aviso a tiempo -----------------------------------
   const orqCtx = fs.readFileSync(`${__dirname}/../src/orchestrator.js`, 'utf8');
   check('el contexto se mide durante el turno, no solo al final',
@@ -2117,7 +2142,9 @@ function check(nombre, condicion, detalle) {
     ['sep', 'chat-fondo', 'separadores'], ['hora', 'chat-fondo', 'la hora'],
     ['tab-apagada', 'bg2', 'pestana inactiva'], ['mal', 'bg', 'avisos en rojo'],
     ['inseguro-texto', 'inseguro-fondo', 'aviso de http'],
-    ['aviso-texto', 'sobre-aviso', 'boton del aviso de version']
+    ['aviso-texto', 'sobre-aviso', 'boton del aviso de version'],
+    ['dicho', 'bloque-fondo', 'celda de tabla'],
+    ['fg', 'bg3', 'cabecera de tabla']
   ];
   const temasDef = { oscuro: vRaiz };
   for (const t of ['claro', 'matrix']) {

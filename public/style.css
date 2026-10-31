@@ -485,7 +485,9 @@ button.peligro:hover{background:rgba(255,107,107,.12);border-color:var(--err)}
 .msg .bloque-cab{display:flex;justify-content:space-between;align-items:center;gap:.6rem;
   padding:.3rem .5rem .3rem .7rem;background:rgba(255,255,255,.03);border-bottom:1px solid var(--line);
   font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.msg .bloque pre{margin:0;padding:.7rem .8rem;overflow-x:auto}
+/* Tope de alto: un volcado de doscientas lineas empujaba la conversacion
+   entera fuera de la pantalla. Con tope, se desplaza dentro de su caja. */
+.msg .bloque pre{margin:0;padding:.7rem .8rem;overflow:auto;max-height:50vh}
 .msg .bloque code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;
   white-space:pre;color:var(--bloque-texto)}
 button.copiar{font-size:.68rem;padding:.2rem .55rem;border-radius:6px;text-transform:none;letter-spacing:0}
@@ -1090,3 +1092,20 @@ html[data-tema="claro"] dialog{box-shadow:0 10px 40px rgba(16,24,40,.18)}
 .temas .muestra{width:100%;height:26px;border-radius:6px;display:flex;overflow:hidden;
   border:1px solid rgba(128,128,128,.25)}
 .temas .muestra i{flex:1;display:block}
+
+/* Tablas. Antes llegaban como texto crudo con barras, que es justo donde
+   peor se lee un dato: las columnas se desalinean en cuanto un valor es mas
+   largo que otro. */
+.tabla-caja{margin:.55rem 0;overflow-x:auto;border:1px solid var(--line);
+  border-radius:10px;background:var(--bloque-fondo)}
+.tabla{border-collapse:collapse;width:100%;font-size:.8rem;
+  font-variant-numeric:tabular-nums}
+.tabla th,.tabla td{padding:.38rem .6rem;border-bottom:1px solid var(--line);
+  white-space:nowrap}
+.tabla thead th{position:sticky;top:0;background:var(--bg3);color:var(--fg);
+  font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em}
+.tabla tbody tr:last-child td{border-bottom:none}
+/* Rayado suave: con muchas filas, seguir una con la vista es mas facil. */
+.tabla tbody tr:nth-child(even){background:color-mix(in srgb,var(--fg) 4%,transparent)}
+.tabla tbody tr:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.tabla td{color:var(--dicho)}
