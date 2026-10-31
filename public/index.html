@@ -139,6 +139,12 @@ try {
     <!-- Lo que esta lanzando ahora mismo, en el hueco que deja el cuadro de
          escribir al esconderse. Solo la orden, nunca su salida. -->
     <div id="tira-cli" class="tira-cli" hidden>
+      <!-- Asa para estirar la tira. role=separator con tabindex la hace
+           manejable tambien con las flechas del teclado: arrastrar con el
+           raton no es una opcion para todo el mundo. -->
+      <div id="tira-asa" class="tira-asa" role="separator" aria-orientation="horizontal"
+           tabindex="0" title="Arrastra para cambiar el alto · doble clic para volver al normal"
+           aria-label="Cambiar el alto de la consola"></div>
       <div class="tira-cab">
         <span class="tira-tit">ejecutando</span>
         <span id="tira-quieto" class="tira-quieto"></span>

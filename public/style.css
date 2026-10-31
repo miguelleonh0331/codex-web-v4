@@ -596,7 +596,21 @@ button.copiar-msg.copiado{color:var(--accent2);border-color:var(--accent2);opaci
    pasar de seis lineas visibles a once. */
 .tira-cli{flex:0 0 auto;border-top:1px solid var(--line);background:var(--panel-hondo);
   padding:.45rem 1.2rem .6rem;display:flex;flex-direction:column;gap:.25rem;
-  max-height:min(34vh,15rem)}
+  max-height:min(34vh,15rem);position:relative;min-height:3.2rem}
+/* Con un alto puesto a mano manda ese, no el tope de reparto. */
+.tira-cli.medida{max-height:none}
+
+/* Asa de estirar. Ocupa todo el borde superior y sobresale un poco hacia
+   arriba: una franja de 4px se falla con el raton y es inalcanzable con el
+   dedo. Se pinta solo una marquita en el centro. */
+.tira-asa{position:absolute;left:0;right:0;top:-5px;height:12px;cursor:row-resize;
+  touch-action:none;z-index:2;display:flex;align-items:center;justify-content:center}
+.tira-asa::before{content:"";width:46px;height:3px;border-radius:999px;
+  background:var(--line);transition:background .15s}
+.tira-asa:hover::before,.tira-asa:focus-visible::before{background:var(--accent2)}
+.tira-asa:focus-visible{outline:none}
+/* Mientras se arrastra, nada de seleccionar texto por el camino. */
+body.estirando{user-select:none;cursor:row-resize}
 .tira-cab{display:flex;align-items:baseline;justify-content:space-between;gap:.6rem;flex:0 0 auto}
 .tira-tit{font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .tira-quieto{font-size:.64rem;color:var(--muted);font-variant-numeric:tabular-nums}

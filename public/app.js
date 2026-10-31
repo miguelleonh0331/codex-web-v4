@@ -501,6 +501,91 @@ async function refrescarTira() {
   finally { tiraEnVuelo = false; }
 }
 
+// ---------------------------------------------- estirar la tira a mano
+
+const TIRA_ALTO = 'v4-tira-alto';
+const TIRA_MIN = 52;       // por debajo no cabe ni la cabecera
+
+/** Tope de arriba: la conversacion no puede quedarse sin sitio. */
+function tiraMax() {
+  const chat = document.querySelector('.chat');
+  const h = chat ? chat.clientHeight : window.innerHeight;
+  return Math.max(TIRA_MIN + 40, Math.round(h * 0.8));
+}
+
+function aplicarAltoTira(px) {
+  const t = $('#tira-cli');
+  if (!t) return;
+  if (px == null) {
+    t.style.height = '';
+    t.classList.remove('medida');
+    try { localStorage.removeItem(TIRA_ALTO); } catch { /* sin almacenamiento */ }
+    return;
+  }
+  const alto = Math.min(tiraMax(), Math.max(TIRA_MIN, Math.round(px)));
+  t.style.height = `${alto}px`;
+  t.classList.add('medida');
+  try { localStorage.setItem(TIRA_ALTO, String(alto)); } catch { /* sin almacenamiento */ }
+}
+
+(function estirarTira() {
+  const asa = $('#tira-asa');
+  const tira = $('#tira-cli');
+  if (!asa || !tira) return;
+
+  // El alto elegido sobrevive a recargar: se mira una vez una pantalla
+  // comoda y no hay que volver a ajustarla en cada turno.
+  let guardado = null;
+  try { guardado = Number(localStorage.getItem(TIRA_ALTO)) || null; } catch { guardado = null; }
+  if (guardado) aplicarAltoTira(guardado);
+
+  let y0 = 0;
+  let h0 = 0;
+
+  asa.addEventListener('pointerdown', (e) => {
+    y0 = e.clientY;
+    h0 = tira.getBoundingClientRect().height;
+    // Captura: el puntero puede salirse del asa (son 12 px) y sin esto el
+    // arrastre se pierde a medio camino. Vale igual para raton y para dedo.
+    asa.setPointerCapture(e.pointerId);
+    document.body.classList.add('estirando');
+    e.preventDefault();
+  });
+
+  asa.addEventListener('pointermove', (e) => {
+    if (!asa.hasPointerCapture(e.pointerId)) return;
+    // Hacia arriba crece: el borde que se arrastra es el de arriba.
+    aplicarAltoTira(h0 + (y0 - e.clientY));
+  });
+
+  const soltar = (e) => {
+    if (asa.hasPointerCapture(e.pointerId)) asa.releasePointerCapture(e.pointerId);
+    document.body.classList.remove('estirando');
+  };
+  asa.addEventListener('pointerup', soltar);
+  asa.addEventListener('pointercancel', soltar);
+
+  // Doble clic: vuelve al alto de siempre. Estirar sin forma de deshacer
+  // deja la ventana rara para siempre y sin pista de como arreglarla.
+  asa.addEventListener('dblclick', () => aplicarAltoTira(null));
+
+  // Y con el teclado, porque arrastrar no le sirve a todo el mundo.
+  asa.addEventListener('keydown', (e) => {
+    const paso = e.shiftKey ? 60 : 20;
+    const h = tira.getBoundingClientRect().height;
+    if (e.key === 'ArrowUp') { aplicarAltoTira(h + paso); e.preventDefault(); }
+    else if (e.key === 'ArrowDown') { aplicarAltoTira(h - paso); e.preventDefault(); }
+    else if (e.key === 'Home') { aplicarAltoTira(null); e.preventDefault(); }
+  });
+
+  // Si la ventana encoge, un alto guardado de una pantalla grande podria
+  // comerse la conversacion entera.
+  window.addEventListener('resize', () => {
+    if (!tira.classList.contains('medida')) return;
+    aplicarAltoTira(tira.getBoundingClientRect().height);
+  });
+})();
+
 /**
  * Aviso de "esta trabajando" debajo del ultimo mensaje.
  *

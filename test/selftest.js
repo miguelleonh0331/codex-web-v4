@@ -2481,6 +2481,61 @@ function check(nombre, condicion, detalle) {
     check('la letra de la tira es mas pequeña que la del panel',
       /\.tira-lineas\{[^}]*font-size:\.6\d/.test(cssTira));
 
+    // --- estirar la tira a mano ---
+    {
+      const htmlAsa = fs.readFileSync(`${__dirname}/../public/index.html`, 'utf8');
+      check('la tira tiene asa para estirarla',
+        /id="tira-asa"/.test(htmlAsa) && /role="separator"/.test(htmlAsa));
+      check('el asa se puede usar con el teclado',
+        /id="tira-asa"[\s\S]{0,260}tabindex="0"/.test(htmlAsa),
+        'arrastrar con el raton no le sirve a todo el mundo');
+      check('el asa no se lleva el gesto de desplazar en el movil',
+        /\.tira-asa\{[^}]*touch-action:none/.test(cssTira));
+      check('el asa se ve como algo que se arrastra',
+        /\.tira-asa\{[^}]*cursor:row-resize/.test(cssTira));
+      // 4px de borde se fallan con el raton y son inalcanzables con el dedo.
+      const alto = (cssTira.match(/\.tira-asa\{[^}]*height:(\d+)px/) || [])[1];
+      check('el asa es lo bastante ancha para acertarle', Number(alto) >= 10, `${alto}px`);
+      check('el arrastre no se pierde si el puntero se sale del asa',
+        /setPointerCapture\(e\.pointerId\)/.test(appTira),
+        'con 12px de alto, el puntero se sale enseguida y el arrastre se corta');
+      check('al estirar no se selecciona medio documento',
+        /classList\.add\('estirando'\)/.test(appTira) && /body\.estirando\{[^}]*user-select:none/.test(cssTira));
+      check('el alto elegido sobrevive a recargar',
+        /localStorage\.setItem\(TIRA_ALTO/.test(appTira));
+      check('hay forma de deshacer el estirado',
+        /dblclick[\s\S]{0,80}aplicarAltoTira\(null\)/.test(appTira),
+        'estirar sin vuelta atras deja la ventana rara para siempre');
+
+      // Los topes se ejecutan, no se leen: un alto sin limite por arriba se
+      // come la conversacion entera y no queda forma de volver.
+      const topes = require('node:child_process').execFileSync(process.execPath, ['-e',
+        'const fs=require("fs");const src=fs.readFileSync("' + __dirname + '/../public/app.js","utf8");' +
+        'const i=src.indexOf("const TIRA_ALTO"),f=src.indexOf("(function estirarTira");' +
+        'const g={};let c=new Set();' +
+        'const el={style:{},classList:{add:x=>c.add(x),remove:x=>c.delete(x),contains:x=>c.has(x)}};' +
+        'global.$=()=>el;global.document={querySelector:()=>({clientHeight:600})};' +
+        'global.window={innerHeight:600};' +
+        'global.localStorage={setItem:(k,v)=>g[k]=v,removeItem:k=>delete g[k],getItem:k=>g[k]};' +
+        'eval(src.slice(i,f)+"\\nglobal.__min=TIRA_MIN;");' +
+        'const r={};' +
+        'aplicarAltoTira(99999);r.tope=el.style.height;' +
+        'aplicarAltoTira(1);r.suelo=el.style.height;r.min=global.__min;' +
+        'aplicarAltoTira(260);r.normal=el.style.height;r.guardado=g["v4-tira-alto"];' +
+        'aplicarAltoTira(null);r.reset=el.style.height;r.olvidado=g["v4-tira-alto"]===undefined;' +
+        'r.sinClase=!c.has("medida");' +
+        'process.stdout.write(JSON.stringify(r))'], { encoding: 'utf8' });
+      const tp = JSON.parse(topes);
+      check('estirar de mas deja sitio a la conversacion',
+        tp.tope === '480px', `${tp.tope} con un chat de 600px`);
+      check('encoger de mas no se come la cabecera',
+        tp.suelo === `${tp.min}px`, `${tp.suelo} / minimo ${tp.min}px`);
+      check('un alto normal se respeta tal cual y se guarda',
+        tp.normal === '260px' && tp.guardado === '260', topes);
+      check('volver al normal borra la medida guardada',
+        tp.reset === '' && tp.olvidado && tp.sinClase, topes);
+    }
+
     cv.olvidar(A);
 
     // El punto de acceso contesta y no inventa agentes.
